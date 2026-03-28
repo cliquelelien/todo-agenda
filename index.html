@@ -892,14 +892,25 @@ function toggleDone(id){
   t.done=!t.done; saveLocal(); if(googleToken) saveToDrive();
   renderTasks();
 }
-function deleteTask(id){
+async function deleteGCalEvent(gcalId){
+  if(!googleToken||!gcalId) return;
+  try{
+    await gapi.client.calendar.events.delete({ calendarId:'primary', eventId:gcalId });
+    // Retire aussi du cache local gcalEvents
+    gcalEvents = gcalEvents.filter(ev=>ev.id!==gcalId);
+  }catch(e){ console.warn('GCal delete error',e); }
+}
+async function deleteTask(id){
+  const t=state.tasks.find(t=>t.id===id);
+  if(t&&t.gcalId){ showSync('Suppression dans Google Agenda…'); await deleteGCalEvent(t.gcalId); hideSyncBar(); }
   state.tasks=state.tasks.filter(t=>t.id!==id);
   saveLocal(); if(googleToken) saveToDrive();
   renderTasks(); if(currentTab==='agenda') renderAgenda();
 }
-function removePlanned(id){
+async function removePlanned(id){
   const t=state.tasks.find(t=>t.id===id); if(!t) return;
-  t.plannedDate=null; t.timeStart=null; t.timeEnd=null;
+  if(t.gcalId){ showSync('Suppression dans Google Agenda…'); await deleteGCalEvent(t.gcalId); hideSyncBar(); }
+  t.plannedDate=null; t.timeStart=null; t.timeEnd=null; t.gcalId=null;
   saveLocal(); if(googleToken) saveToDrive();
   renderTasks(); renderAgenda();
 }
