@@ -328,7 +328,7 @@ function fD(s){if(!s)return"";return new Date(s+"T00:00:00").toLocaleDateString(
 function fT(iso){if(!iso||!iso.includes("T"))return"";return iso.split("T")[1].slice(0,5);}
 function hS(){return parseInt(document.getElementById("h-start").value);}
 function hE(){return parseInt(document.getElementById("h-end").value);}
-function todosOn(d){return S.tasks.filter(t=>t.plannedDate===d);}
+function todosOn(d){return S.tasks.filter(t=>t.plannedDate===d||(t.due===d&&!t.plannedDate));}
 function gcalOn(d){return gcal.filter(e=>e.start.slice(0,10)===d);}
 function mk(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e;}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2500);}
