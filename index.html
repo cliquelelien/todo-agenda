@@ -714,7 +714,7 @@ async function planTask(tid,date,tS,tE){
   if(token){showSync("Envoi Google Agenda…");t.gcalId=await createGcalEv(t,date,tS,tE);hideSync();await saveDrive();await fetchGcal();}
   selDay=date;cDay=date;
   renderTasks();renderAg();
-  toast("📌 ""+(t.title.length>18?t.title.slice(0,18)+"…":t.title)+"" planifié"+(tS?" à "+tS:""));
+  toast('📌 "'+(t.title.length>18?t.title.slice(0,18)+'…':t.title)+'" planifié'+(tS?' à '+tS:''));
 }
 
 /* ══════ CRUD ══════ */
