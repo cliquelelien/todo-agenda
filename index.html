@@ -701,7 +701,7 @@ async function confirmPlan(withTime){
   const date=document.getElementById("mo-date").value;
   const ts=withTime?document.getElementById("mo-start").value:null;
   const te=withTime?document.getElementById("mo-end").value:null;
-  closeModal();await planTask(pending.tid,date,ts,te);
+  const tid=pending.tid;closeModal();await planTask(tid,date,ts,te);
 }
 document.getElementById("overlay").addEventListener("click",e=>{if(e.target===document.getElementById("overlay"))closeModal();});
 
