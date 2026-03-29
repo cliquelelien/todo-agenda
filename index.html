@@ -210,7 +210,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <div class="card">
     <div class="ct">📌 À faire</div>
     <div class="tl" id="list-todo"></div>
-    <div class="dh" id="dh" style="display:none">↔ Glissez une tâche vers l'Agenda pour la planifier</div>
+    <div class="dh" id="dh" style="display:none">📅 Cliquez sur 📅 pour planifier — ou allez dans l’Agenda pour glisser-déposer une tâche</div>
   </div>
   <div class="card" id="card-done" style="display:none">
     <div class="ct">✅ Terminées</div>
@@ -761,16 +761,25 @@ function buildTask(t){
   const body=mk("div","tb");
   const name=mk("div","tn");name.textContent=t.title;
   const tags=mk("div","tgs");
-  if(t.due){const tg=mk("div","tg tg-d"+(overdue?" ov":""));tg.textContent="📅 "+fD(t.due);tags.appendChild(tg);}
-  if(t.plannedDate){const tg=mk("div","tg tg-p");tg.textContent="📌 "+(t.timeStart?t.timeStart+" ":"")+fD(t.plannedDate);tags.appendChild(tg);}
-  if(t.gcalId){const tg=mk("div","tg tg-g");tg.textContent="✓ Google";tags.appendChild(tg);}
+  if(t.due){const tg=mk("div","tg tg-d"+(overdue?" ov":""));tg.textContent="📅 Échéance : "+fD(t.due);tags.appendChild(tg);}
+  if(t.plannedDate){
+    const tg=mk("div","tg tg-p");
+    let label="📌 Planifié : ";
+    if(t.timeStart){label+=t.timeStart;if(t.timeEnd)label+=" – "+t.timeEnd;label+=" ";}
+    label+=fD(t.plannedDate);
+    tg.textContent=label;tags.appendChild(tg);
+  }
+  if(t.gcalId){const tg=mk("div","tg tg-g");tg.textContent="✓ Google Agenda";tags.appendChild(tg);}
   body.append(name,tags);
+  const plan=mk("button","td-btn");plan.textContent="📅";plan.title="Planifier dans l’agenda";
+  plan.onclick=()=>{const d=t.plannedDate||ds(NOW);openModal(t.id,d,"09:00","10:00");};
   const del=mk("button","td-btn");del.textContent="×";del.onclick=()=>deleteTask(t.id);
-  item.append(chk,body,del);
+  item.append(chk,body,plan,del);
   item.addEventListener("dragstart",e=>{
-    e.dataTransfer.setData("tid",t.id);item.classList.add("dragging");
+    e.dataTransfer.setData("tid",t.id);
+    e.dataTransfer.effectAllowed="move";
+    item.classList.add("dragging");
     clearTimeout(holdTimer);holdDate=null;clearTimeout(edgeTimer);edgeSide=null;
-    setTimeout(()=>{if(curTab==="todo")goTab("agenda");},300);
   });
   item.addEventListener("dragend",()=>{
     item.classList.remove("dragging");
