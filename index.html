@@ -244,11 +244,9 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <div class="card">
     <div class="agt">
       <div class="agn">
-        <button onclick="navPrev()">&#8249;</button>
         <div class="agp" id="agp"></div>
-        <button onclick="navNext()">&#8250;</button>
       </div>
-      <div class="hr-sel" id="hr-sel">
+      <div class="hr-sel" id="hr-sel" style="display:none">
         <span>De</span><select id="h-start" onchange="renderAg()"></select>
         <span>&#224;</span><select id="h-end" onchange="renderAg()"></select>
       </div>
@@ -380,7 +378,7 @@ function descOf(gcalId){return metaOf(gcalId)?.desc||"";}
 (function(){
   const hs=document.getElementById("h-start"),he=document.getElementById("h-end");
   for(let h=0;h<24;h++){[hs,he].forEach(s=>{const o=document.createElement("option");o.value=h;o.textContent=h+"h00";s.appendChild(o);});}
-  hs.value=8;he.value=20;
+  hs.value=7;he.value=23;
 })();
 
 /* ══════ GOOGLE AUTH ══════ */
@@ -513,7 +511,6 @@ function goTab(t){
 function setView(v){
   view=v;
   ["month","week","day"].forEach(x=>document.getElementById("vb-"+x).classList.toggle("active",x===v));
-  document.getElementById("hr-sel").classList.toggle("show",v!=="month");
   renderAg();
 }
 function navPrev(){
@@ -639,7 +636,10 @@ function renderWeek(){
     });
     bindDrop(cell,day.date,false);ar.appendChild(cell);
   });
-  const tr=mk("div","wtr");grid.appendChild(tr);
+  const trScroll=mk("div");
+  trScroll.style.cssText="max-height:520px;overflow-y:auto;";
+  grid.appendChild(trScroll);
+  const tr=mk("div","wtr");trScroll.appendChild(tr);
   for(let h=hs;h<he;h++){
     const lbl=mk("div","wtl");lbl.textContent=h+"h";tr.appendChild(lbl);
     days.forEach(day=>{
@@ -657,6 +657,8 @@ function renderWeek(){
   wrap.addEventListener("dragover",e=>{edgeDragOver(e,wezL,wezR);});
   wrap.addEventListener("dragleave",()=>edgeDragEnd(wezL,wezR));
   wrap.addEventListener("drop",()=>edgeDragEnd(wezL,wezR));
+  /* Scroll to 7h (7h is index 0 since hs=7, so 0px) */
+  trScroll.scrollTop=0;
   if(selDay)showDet(selDay);
 }
 
@@ -678,7 +680,10 @@ function renderDay(){
   }
   const dz=mk("div","day-dz");dz.textContent="+ Glisser ici \u2192 journ\u00e9e enti\u00e8re";
   dz.dataset.date=cDay;bindDrop(dz,cDay,false);dayWrap.appendChild(dz);
-  const grid=mk("div","day-grid");dayWrap.appendChild(grid);
+  const gridScroll=mk("div");
+  gridScroll.style.cssText="max-height:520px;overflow-y:auto;";
+  dayWrap.appendChild(gridScroll);
+  const grid=mk("div","day-grid");gridScroll.appendChild(grid);
   let first=true;
   for(let h=hs;h<he;h++){
     const lbl2=mk("div","day-lbl");lbl2.textContent=h+"h";grid.appendChild(lbl2);
@@ -698,6 +703,7 @@ function renderDay(){
   dayWrap.addEventListener("dragover",e=>{edgeDragOver(e,dezL,dezR);});
   dayWrap.addEventListener("dragleave",()=>edgeDragEnd(dezL,dezR));
   dayWrap.addEventListener("drop",()=>edgeDragEnd(dezL,dezR));
+  gridScroll.scrollTop=0;
   selDay=cDay;showDet(cDay);
 }
 
