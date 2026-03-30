@@ -170,6 +170,22 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .sync.show{display:flex;}
 .spinner{width:13px;height:13px;border:2px solid #ccc;border-top-color:var(--gr);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
+/* Mini calendar drop zone */
+.mini-cal-wrap{display:none;margin-top:11px;}
+.mini-cal-wrap.drag-active{display:block;}
+.mini-cal-card{background:#fff;border:2px solid var(--or);border-radius:14px;padding:12px;box-shadow:var(--sh);}
+.mini-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.mini-cal-title{font-size:13px;font-weight:800;color:var(--bld);}
+.mini-cal-nav button{background:var(--blbg);border:1.5px solid var(--blb);border-radius:7px;color:var(--bl);width:26px;height:26px;cursor:pointer;font-size:14px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;}
+.mini-mg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.mini-mh{text-align:center;font-size:9px;font-weight:800;color:var(--tx3);padding:2px 0;}
+.mini-md{background:#fff;border:1.5px solid var(--blb);border-radius:6px;height:32px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--tx2);cursor:pointer;transition:all .15s;}
+.mini-md:hover{border-color:var(--bl);background:var(--blbg);}
+.mini-md.tdy{border-color:var(--bl);background:var(--bll);color:var(--bl);}
+.mini-md.oth{opacity:.2;pointer-events:none;}
+.mini-md.drag-ov{border-color:var(--or)!important;background:var(--orbg)!important;}
+
 </style>
 </head>
 <body>
@@ -184,7 +200,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 </header>
 <nav>
   <button class="tab active" onclick="goTab('todo')">&#9989; T&#226;ches</button>
-  <button class="tab" onclick="goTab('agenda')">&#128197; Agenda</button>
+  <button class="tab" onclick="goTab('agenda')">📅 Agenda</button>
 </nav>
 
 <!-- TACHES -->
@@ -200,12 +216,26 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <div class="card">
     <div class="ct">&#128204; &#192; faire</div>
     <div class="tl" id="list-todo"></div>
-    <div class="dh" id="dh" style="display:none">&#128197; Cliquez sur &#128197; pour planifier une t&#226;che</div>
+    <div class="dh" id="dh" style="display:none">📅 Cliquez sur 📅 pour planifier une t&#226;che</div>
   </div>
   <div class="card" id="card-done" style="display:none">
     <div class="ct">&#9989; Termin&#233;es</div>
     <div class="tl" id="list-done"></div>
+  
+  <div class="mini-cal-wrap" id="mini-cal-wrap">
+    <div class="mini-cal-card">
+      <div class="mini-cal-head">
+        <div style="display:flex;align-items:center;gap:5px">
+          <button onclick="miniNavPrev()">&#8249;</button>
+          <div class="mini-cal-title" id="mini-cal-title"></div>
+          <button onclick="miniNavNext()">&#8250;</button>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--or)">&#128205; D&#233;posez une date</div>
+      </div>
+      <div class="mini-mg" id="mini-mg"></div>
+    </div>
   </div>
+</div>
 </div>
 
 <!-- AGENDA -->
@@ -267,7 +297,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
       <button class="btn btn-gh" onclick="closeEvModal()">Fermer</button>
       <button class="btn btn-gh" id="ev-edit-btn" onclick="toggleEvEdit()">&#9998; Modifier</button>
       <button class="btn btn-bl" id="ev-done-btn" onclick="evToggleDone()"></button>
-      <button class="btn btn-rd" onclick="evDelete()">&#128465;</button>
+      <button class="btn btn-rd" onclick="evDelete()">🗑</button>
     </div>
     <div id="ev-archive-row" style="display:none;margin-top:8px">
       <button class="btn btn-gh" style="width:100%" onclick="evArchive()">&#128452; Archiver</button>
@@ -368,7 +398,7 @@ function onGisLoad(){
   tc=google.accounts.oauth2.initTokenClient({
     client_id:CLIENT_ID,scope:SCOPES,
     callback:async r=>{
-      if(r.error){toast("&#10060; Connexion annul&#233;e");return;}
+      if(r.error){toast("❌ Connexion annulée");return;}
       token=r.access_token;
       gapi.client.setToken({access_token:token});
       localStorage.setItem("gt",token);
@@ -384,22 +414,22 @@ function tryRestore(){
 }
 function handleAuth(){
   if(token){doLogout();return;}
-  if(!tc){toast("Chargement&#8230;");return;}
+  if(!tc){toast("Chargement…");return;}
   tc.requestAccessToken({prompt:""});
 }
 function doLogout(){
   google.accounts.oauth2.revoke(token,()=>{});
   token=null;gcal=[];localStorage.removeItem("gt");
-  document.getElementById("gs").textContent="Non connect&#233;";
+  document.getElementById("gs").textContent="Non connecté";
   document.getElementById("gs").className="";
   document.getElementById("bg").innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:14px;height:14px" alt="G"> Connexion Google';
-  toast("D&#233;connect&#233;");renderTasks();if(curTab==="agenda")renderAg();
+  toast("Déconnecté");renderTasks();if(curTab==="agenda")renderAg();
 }
 async function onConnected(){
-  document.getElementById("gs").textContent="&#10003; Connect&#233;";
+  document.getElementById("gs").textContent="✓ Connecté";
   document.getElementById("gs").className="ok";
-  document.getElementById("bg").innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:14px;height:14px" alt="G"> D&#233;connecter';
-  toast("&#10003; Google connect&#233; !");
+  document.getElementById("bg").innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:14px;height:14px" alt="G"> Déconnecter';
+  toast("✓ Google connecté !");
   await fetchGcal();
   renderTasks();if(curTab==="agenda")renderAg();
 }
@@ -407,7 +437,7 @@ async function onConnected(){
 /* ══════ GCAL ══════ */
 async function fetchGcal(){
   if(!token)return;
-  showSync("Chargement Agenda&#8230;");
+  showSync("Chargement Agenda…");
   try{
     const tMin=new Date();tMin.setMonth(tMin.getMonth()-2);
     const tMax=new Date();tMax.setMonth(tMax.getMonth()+4);
@@ -539,7 +569,7 @@ function renderMonth(){
       dot.textContent=e.title;mds.appendChild(dot);n++;
     });
     if(evs.length>2){const m=mk("div","dot dot-mo");m.textContent="+"+(evs.length-2)+" autre"+(evs.length-2>1?"s":"");mds.appendChild(m);}
-    div.addEventListener("click",()=>{selDay=date;renderMonth();showDet(date);});
+    div.addEventListener("click",()=>{selDay=date;cDay=date;setView("day");});
     div.addEventListener("dragenter",e=>{
       e.preventDefault();div.classList.add("drag-ov");
       if(holdDate!==date){
@@ -673,7 +703,7 @@ function showDet(date){
   panel.style.display="block";
   const d=new Date(date+"T00:00:00");
   const lbl=d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
-  panel.innerHTML=`<div class="det-t">&#128197; ${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</div>`;
+  panel.innerHTML=`<div class="det-t">📅 ${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</div>`;
   evs.forEach(e=>panel.appendChild(buildDetRow(e)));
 }
 function buildDetRow(e){
@@ -706,8 +736,8 @@ function openEvModal(gcalId){
   document.getElementById("ev-desc-view").textContent=meta?.desc||"";
   // done button
   const doneBtn=document.getElementById("ev-done-btn");
-  doneBtn.textContent=isDone(gcalId)?"&#8635; Rouvrir":"&#10003; Termin\u00e9e";
-  doneBtn.innerHTML=isDone(gcalId)?"&#8635; Rouvrir":"&#10003; Termin\u00e9e";
+  doneBtn.textContent=isDone(gcalId)?"↺ Rouvrir":"✓ Termin\u00e9e";
+  doneBtn.innerHTML=isDone(gcalId)?"↺ Rouvrir":"✓ Termin\u00e9e";
   // archive button only for done tasks
   document.getElementById("ev-archive-row").style.display=isDone(gcalId)?"block":"none";
   // reset edit area
@@ -732,7 +762,7 @@ function toggleEvEdit(){
   area.style.display=open?"block":"none";
   sep.style.display=open?"block":"none";
   saveBtn.style.display=open?"block":"none";
-  editBtn.textContent=open?"&#10005; Annuler":"\u270e Modifier";
+  editBtn.textContent=open?"✕ Annuler":"\u270e Modifier";
 }
 async function saveEvEdit(){
   if(!evPending)return;
@@ -741,14 +771,14 @@ async function saveEvEdit(){
   const ts=document.getElementById("ev-tstart").value||null;
   const te=document.getElementById("ev-tend").value||null;
   const desc=document.getElementById("ev-descfield").value;
-  showSync("Mise \u00e0 jour&#8230;");
+  showSync("Mise \u00e0 jour…");
   await updateGcalEv(evPending,e.title,desc,date,ts,te);
   ensureMeta(evPending,e.title);
   const meta=metaOf(evPending);if(meta)meta.desc=desc;
   lsSave();
   await fetchGcal();
   hideSync();closeEvModal();renderAg();renderTasks();
-  toast("&#10003; Mis \u00e0 jour");
+  toast("✓ Mis \u00e0 jour");
 }
 async function evToggleDone(){
   if(!evPending)return;
@@ -757,19 +787,19 @@ async function evToggleDone(){
 }
 async function evDelete(){
   if(!evPending)return;
-  showSync("Suppression&#8230;");
+  showSync("Suppression…");
   await delGcalEv(evPending);
   removeMeta(evPending);
   hideSync();closeEvModal();
   await fetchGcal();renderAg();renderTasks();
-  toast("&#128465; Supprim\u00e9");
+  toast("🗑 Supprim\u00e9");
 }
 function evArchive(){
   if(!evPending)return;
   ensureMeta(evPending,"");
   const meta=metaOf(evPending);if(meta)meta.archived=true;
   lsSave();closeEvModal();renderAg();renderTasks();
-  toast("&#128452; Archiv\u00e9");
+  toast("🗄 Archiv\u00e9");
 }
 
 /* ══════ META HELPERS ══════ */
@@ -820,6 +850,7 @@ function setupTouch(item,tid2){
         const t=S.tasks.find(t=>t.id===tid2);
         ghost.textContent=t?t.title:"";ghost.style.display="block";
         item.classList.add("dragging");
+        goTab("agenda");
       }
       e.preventDefault();
       ghost.style.left=(cx-70)+"px";ghost.style.top=(cy-20)+"px";
@@ -891,10 +922,10 @@ document.getElementById("ev-overlay").addEventListener("click",e=>{if(e.target==
 /* ══════ PLAN TASK → Google Calendar only ══════ */
 async function planTask(tid,date,tS,tE){
   const t=S.tasks.find(t=>t.id===tid);if(!t)return;
-  if(!token){toast("&#128274; Connectez-vous \u00e0 Google d\u2019abord");return;}
+  if(!token){toast("🔒 Connectez-vous \u00e0 Google d\u2019abord");return;}
   // If already has a gcalId, delete old event
-  if(t.gcalId){showSync("Mise \u00e0 jour&#8230;");await delGcalEv(t.gcalId);t.gcalId=null;}
-  showSync("Envoi Google Agenda&#8230;");
+  if(t.gcalId){showSync("Mise \u00e0 jour…");await delGcalEv(t.gcalId);t.gcalId=null;}
+  showSync("Envoi Google Agenda…");
   const ev=await createGcalEv(t.title,t.desc,date,tS,tE);
   hideSync();
   if(ev){
@@ -907,7 +938,7 @@ async function planTask(tid,date,tS,tE){
     renderTasks();renderAg();
     toast('\u{1F4CC} "'+t.title.slice(0,20)+'" planifi\u00e9'+(tS?" \u00e0 "+tS:""));
   }else{
-    toast("&#10060; Erreur lors de l\u2019envoi");
+    toast("❌ Erreur lors de l\u2019envoi");
   }
 }
 
@@ -938,7 +969,7 @@ function renderTasks(){
     return db.localeCompare(da);
   });
   tl.innerHTML="";dl.innerHTML="";
-  if(!todo.length){tl.innerHTML='<div class="emp">Aucune t\u00e2che &#127881;</div>';dh.style.display="none";}
+  if(!todo.length){tl.innerHTML='<div class="emp">Aucune t\u00e2che 🎉</div>';dh.style.display="none";}
   else{todo.forEach(t=>tl.appendChild(buildTask(t)));dh.style.display="block";}
   cd.style.display=done.length?"block":"none";
   done.forEach(t=>dl.appendChild(buildTask(t)));
@@ -978,11 +1009,11 @@ function buildTask(t){
   }
   body.append(name,tags);
   // Buttons
-  const plan=mk("button","td-btn");plan.title="Planifier";plan.innerHTML="&#128197;";
+  const plan=mk("button","td-btn");plan.title="Planifier";plan.innerHTML="📅";
   plan.onclick=()=>{const d=t.plannedDate||ds(NOW);openModal(t.id,d,"09:00","10:00");};
-  const del=mk("button","td-btn");del.innerHTML="&times;";
+  const del=mk("button","td-btn");del.innerHTML="×";
   del.onclick=async()=>{
-    if(gcalEv){showSync("Suppression&#8230;");await delGcalEv(t.id);hideSync();}
+    if(gcalEv){showSync("Suppression…");await delGcalEv(t.id);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==t.id);lsSave();
     if(gcalEv)await fetchGcal();
     renderTasks();if(curTab==="agenda")renderAg();
@@ -992,14 +1023,14 @@ function buildTask(t){
   // Archive button for done tasks
   if(t.done){
     const arch=mk("button","btn btn-gh");arch.style="font-size:11px;padding:4px 10px;margin-top:6px;";
-    arch.innerHTML="&#128452; Archiver";
+    arch.innerHTML="🗄 Archiver";
     arch.onclick=()=>{t.archived=true;lsSave();renderTasks();toast("Archiv\u00e9");};
     item.appendChild(arch);
   }
   // Description textarea (only for local tasks)
   if(!gcalEv){
     const desc=mk("textarea","td-desc");
-    desc.placeholder="Ajouter un descriptif&#8230;";
+    desc.placeholder="Ajouter un descriptif…";
     desc.value=t.desc||"";
     desc.style.display="none";
     desc.oninput=()=>{t.desc=desc.value;lsSave();};
@@ -1013,6 +1044,7 @@ function buildTask(t){
       e.dataTransfer.effectAllowed="move";
       item.classList.add("dragging");
       clearTimeout(holdTimer);holdDate=null;clearTimeout(edgeTimer);edgeSide=null;
+      setTimeout(()=>goTab("agenda"),50);
     });
     item.addEventListener("dragend",()=>{
       item.classList.remove("dragging");
@@ -1024,8 +1056,55 @@ function buildTask(t){
   return item;
 }
 
+
+/* ══ MINI CALENDAR (drag target in todo tab) ══ */
+let miniY=NOW.getFullYear(),miniM=NOW.getMonth();
+function miniNavPrev(){miniM--;if(miniM<0){miniM=11;miniY--;}renderMiniCal();}
+function miniNavNext(){miniM++;if(miniM>11){miniM=0;miniY++;}renderMiniCal();}
+function renderMiniCal(){
+  const titleEl=document.getElementById("mini-cal-title");
+  if(titleEl)titleEl.textContent=MO[miniM]+" "+miniY;
+  const g=document.getElementById("mini-mg");if(!g)return;g.innerHTML="";
+  DN.forEach(d=>{const h=mk("div","mini-mh");h.textContent=d;g.appendChild(h);});
+  const fd=(()=>{let d=new Date(miniY,miniM,1).getDay();return d===0?6:d-1;})();
+  const dim=new Date(miniY,miniM+1,0).getDate();
+  const pd=new Date(miniY,miniM,0).getDate();
+  const today=ds(NOW);
+  let cells=[];
+  for(let i=fd-1;i>=0;i--)cells.push({d:pd-i,cur:false});
+  for(let i=1;i<=dim;i++)cells.push({d:i,cur:true});
+  while(cells.length%7!==0)cells.push({d:cells.length-dim-fd+1,cur:false});
+  cells.forEach(c=>{
+    const div=mk("div","mini-md"+(c.cur?"":" oth"));
+    div.textContent=String(c.d);
+    if(!c.cur){g.appendChild(div);return;}
+    const date=miniY+"-"+z(miniM+1)+"-"+z(c.d);
+    if(date===today)div.classList.add("tdy");
+    div.dataset.date=date;
+    div.addEventListener("dragover",e=>{e.preventDefault();div.classList.add("drag-ov");});
+    div.addEventListener("dragleave",()=>div.classList.remove("drag-ov"));
+    div.addEventListener("drop",e=>{
+      e.preventDefault();div.classList.remove("drag-ov");
+      const tid=e.dataTransfer.getData("tid");if(!tid)return;
+      openModal(tid,date,"09:00","10:00");
+    });
+    g.appendChild(div);
+  });
+}
+function showMiniCal(){
+  miniY=NOW.getFullYear();miniM=NOW.getMonth();
+  renderMiniCal();
+  document.getElementById("mini-cal-wrap").classList.add("drag-active");
+}
+function hideMiniCal(){
+  document.getElementById("mini-cal-wrap").classList.remove("drag-active");
+}
+document.addEventListener("dragstart",e=>{if(e.target.closest(".ti"))showMiniCal();});
+document.addEventListener("dragend",()=>hideMiniCal());
+
 /* ══════ INIT ══════ */
 document.getElementById("ti").addEventListener("keydown",e=>{if(e.key==="Enter")addTask();});
+renderMiniCal();
 renderTasks();
 renderAg();
 </script>
