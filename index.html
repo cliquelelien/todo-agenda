@@ -253,9 +253,9 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
         <span>&#224;</span><select id="h-end" onchange="renderAg()"></select>
       </div>
       <div class="vsw">
-        <button class="vb active" id="vb-month" onclick="setView('month')">Mois</button>
-        <button class="vb" id="vb-week" onclick="setView('week')">Semaine</button>
-        <button class="vb" id="vb-day" onclick="setView('day')">Jour</button>
+        <button class="vb active" id="vb-month" data-view="month" onclick="setView('month')">Mois</button>
+        <button class="vb" id="vb-week" data-view="week" onclick="setView('week')">Semaine</button>
+        <button class="vb" id="vb-day" data-view="day" onclick="setView('day')">Jour</button>
       </div>
     </div>
     <div id="ag-body"></div>
@@ -952,29 +952,28 @@ function addTask(){
 }
 
 /* ══════ RENDER TASKS ══════ */
+function taskSortKey(t){
+  // For gcal tasks: use event start date; for local tasks: use due date or far future
+  const gcalEv=gcal.find(e=>e.id===t.id);
+  if(gcalEv)return gcalEv.start;
+  return t.due||"9999-12-31";
+}
 function renderTasks(){
   const tl=document.getElementById("list-todo");
   const dl=document.getElementById("list-done");
   const cd=document.getElementById("card-done");
   const dh=document.getElementById("dh");
-  // "todo" = local tasks not yet on gcal
   const localTasks=S.tasks.filter(t=>!t.archived);
-  // planned = in gcal (has matching gcal event)
-  const gcalIds=new Set(gcal.map(e=>e.id));
-  const todo=localTasks.filter(t=>!t.done&&!gcalIds.has(t.id));
-  // done = gcal events marked done locally
-  const done=localTasks.filter(t=>t.done).sort((a,b)=>{
-    const ea=gcal.find(e=>e.id===a.id),eb=gcal.find(e=>e.id===b.id);
-    const da=ea?ea.start:"";const db=eb?eb.start:"";
-    return db.localeCompare(da);
-  });
+  // todo = not done, sorted by date asc (gcal date or due date)
+  const todo=localTasks.filter(t=>!t.done).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
+  // done = done, sorted by date desc (most recent first)
+  const done=localTasks.filter(t=>t.done).sort((a,b)=>taskSortKey(b).localeCompare(taskSortKey(a)));
   tl.innerHTML="";dl.innerHTML="";
-  if(!todo.length){tl.innerHTML='<div class="emp">Aucune t\u00e2che 🎉</div>';dh.style.display="none";}
+  if(!todo.length){tl.innerHTML='<div class="emp">Aucune tâche 🎉</div>';dh.style.display="none";}
   else{todo.forEach(t=>tl.appendChild(buildTask(t)));dh.style.display="block";}
   cd.style.display=done.length?"block":"none";
   done.forEach(t=>dl.appendChild(buildTask(t)));
 }
-
 function buildTask(t){
   const item=mk("div","ti"+(t.done?" done":""));item.dataset.id=t.id;
   const gcalEv=gcal.find(e=>e.id===t.id);
@@ -1101,6 +1100,32 @@ function hideMiniCal(){
 }
 document.addEventListener("dragstart",e=>{if(e.target.closest(".ti"))showMiniCal();});
 document.addEventListener("dragend",()=>hideMiniCal());
+
+
+/* ══ DRAG OVER VIEW BUTTONS → switch view after 1s ══ */
+let viewHoverTimer=null,viewHoverTarget=null;
+document.addEventListener("dragover",e=>{
+  const btn=e.target.closest("[data-view]");
+  if(btn){
+    const v=btn.dataset.view;
+    if(v!==viewHoverTarget){
+      clearTimeout(viewHoverTimer);viewHoverTarget=v;
+      btn.style.outline="2px solid var(--or)";
+      viewHoverTimer=setTimeout(()=>{
+        if(viewHoverTarget===v){setView(v);viewHoverTarget=null;btn.style.outline="";}
+      },1000);
+    }
+  }else{
+    if(viewHoverTarget){
+      clearTimeout(viewHoverTimer);viewHoverTarget=null;
+      document.querySelectorAll("[data-view]").forEach(b=>b.style.outline="");
+    }
+  }
+});
+document.addEventListener("dragend",()=>{
+  clearTimeout(viewHoverTimer);viewHoverTarget=null;
+  document.querySelectorAll("[data-view]").forEach(b=>b.style.outline="");
+});
 
 /* ══════ INIT ══════ */
 document.getElementById("ti").addEventListener("keydown",e=>{if(e.key==="Enter")addTask();});
