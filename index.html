@@ -851,10 +851,12 @@ function setupTouch(item,tid2){
 }
 
 /* ══ MODAL PLANIFIER ══ */
-function openModal(tid,date,tS,tE){const t=S.tasks.find(t=>t.id===tid);if(!t)return;pending={tid,date};document.getElementById("mo-task").textContent=t.title;document.getElementById("mo-date").value=date;document.getElementById("mo-start").value=tS||"09:00";document.getElementById("mo-end").value=tE||"10:00";document.getElementById("overlay").classList.add("open");}
+function addOneHour(t){const[h,m]=t.split(":").map(Number);const tot=h*60+m+60;return z(Math.min(Math.floor(tot/60),23))+":"+z(tot%60);}
+function openModal(tid,date,tS,tE){const t=S.tasks.find(t=>t.id===tid);if(!t)return;pending={tid,date};document.getElementById("mo-task").textContent=t.title;document.getElementById("mo-date").value=date;const start=tS||"09:00";document.getElementById("mo-start").value=start;document.getElementById("mo-end").value=tE||addOneHour(start);document.getElementById("overlay").classList.add("open");}
 function closeModal(){document.getElementById("overlay").classList.remove("open");pending=null;}
 async function confirmPlan(withTime){if(!pending)return;const date=document.getElementById("mo-date").value;const ts=withTime?document.getElementById("mo-start").value:null;const te=withTime?document.getElementById("mo-end").value:null;const tid=pending.tid;closeModal();await planTask(tid,date,ts,te);}
 document.getElementById("overlay").addEventListener("click",e=>{if(e.target===document.getElementById("overlay"))closeModal();});
+document.getElementById("mo-start").addEventListener("change",()=>{document.getElementById("mo-end").value=addOneHour(document.getElementById("mo-start").value);});
 document.getElementById("ev-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("ev-overlay"))closeEvModal();});
 
 /* ══ PLAN TASK ══ */
