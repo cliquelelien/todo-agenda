@@ -79,10 +79,11 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .vb:not(.active):hover{color:var(--bl);}
 /* Zones de scroll latéral (overlay sur les bords du calendrier) */
 .edge-zone{
-  position:fixed;top:0;bottom:0;width:28px;z-index:300;
+  position:fixed;width:0;height:0;z-index:300;
   pointer-events:none;
   opacity:0;transition:opacity .15s;
   display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
 }
 .edge-zone.left{background:linear-gradient(to right,rgba(245,166,35,.75),transparent);}
 .edge-zone.right{background:linear-gradient(to left,rgba(245,166,35,.75),transparent);}
@@ -410,8 +411,7 @@ document.addEventListener("dragend",()=>{
   _dragging=false;
   clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
   _ezL.classList.remove("lit");_ezR.classList.remove("lit");
-  _ezL.style.left="";_ezL.style.width="";
-  _ezR.style.right="";_ezR.style.width="";
+  _ezL.style.cssText="";_ezR.style.cssText="";
 });
 document.addEventListener("dragover",e=>{e.preventDefault();});
 
@@ -426,8 +426,9 @@ document.addEventListener("pointermove",e=>{
   _ezR.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-28}px;width:28px;`;
   const onL=e.clientX>=rect.left&&e.clientX<rect.left+28&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
   const onR=e.clientX>rect.right-28&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
-  _ezL.classList.toggle("lit",onL);
-  _ezR.classList.toggle("lit",onR);
+  if(onL){_ezL.classList.add("lit");_ezR.classList.remove("lit");}
+  else if(onR){_ezR.classList.add("lit");_ezL.classList.remove("lit");}
+  else{_ezL.classList.remove("lit");_ezR.classList.remove("lit");}
   if(onL||onR){
     const side=onL?"left":"right";
     if(side!==edgeSide){
