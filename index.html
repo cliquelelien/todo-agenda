@@ -852,6 +852,63 @@ document.addEventListener("dragover",e=>{
 });
 document.addEventListener("dragend",()=>{clearTimeout(viewHoverTimer);viewHoverTarget=null;document.querySelectorAll("[data-view]").forEach(b=>b.style.outline="");});
 
+
+/* ══ SWIPE GAUCHE/DROITE SUR LE CALENDRIER ══
+   Fonctionne en vue mois (pas de scroll vertical natif).
+   En vue semaine/jour le scroll vertical est dans .w-scroll / .day-scroll,
+   donc le swipe horizontal est attrapé sans conflits. */
+(function(){
+  const SWIPE_MIN=60;       // px horizontal minimum
+  const FLASH_MS=180;       // durée du flash orange
+
+  function flashEdge(side){
+    const ez=side==="left"?_ezL:_ezR;
+    const body=document.getElementById("ag-body");
+    if(!body)return;
+    const rect=body.getBoundingClientRect();
+    if(side==="left"){
+      ez.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:72px;`;
+    }else{
+      ez.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-72}px;width:72px;`;
+    }
+    ez.classList.add("lit");
+    setTimeout(()=>{ez.classList.remove("lit");ez.style.cssText="";},FLASH_MS);
+  }
+
+  let tX=null,tY=null,moved=false,locked=null;
+
+  document.getElementById("ag-body").addEventListener("touchstart",e=>{
+    // Ignorer si on touche l'intérieur d'un scrollbox vertical
+    if(e.target.closest(".w-scroll,.day-scroll")){tX=null;return;}
+    if(e.touches.length!==1){tX=null;return;}
+    tX=e.touches[0].clientX;
+    tY=e.touches[0].clientY;
+    moved=false;locked=null;
+  },{passive:true});
+
+  document.getElementById("ag-body").addEventListener("touchmove",e=>{
+    if(tX===null)return;
+    const dx=e.touches[0].clientX-tX;
+    const dy=e.touches[0].clientY-tY;
+    if(locked===null&&(Math.abs(dx)>8||Math.abs(dy)>8)){
+      locked=Math.abs(dx)>Math.abs(dy)?"h":"v";
+    }
+    if(locked==="h"){
+      e.preventDefault(); // bloquer le scroll page pendant swipe horizontal
+      moved=true;
+    }
+  },{passive:false});
+
+  document.getElementById("ag-body").addEventListener("touchend",e=>{
+    if(tX===null||!moved||locked!=="h"){tX=null;return;}
+    const dx=e.changedTouches[0].clientX-tX;
+    if(Math.abs(dx)<SWIPE_MIN){tX=null;return;}
+    if(dx<0){flashEdge("right");navNext();}
+    else{flashEdge("left");navPrev();}
+    tX=null;moved=false;locked=null;
+  },{passive:true});
+})();
+
 /* ══ INIT ══ */
 document.getElementById("ti").addEventListener("keydown",e=>{if(e.key==="Enter")addTask();});
 renderMiniCal();
