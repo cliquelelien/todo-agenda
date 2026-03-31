@@ -77,12 +77,26 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .vb{padding:6px 13px;border:none;background:transparent;border-radius:8px;font-family:inherit;font-weight:800;font-size:12px;color:var(--tx2);cursor:pointer;transition:all .15s;}
 .vb.active{background:#fff;color:var(--bl);box-shadow:0 1px 6px rgba(26,86,160,.12);}
 .vb:not(.active):hover{color:var(--bl);}
-/* Edge scroll zones */
-.edge-zone{position:absolute;top:0;bottom:0;width:56px;z-index:20;pointer-events:none;opacity:0;transition:opacity .18s;display:flex;align-items:center;justify-content:center;}
-.edge-zone.left{left:0;background:linear-gradient(to right,rgba(245,166,35,.30),transparent);border-radius:8px 0 0 8px;}
-.edge-zone.right{right:0;background:linear-gradient(to left,rgba(245,166,35,.30),transparent);border-radius:0 8px 8px 0;}
-.edge-zone.lit{opacity:1;}
-.edge-arrow{width:30px;height:30px;border-radius:50%;background:var(--or);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;box-shadow:0 3px 10px rgba(245,166,35,.45);}
+/* Boutons nav prev/next */
+.nav-btn{
+  width:34px;height:34px;border-radius:9px;border:1.5px solid var(--blb);
+  background:#fff;color:var(--bl);font-size:20px;font-weight:900;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;flex-shrink:0;line-height:1;
+}
+.nav-btn:hover{background:var(--bll);border-color:var(--bl);}
+body.dragging-task .nav-btn{
+  background:var(--orbg);border-color:var(--or);color:#c07000;
+  animation:navpulse 1.1s ease-in-out infinite;
+}
+@keyframes navpulse{0%,100%{box-shadow:0 0 0 2px rgba(245,166,35,.25);}50%{box-shadow:0 0 0 6px rgba(245,166,35,.40);}}
+body.dragging-task .nav-btn.drag-ov,
+body.dragging-task .nav-btn:hover{
+  background:var(--or)!important;color:#fff!important;border-color:var(--or)!important;
+  transform:scale(1.15);box-shadow:0 4px 16px rgba(245,166,35,.55)!important;
+}
+/* Edge zones (legacy, cachées) */
+.edge-zone,.edge-arrow{display:none;}
 /* Month */
 .mg-wrap{position:relative;}
 .mg{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
@@ -254,6 +268,9 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
       <div class="agp" id="agp"></div>
       <select id="h-start" style="display:none"></select>
       <select id="h-end" style="display:none"></select>
+      <!-- Boutons nav toujours présents, s'allument en orange pendant un drag -->
+      <button class="nav-btn" id="nav-prev" onclick="navPrev()">&#8249;</button>
+      <button class="nav-btn" id="nav-next" onclick="navNext()">&#8250;</button>
       <div class="vsw">
         <button class="vb active" id="vb-month" data-view="month" onclick="setView('month')">Mois</button>
         <button class="vb" id="vb-week" data-view="week" onclick="setView('week')">Semaine</button>
@@ -380,57 +397,51 @@ function renderAg(){if(view==="month")renderMonth();else if(view==="week")render
 const MO=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const DN=["Lu","Ma","Me","Je","Ve","Sa","Di"];
 
-/* ══ EDGE SCROLL ENGINE ══
-   Les zones sont cherchées en live dans le DOM à chaque dragover,
-   évitant le problème de références périmées quand renderAg() recrée le DOM. */
-
-function makeEdgeZones(container){
-  const left=mk("div","edge-zone left");
-  left.innerHTML='<div class="edge-arrow">&#8249;</div>';
-  container.appendChild(left);
-  const right=mk("div","edge-zone right");
-  right.innerHTML='<div class="edge-arrow">&#8250;</div>';
-  container.appendChild(right);
-}
+/* ══ NAV PAR DRAG ══
+   Les boutons ‹ et › sont toujours dans la toolbar.
+   Pendant un drag, ils s'allument (via body.dragging-task).
+   Rester dessus 500ms déclenche navPrev/navNext. */
+function makeEdgeZones(){} /* no-op — gardé pour compatibilité des appels */
 
 let _edgeDragActive=false;
-document.addEventListener("dragstart",()=>{_edgeDragActive=true;});
+document.addEventListener("dragstart",()=>{
+  _edgeDragActive=true;
+  document.body.classList.add("dragging-task");
+});
 document.addEventListener("dragend",()=>{
   _edgeDragActive=false;
+  document.body.classList.remove("dragging-task");
   clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
-  document.querySelectorAll(".edge-zone").forEach(z=>z.classList.remove("lit"));
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("drag-ov"));
 });
+document.addEventListener("dragover",e=>{e.preventDefault();});
 
-document.addEventListener("dragover",e=>{
-  e.preventDefault();
-  if(!_edgeDragActive)return;
-  /* Cherche les zones live dans le DOM actuel */
-  const left=document.querySelector(".edge-zone.left");
-  const right=document.querySelector(".edge-zone.right");
-  if(!left||!right)return;
-  const container=left.parentElement;
-  const rect=container.getBoundingClientRect();
-  if(e.clientY<rect.top||e.clientY>rect.bottom){
-    left.classList.remove("lit");right.classList.remove("lit");
-    clearTimeout(edgeTimer);edgeSide=null;return;
-  }
-  const onL=e.clientX<rect.left+72, onR=e.clientX>rect.right-72;
-  left.classList.toggle("lit",onL);
-  right.classList.toggle("lit",onR);
-  if(onL||onR){
-    const side=onL?"left":"right";
+["nav-prev","nav-next"].forEach(id=>{
+  const btn=document.getElementById(id);
+  const side=id==="nav-prev"?"left":"right";
+  btn.addEventListener("dragenter",e=>{
+    e.preventDefault();
+    if(!_edgeDragActive)return;
+    btn.classList.add("drag-ov");
     if(side!==edgeSide){
       clearTimeout(edgeTimer);edgeSide=side;
       edgeTimer=setTimeout(()=>{
         edgeSide=null;edgeTimer=null;
-        left.classList.remove("lit");right.classList.remove("lit");
+        btn.classList.remove("drag-ov");
         if(side==="left")navPrev();else navNext();
       },EDGE_MS);
     }
-  }else{
-    if(edgeSide){clearTimeout(edgeTimer);edgeSide=null;}
-    left.classList.remove("lit");right.classList.remove("lit");
-  }
+  });
+  btn.addEventListener("dragover",e=>{e.preventDefault();btn.classList.add("drag-ov");});
+  btn.addEventListener("dragleave",()=>{
+    btn.classList.remove("drag-ov");
+    clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
+  });
+  btn.addEventListener("drop",e=>{
+    e.preventDefault();btn.classList.remove("drag-ov");
+    clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
+    if(side==="left")navPrev();else navNext();
+  });
 });
 
 /* ══ MONTH VIEW ══ */
@@ -680,40 +691,44 @@ function setupTouch(item,tid2){
   item.addEventListener("touchmove",e=>{
     const cx=e.touches[0].clientX,cy=e.touches[0].clientY;
     if(Math.abs(cx-sx)>8||Math.abs(cy-sy)>8){
-      if(!touchDragId){touchDragId=tid2;const t=S.tasks.find(t=>t.id===tid2);ghost.textContent=t?t.title:"";ghost.style.display="block";item.classList.add("dragging");goTab("agenda");}
+      if(!touchDragId){touchDragId=tid2;const t=S.tasks.find(t=>t.id===tid2);ghost.textContent=t?t.title:"";ghost.style.display="block";item.classList.add("dragging");document.body.classList.add("dragging-task");goTab("agenda");}
       e.preventDefault();
       ghost.style.left=(cx-70)+"px";ghost.style.top=(cy-20)+"px";
       document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
       const under=document.elementFromPoint(cx,cy);
       const tgt=under?.closest("[data-date]");
       if(tgt)tgt.classList.add("drag-ov");
-      /* Edge nav via touch - zones live dans le DOM */
+      /* Edge nav via touch — même logique que les boutons nav */
       const agRect=document.getElementById("ag-body").getBoundingClientRect();
       const side=cx<agRect.left+72?"left":cx>agRect.right-72?"right":null;
-      /* Surbrillance live */
-      const ezL=document.querySelector(".edge-zone.left");
-      const ezR=document.querySelector(".edge-zone.right");
-      if(ezL)ezL.classList.toggle("lit",side==="left");
-      if(ezR)ezR.classList.toggle("lit",side==="right");
+      const btnPrev=document.getElementById("nav-prev");
+      const btnNext=document.getElementById("nav-next");
+      if(btnPrev)btnPrev.classList.toggle("drag-ov",side==="left");
+      if(btnNext)btnNext.classList.toggle("drag-ov",side==="right");
       if(side&&side!==tEdgeSide){
         clearTimeout(tEdgeTimer);tEdgeSide=side;
         tEdgeTimer=setTimeout(()=>{
           tEdgeSide=null;
-          if(ezL)ezL.classList.remove("lit");
-          if(ezR)ezR.classList.remove("lit");
+          if(btnPrev)btnPrev.classList.remove("drag-ov");
+          if(btnNext)btnNext.classList.remove("drag-ov");
           if(side==="left")navPrev();else navNext();
         },EDGE_MS);
-      }else if(!side){clearTimeout(tEdgeTimer);tEdgeSide=null;}
+      }else if(!side){
+        clearTimeout(tEdgeTimer);tEdgeSide=null;
+        if(btnPrev)btnPrev.classList.remove("drag-ov");
+        if(btnNext)btnNext.classList.remove("drag-ov");
+      }
     }
   },{passive:false});
   item.addEventListener("touchend",e=>{
     clearTimeout(tEdgeTimer);tEdgeSide=null;
-    document.querySelectorAll(".edge-zone").forEach(z=>z.classList.remove("lit"));
+    document.getElementById("nav-prev")?.classList.remove("drag-ov");
+    document.getElementById("nav-next")?.classList.remove("drag-ov");
     if(touchDragId){
       const under=document.elementFromPoint(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
       const tgt=under?.closest("[data-date]");
       if(tgt?.dataset.date){const date=tgt.dataset.date,hour=tgt.dataset.hour;if(hour!==undefined)openModal(touchDragId,date,z(parseInt(hour))+":00",z(Math.min(parseInt(hour)+1,23))+":00");else openModal(touchDragId,date,"09:00","10:00");}
-      ghost.style.display="none";document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));item.classList.remove("dragging");touchDragId=null;
+      ghost.style.display="none";document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));item.classList.remove("dragging");document.body.classList.remove("dragging-task");touchDragId=null;
     }
   });
 }
