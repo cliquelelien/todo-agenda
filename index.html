@@ -340,7 +340,7 @@ const NOW=new Date();
 let cY=NOW.getFullYear(), cM=NOW.getMonth();
 let cDay=ds(NOW), cWeek=monday(NOW);
 let evPending=null;
-const EDGE_MS=500;
+const EDGE_MS=300;
 let edgeTimer=null, edgeSide=null;
 let tEdgeTimer=null, tEdgeSide=null;
 let tHoldTimer=null, tHoldDate=null;
@@ -450,9 +450,12 @@ document.addEventListener("pointermove",e=>{
       clearTimeout(edgeTimer);edgeSide=side;
       edgeTimer=setTimeout(()=>{
         edgeSide=null;edgeTimer=null;
-        _ezL.classList.remove("lit");_ezL.style.cssText="";
-        _ezR.classList.remove("lit");_ezR.style.cssText="";
         if(side==="left")navPrev();else navNext();
+        // Laisser la surbrillance 300ms après nav puis l'effacer
+        setTimeout(()=>{
+          _ezL.classList.remove("lit");_ezL.style.cssText="";
+          _ezR.classList.remove("lit");_ezR.style.cssText="";
+        },300);
       },EDGE_MS);
     }
   }else{
@@ -870,62 +873,72 @@ document.addEventListener("dragover",e=>{
 document.addEventListener("dragend",()=>{clearTimeout(viewHoverTimer);viewHoverTarget=null;document.querySelectorAll("[data-view]").forEach(b=>b.style.outline="");});
 
 
-/* ══ SWIPE GAUCHE/DROITE SUR LE CALENDRIER ══
-   Fonctionne sur toutes les vues (mois, semaine, jour).
-   En vue semaine/jour, un swipe clairement horizontal dans la grille
-   déclenche le changement de période. Le scroll vertical reste intact. */
+/* ══ SWIPE GAUCHE/DROITE SUR LE CALENDRIER ══ */
 (function(){
-  const SWIPE_MIN=60;   // px horizontal minimum pour valider le swipe
-  const FLASH_MS=220;   // durée du flash orange du bord
+  const SWIPE_MIN=40;    // px minimum pour valider
+  const FLASH_MS=350;    // durée surbrillance après navigation
 
-  function flashEdge(side){
-    const ez=side==="left"?_ezL:_ezR;
+  /* Positionne et allume un bord, éteint l'autre */
+  function showEdge(side){
     const body=document.getElementById("ag-body");
     if(!body)return;
-    const rect=body.getBoundingClientRect();
-    // Positionner uniquement sur le bord concerné, calé sur le calendrier
+    const r=body.getBoundingClientRect();
+    const visL=Math.max(r.left,0);
+    const visR=Math.min(r.right,window.innerWidth);
+    const visT=Math.max(r.top,0);
+    const visB=Math.min(r.bottom,window.innerHeight);
+    const h=visB-visT;
     if(side==="left"){
-      ez.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:28px;`;
+      _ezL.style.cssText=`position:fixed;top:${visT}px;height:${h}px;left:${visL}px;width:28px;`;
+      _ezL.classList.add("lit");
+      _ezR.classList.remove("lit");_ezR.style.cssText="";
     }else{
-      ez.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-28}px;width:28px;`;
+      _ezR.style.cssText=`position:fixed;top:${visT}px;height:${h}px;left:${visR-28}px;width:28px;`;
+      _ezR.classList.add("lit");
+      _ezL.classList.remove("lit");_ezL.style.cssText="";
     }
-    ez.classList.add("lit");
-    setTimeout(()=>{ez.classList.remove("lit");ez.style.cssText="";},FLASH_MS);
   }
 
-  let tX=null,tY=null,locked=null;
+  function hideEdges(){
+    _ezL.classList.remove("lit");_ezL.style.cssText="";
+    _ezR.classList.remove("lit");_ezR.style.cssText="";
+  }
 
-  // Écouter sur tout le panel agenda pour capturer semaine/jour aussi
+  let tX=null,tY=null,locked=null,liveSide=null;
   const panel=document.getElementById("panel-agenda");
 
   panel.addEventListener("touchstart",e=>{
     if(e.touches.length!==1){tX=null;return;}
-    tX=e.touches[0].clientX;
-    tY=e.touches[0].clientY;
-    locked=null;
+    tX=e.touches[0].clientX;tY=e.touches[0].clientY;
+    locked=null;liveSide=null;
   },{passive:true});
 
   panel.addEventListener("touchmove",e=>{
     if(tX===null)return;
     const dx=e.touches[0].clientX-tX;
     const dy=e.touches[0].clientY-tY;
-    if(locked===null&&(Math.abs(dx)>10||Math.abs(dy)>10)){
-      locked=Math.abs(dx)>Math.abs(dy)*1.4?"h":"v";
+    // Déterminer l'axe dominant dès 8px
+    if(locked===null&&(Math.abs(dx)>8||Math.abs(dy)>8)){
+      locked=Math.abs(dx)>Math.abs(dy)?"h":"v";
     }
-    // Bloquer le scroll page uniquement si swipe horizontal confirmé
-    // et seulement en vue mois (semaine/jour ont leur propre scrollbox)
-    if(locked==="h"&&view==="month"){
-      e.preventDefault();
+    if(locked==="h"){
+      if(view==="month")e.preventDefault();
+      // Surbrillance live pendant le glissement
+      const side=dx<0?"right":"left";
+      if(side!==liveSide){liveSide=side;showEdge(side);}
     }
   },{passive:false});
 
   panel.addEventListener("touchend",e=>{
-    if(tX===null||locked!=="h"){tX=null;locked=null;return;}
+    if(tX===null){return;}
     const dx=e.changedTouches[0].clientX-tX;
-    tX=null;locked=null;
-    if(Math.abs(dx)<SWIPE_MIN)return;
-    if(dx<0){flashEdge("right");navNext();}
-    else{flashEdge("left");navPrev();}
+    tX=null;
+    if(locked!=="h"||Math.abs(dx)<SWIPE_MIN){hideEdges();locked=null;liveSide=null;return;}
+    const side=dx<0?"right":"left";
+    showEdge(side); // assure la surbrillance au moment du relâché
+    locked=null;liveSide=null;
+    if(dx<0)navNext();else navPrev();
+    setTimeout(hideEdges,FLASH_MS);
   },{passive:true});
 })();
 
