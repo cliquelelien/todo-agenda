@@ -415,27 +415,39 @@ document.addEventListener("dragend",()=>{
 });
 document.addEventListener("dragover",e=>{e.preventDefault();});
 
-/* pointermove fonctionne pendant un drag sur tous les navigateurs desktop */
+/* pointermove fonctionne pendant un drag sur tous les navigateurs desktop.
+   Zone de détection large (60px) pour faciliter le drag depuis l'onglet Tâches.
+   Surbrillance visuelle limitée à 28px sur le bord concerné uniquement. */
 document.addEventListener("pointermove",e=>{
   if(!_dragging)return;
-  /* Positionner les zones sur les bords du calendrier */
   const body=document.getElementById("ag-body");
   if(!body)return;
   const rect=body.getBoundingClientRect();
-  _ezL.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:28px;`;
-  _ezR.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-28}px;width:28px;`;
-  const onL=e.clientX>=rect.left&&e.clientX<rect.left+28&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
-  const onR=e.clientX>rect.right-28&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
-  if(onL){_ezL.classList.add("lit");_ezR.classList.remove("lit");}
-  else if(onR){_ezR.classList.add("lit");_ezL.classList.remove("lit");}
-  else{_ezL.classList.remove("lit");_ezR.classList.remove("lit");}
+  if(rect.height===0)return; // panel agenda pas encore visible
+  const HIT=60; // zone de détection large (invisible)
+  const onL=e.clientX>=rect.left&&e.clientX<rect.left+HIT&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
+  const onR=e.clientX>rect.right-HIT&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
+  // Surbrillance : positionner uniquement le bord actif sur 28px
+  if(onL){
+    _ezL.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:28px;`;
+    _ezL.classList.add("lit");
+    _ezR.classList.remove("lit");_ezR.style.cssText="";
+  }else if(onR){
+    _ezR.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-28}px;width:28px;`;
+    _ezR.classList.add("lit");
+    _ezL.classList.remove("lit");_ezL.style.cssText="";
+  }else{
+    _ezL.classList.remove("lit");_ezL.style.cssText="";
+    _ezR.classList.remove("lit");_ezR.style.cssText="";
+  }
   if(onL||onR){
     const side=onL?"left":"right";
     if(side!==edgeSide){
       clearTimeout(edgeTimer);edgeSide=side;
       edgeTimer=setTimeout(()=>{
         edgeSide=null;edgeTimer=null;
-        _ezL.classList.remove("lit");_ezR.classList.remove("lit");
+        _ezL.classList.remove("lit");_ezL.style.cssText="";
+        _ezR.classList.remove("lit");_ezR.style.cssText="";
         if(side==="left")navPrev();else navNext();
       },EDGE_MS);
     }
