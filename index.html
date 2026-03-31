@@ -79,20 +79,20 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .vb:not(.active):hover{color:var(--bl);}
 /* Zones de scroll latéral (overlay sur les bords du calendrier) */
 .edge-zone{
-  position:fixed;top:0;bottom:0;width:72px;z-index:300;
-  pointer-events:none; /* activées uniquement pendant drag via JS */
-  opacity:0;transition:opacity .2s;
+  position:fixed;top:0;bottom:0;width:28px;z-index:300;
+  pointer-events:none;
+  opacity:0;transition:opacity .15s;
   display:flex;align-items:center;justify-content:center;
 }
-.edge-zone.left{background:linear-gradient(to right,rgba(245,166,35,.45),transparent);}
-.edge-zone.right{background:linear-gradient(to left,rgba(245,166,35,.45),transparent);}
+.edge-zone.left{background:linear-gradient(to right,rgba(245,166,35,.75),transparent);}
+.edge-zone.right{background:linear-gradient(to left,rgba(245,166,35,.75),transparent);}
 .edge-zone.lit{opacity:1;}
 .edge-arrow{
-  width:36px;height:36px;border-radius:50%;
+  width:22px;height:22px;border-radius:50%;
   background:var(--or);color:#fff;
   display:flex;align-items:center;justify-content:center;
-  font-size:20px;font-weight:900;
-  box-shadow:0 3px 12px rgba(245,166,35,.55);
+  font-size:13px;font-weight:900;
+  box-shadow:0 2px 8px rgba(245,166,35,.55);
 }
 /* Month */
 .mg-wrap{position:relative;}
@@ -422,10 +422,10 @@ document.addEventListener("pointermove",e=>{
   const body=document.getElementById("ag-body");
   if(!body)return;
   const rect=body.getBoundingClientRect();
-  _ezL.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:72px;`;
-  _ezR.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-72}px;width:72px;`;
-  const onL=e.clientX>=rect.left&&e.clientX<rect.left+72&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
-  const onR=e.clientX>rect.right-72&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
+  _ezL.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:28px;`;
+  _ezR.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-28}px;width:28px;`;
+  const onL=e.clientX>=rect.left&&e.clientX<rect.left+28&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
+  const onR=e.clientX>rect.right-28&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
   _ezL.classList.toggle("lit",onL);
   _ezR.classList.toggle("lit",onR);
   if(onL||onR){
@@ -711,8 +711,8 @@ function setupTouch(item,tid2){
       /* Edge nav via touch */
       const agBody=document.getElementById("ag-body");
       const agRect=agBody?agBody.getBoundingClientRect():{left:0,right:window.innerWidth,top:0,bottom:window.innerHeight};
-      const onL=cx>=agRect.left&&cx<agRect.left+72&&cy>=agRect.top&&cy<=agRect.bottom;
-      const onR=cx>agRect.right-72&&cx<=agRect.right&&cy>=agRect.top&&cy<=agRect.bottom;
+      const onL=cx>=agRect.left&&cx<agRect.left+28&&cy>=agRect.top&&cy<=agRect.bottom;
+      const onR=cx>agRect.right-28&&cx<=agRect.right&&cy>=agRect.top&&cy<=agRect.bottom;
       _ezL.classList.toggle("lit",onL);_ezR.classList.toggle("lit",onR);
       const side=onL?"left":onR?"right":null;
       if(side&&side!==tEdgeSide){
@@ -867,9 +867,9 @@ document.addEventListener("dragend",()=>{clearTimeout(viewHoverTimer);viewHoverT
     if(!body)return;
     const rect=body.getBoundingClientRect();
     if(side==="left"){
-      ez.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:72px;`;
+      ez.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:28px;`;
     }else{
-      ez.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-72}px;width:72px;`;
+      ez.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-28}px;width:28px;`;
     }
     ez.classList.add("lit");
     setTimeout(()=>{ez.classList.remove("lit");ez.style.cssText="";},FLASH_MS);
