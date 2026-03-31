@@ -443,11 +443,13 @@ function hideCalEdges(){
 function showScrollEdge(side,sbRect){
   const W=sbRect.right-sbRect.left;
   if(side==="top"){
-    _ezT.style.cssText="position:fixed;left:"+sbRect.left+"px;width:"+W+"px;top:"+sbRect.top+"px;height:28px;z-index:300;";
+    /* Aligné sur le haut du scrollbox = bordure basse des dates */
+    _ezT.style.cssText="position:fixed;left:"+sbRect.left+"px;width:"+W+"px;top:"+sbRect.top+"px;height:40px;z-index:300;";
     _ezT.classList.add("lit");
     _ezB.classList.remove("lit");_ezB.style.cssText="";
   }else{
-    _ezB.style.cssText="position:fixed;left:"+sbRect.left+"px;width:"+W+"px;top:"+(sbRect.bottom-28)+"px;height:28px;z-index:300;";
+    /* Aligné sur le bas du scrollbox = bas de la zone horaire visible */
+    _ezB.style.cssText="position:fixed;left:"+sbRect.left+"px;width:"+W+"px;top:"+(sbRect.bottom-40)+"px;height:40px;z-index:300;";
     _ezB.classList.add("lit");
     _ezT.classList.remove("lit");_ezT.style.cssText="";
   }
@@ -504,7 +506,7 @@ document.addEventListener("pointermove",e=>{
   const sb=getActiveScrollBox();
   if(sb){
     const sr=sb.rect;
-    const HIT_V=64;
+    const HIT_V=100;
     const inX=e.clientX>=sr.left&&e.clientX<=sr.right;
     const onTop=inX&&e.clientY>=sr.top&&e.clientY<sr.top+HIT_V;
     const onBot=inX&&e.clientY>sr.bottom-HIT_V&&e.clientY<=sr.bottom;
@@ -814,7 +816,7 @@ function setupTouch(item,tid2){
         const tsb=getActiveScrollBox();
         if(tsb){
           const sr=tsb.rect;
-          const HIT_V=64;
+          const HIT_V=100;
           const inX=cx>=sr.left&&cx<=sr.right;
           const onTop=inX&&cy>=sr.top&&cy<sr.top+HIT_V;
           const onBot=inX&&cy>sr.bottom-HIT_V&&cy<=sr.bottom;
