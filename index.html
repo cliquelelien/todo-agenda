@@ -99,9 +99,9 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .dot{height:13px;flex-shrink:0;border-radius:4px;font-size:9px;font-weight:700;color:#fff;padding:0 5px;display:flex;align-items:center;overflow:hidden;white-space:nowrap;}
 .dot-td{background:var(--bl);}.dot-dn{background:#6ec96e;}.dot-gc{background:var(--gr);}.dot-mo{background:var(--tx3);}
 /* Week */
-.ww{position:relative;}
-.wg{min-width:460px;}
-.whr{display:grid;grid-template-columns:40px repeat(7,1fr);gap:2px;margin-bottom:2px;}
+.ww{position:relative;overflow:hidden;}
+.wg{width:100%;}
+.whr{display:grid;grid-template-columns:40px repeat(7,minmax(0,1fr));gap:2px;margin-bottom:2px;}
 .whd{background:#fff;border:1.5px solid var(--blb);border-radius:9px 9px 0 0;padding:6px 3px;text-align:center;cursor:pointer;transition:background .15s;}
 .whd:hover{background:var(--blbg);}
 .whd.tdy{background:var(--bll);border-color:var(--bl);}
@@ -109,7 +109,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .wdn{font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;}
 .wnum{font-size:17px;font-weight:800;color:var(--tx2);}
 .whd.tdy .wnum{color:var(--bl);}.whd.sel .wnum{color:var(--or);}
-.war{display:grid;grid-template-columns:40px repeat(7,1fr);gap:2px;margin-bottom:2px;}
+.war{display:grid;grid-template-columns:40px repeat(7,minmax(0,1fr));gap:2px;margin-bottom:2px;}
 .wal{font-size:9px;font-weight:800;color:var(--tx3);display:flex;align-items:center;justify-content:flex-end;padding-right:4px;}
 .wac{background:#fff;border:1px solid var(--blb);min-height:20px;padding:2px 3px;overflow:hidden;}
 .wac.drag-ov{background:var(--orbg)!important;border-color:var(--or)!important;box-shadow:inset 0 0 0 2px rgba(245,166,35,.25);}
@@ -118,7 +118,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .w-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--blb) transparent;}
 .w-scroll::-webkit-scrollbar{width:5px;}
 .w-scroll::-webkit-scrollbar-thumb{background:var(--blb);border-radius:3px;}
-.wtr{display:grid;grid-template-columns:40px repeat(7,1fr);gap:2px;}
+.wtr{display:grid;grid-template-columns:40px repeat(7,minmax(0,1fr));gap:2px;}
 .wtl{font-size:10px;font-weight:700;color:var(--tx3);text-align:right;padding-right:5px;height:48px;display:flex;align-items:flex-start;padding-top:3px;flex-shrink:0;}
 .wsl{height:48px;background:#fff;border:1px solid var(--blb);border-top:none;position:relative;overflow:hidden;}
 .wsl.drag-ov{background:var(--orbg)!important;border-color:var(--or)!important;box-shadow:inset 0 0 0 2px rgba(245,166,35,.25);}
@@ -381,8 +381,12 @@ const MO=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Se
 const DN=["Lu","Ma","Me","Je","Ve","Sa","Di"];
 
 /* ══ EDGE SCROLL ENGINE ══
-   Attaches orange edge zones to a container.
-   During drag, hovering 64px from either edge triggers nav after EDGE_MS. */
+   Each view registers its edge zones. The document-level dragover handler
+   (registered once) checks all active zones every time the pointer moves.
+   This avoids the issue where child dragover/dragleave events prevent the
+   container from reliably receiving these events. */
+let activeEdgeZones=null; // {container, left, right}
+
 function makeEdgeZones(container){
   const left=mk("div","edge-zone left");
   const la=mk("div","edge-arrow");la.textContent="‹";left.appendChild(la);
@@ -390,35 +394,49 @@ function makeEdgeZones(container){
   const right=mk("div","edge-zone right");
   const ra=mk("div","edge-arrow");ra.textContent="›";right.appendChild(ra);
   container.appendChild(right);
+  activeEdgeZones={container,left,right};
+}
 
-  function check(clientX){
-    const rect=container.getBoundingClientRect();
-    const onL=clientX<rect.left+64, onR=clientX>rect.right-64;
-    left.classList.toggle("lit",onL);
-    right.classList.toggle("lit",onR);
-    if(onL||onR){
-      const side=onL?"left":"right";
-      if(side!==edgeSide){
-        clearTimeout(edgeTimer);edgeSide=side;
-        edgeTimer=setTimeout(()=>{
-          edgeSide=null;edgeTimer=null;
-          left.classList.remove("lit");right.classList.remove("lit");
-          if(side==="left")navPrev();else navNext();
-        },EDGE_MS);
-      }
-    }else{
-      if(edgeSide){clearTimeout(edgeTimer);edgeSide=null;}
-    }
+/* Single document-level handler — runs during any drag */
+let _edgeDragActive=false;
+document.addEventListener("dragstart",()=>{_edgeDragActive=true;});
+document.addEventListener("dragend",()=>{
+  _edgeDragActive=false;
+  clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
+  if(activeEdgeZones){
+    activeEdgeZones.left.classList.remove("lit");
+    activeEdgeZones.right.classList.remove("lit");
   }
-  function clear(){
-    clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
+});
+/* Use dragover on document to track position — fires reliably regardless of child elements */
+document.addEventListener("dragover",e=>{
+  e.preventDefault(); /* required to allow drop */
+  if(!_edgeDragActive||!activeEdgeZones)return;
+  const{container,left,right}=activeEdgeZones;
+  const rect=container.getBoundingClientRect();
+  /* Only act if pointer is within the container vertically */
+  if(e.clientY<rect.top||e.clientY>rect.bottom){
+    left.classList.remove("lit");right.classList.remove("lit");
+    clearTimeout(edgeTimer);edgeSide=null;return;
+  }
+  const onL=e.clientX<rect.left+64, onR=e.clientX>rect.right-64;
+  left.classList.toggle("lit",onL);
+  right.classList.toggle("lit",onR);
+  if(onL||onR){
+    const side=onL?"left":"right";
+    if(side!==edgeSide){
+      clearTimeout(edgeTimer);edgeSide=side;
+      edgeTimer=setTimeout(()=>{
+        edgeSide=null;edgeTimer=null;
+        left.classList.remove("lit");right.classList.remove("lit");
+        if(side==="left")navPrev();else navNext();
+      },EDGE_MS);
+    }
+  }else{
+    if(edgeSide){clearTimeout(edgeTimer);edgeSide=null;}
     left.classList.remove("lit");right.classList.remove("lit");
   }
-  container.addEventListener("dragover",e=>{check(e.clientX);});
-  container.addEventListener("dragleave",clear);
-  container.addEventListener("drop",clear);
-  return check;
-}
+});
 
 /* ══ MONTH VIEW ══ */
 function renderMonth(){
@@ -651,7 +669,6 @@ function bindDrop(el,date,withHour,hour){
     else openModal(tid,date,"09:00","10:00");
   });
 }
-document.addEventListener("dragover",e=>e.preventDefault());
 document.addEventListener("drop",e=>{
   const tid=e.dataTransfer.getData("tid");if(!tid)return;
   const tgt=e.target.closest("[data-date]");if(!tgt)return;
