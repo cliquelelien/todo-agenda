@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{font-family:sans-serif;padding:20px;}
+#drag-item{background:#2a7de1;color:#fff;padding:10px 20px;border-radius:8px;cursor:grab;display:inline-block;margin-bottom:30px;}
+#drag-item.dragging{opacity:.5;}
+#nav-prev,#nav-next{width:50px;height:50px;font-size:24px;border:2px solid #ccc;border-radius:8px;background:#fff;cursor:pointer;margin:5px;}
+body.dragging-task #nav-prev,body.dragging-task #nav-next{background:#fff8e6;border-color:#f5a623;color:#c07000;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 2px rgba(245,166,35,.3);}50%{box-shadow:0 0 0 8px rgba(245,166,35,.4);}}
+body.dragging-task #nav-prev.over,body.dragging-task #nav-next.over{background:#f5a623;color:#fff;border-color:#f5a623;transform:scale(1.2);}
+#log{margin-top:20px;background:#f0f0f0;padding:10px;border-radius:8px;font-size:13px;height:200px;overflow-y:auto;}
+</style>
+</head>
+<body>
+<div id="drag-item" draggable="true">Tâche — glisser moi</div>
+<div>
+  <button id="nav-prev">‹</button>
+  <span style="margin:0 10px;font-weight:bold" id="period">Mois actuel</span>
+  <button id="nav-next">›</button>
+</div>
+<div id="log"></div>
+<script>
+let n=0;
+function log(msg){const d=document.getElementById("log");d.innerHTML=msg+"<br>"+d.innerHTML;}
+
+const item=document.getElementById("drag-item");
+item.addEventListener("dragstart",e=>{
+  e.dataTransfer.setData("text","task");
+  item.classList.add("dragging");
+  document.body.classList.add("dragging-task");
+  log("dragstart — body.dragging-task="+document.body.classList.contains("dragging-task"));
+});
+item.addEventListener("dragend",()=>{
+  item.classList.remove("dragging");
+  document.body.classList.remove("dragging-task");
+  document.getElementById("nav-prev").classList.remove("over");
+  document.getElementById("nav-next").classList.remove("over");
+  log("dragend");
+});
+
+document.addEventListener("dragover",e=>e.preventDefault());
+
+["nav-prev","nav-next"].forEach(id=>{
+  const btn=document.getElementById(id);
+  btn.addEventListener("dragenter",e=>{
+    e.preventDefault();
+    log("dragenter on "+id+", dragging="+document.body.classList.contains("dragging-task"));
+    btn.classList.add("over");
+  });
+  btn.addEventListener("dragover",e=>{e.preventDefault();});
+  btn.addEventListener("dragleave",()=>{btn.classList.remove("over");log("dragleave "+id);});
+  btn.addEventListener("drop",e=>{
+    e.preventDefault();
+    btn.classList.remove("over");
+    n+= id==="nav-prev"?-1:1;
+    document.getElementById("period").textContent="Période "+(n>=0?"+":"")+n;
+    log("DROP sur "+id+" → période "+n);
+  });
+});
+</script>
+</body>
+</html>
