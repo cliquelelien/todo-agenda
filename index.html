@@ -86,6 +86,8 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 }
 .edge-zone.left{background:linear-gradient(to right,rgba(245,166,35,.75),transparent);}
 .edge-zone.right{background:linear-gradient(to left,rgba(245,166,35,.75),transparent);}
+.edge-zone.top{background:linear-gradient(to bottom,rgba(245,166,35,.75),transparent);}
+.edge-zone.bottom{background:linear-gradient(to top,rgba(245,166,35,.75),transparent);}
 .edge-zone.lit{opacity:1;}
 .edge-arrow{
   width:22px;height:22px;border-radius:50%;
@@ -399,6 +401,12 @@ document.body.appendChild(_ezL);
 const _ezR=document.createElement("div");_ezR.className="edge-zone right";
 _ezR.innerHTML='<div class="edge-arrow">&#8250;</div>';
 document.body.appendChild(_ezR);
+const _ezT=document.createElement("div");_ezT.className="edge-zone top";
+_ezT.innerHTML='<div class="edge-arrow">&#8963;</div>';
+document.body.appendChild(_ezT);
+const _ezB=document.createElement("div");_ezB.className="edge-zone bottom";
+_ezB.innerHTML='<div class="edge-arrow">&#8964;</div>';
+document.body.appendChild(_ezB);
 
 /* ══ UTILITAIRE BORDS ORANGE ══ */
 function calEdgeRect(){
@@ -428,13 +436,42 @@ function showCalEdge(side){
 function hideCalEdges(){
   _ezL.classList.remove("lit");_ezL.style.cssText="";
   _ezR.classList.remove("lit");_ezR.style.cssText="";
+  _ezT.classList.remove("lit");_ezT.style.cssText="";
+  _ezB.classList.remove("lit");_ezB.style.cssText="";
+}
+/* Affiche/cache les zones haut/bas sur la scrollbox visible */
+function showScrollEdge(side,sbRect){
+  const W=sbRect.right-sbRect.left;
+  if(side==="top"){
+    _ezT.style.cssText="position:fixed;left:"+sbRect.left+"px;width:"+W+"px;top:"+sbRect.top+"px;height:28px;z-index:300;";
+    _ezT.classList.add("lit");
+    _ezB.classList.remove("lit");_ezB.style.cssText="";
+  }else{
+    _ezB.style.cssText="position:fixed;left:"+sbRect.left+"px;width:"+W+"px;top:"+(sbRect.bottom-28)+"px;height:28px;z-index:300;";
+    _ezB.classList.add("lit");
+    _ezT.classList.remove("lit");_ezT.style.cssText="";
+  }
+}
+function hideScrollEdges(){
+  _ezT.classList.remove("lit");_ezT.style.cssText="";
+  _ezB.classList.remove("lit");_ezB.style.cssText="";
+}
+/* Retourne la scrollbox active (semaine ou jour) et son rect */
+function getActiveScrollBox(){
+  const sb=document.querySelector(".w-scroll")||document.querySelector(".day-scroll");
+  if(!sb)return null;
+  const r=sb.getBoundingClientRect();
+  if(r.height===0)return null;
+  return{el:sb,rect:r};
 }
 
 let _dragging=false;
 document.addEventListener("dragstart",()=>{_dragging=true;});
+let _vScrollTimer=null,_vScrollSide=null;
 document.addEventListener("dragend",()=>{
   _dragging=false;
   clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
+  clearTimeout(_vScrollTimer);_vScrollSide=null;
   hideCalEdges();
 });
 document.addEventListener("dragover",e=>{e.preventDefault();});
@@ -458,10 +495,34 @@ document.addEventListener("pointermove",e=>{
         edgeSide=null;edgeTimer=null;
         if(side==="left")navPrev();else navNext();
         setTimeout(hideCalEdges,400);
-      },1000); /* 1 seconde avant défilement */
+      },1000);
     }
   }else{
     if(edgeSide){clearTimeout(edgeTimer);edgeSide=null;}
+  }
+  /* Défilement vertical (vues semaine/jour) */
+  const sb=getActiveScrollBox();
+  if(sb){
+    const sr=sb.rect;
+    const HIT_V=64;
+    const inX=e.clientX>=sr.left&&e.clientX<=sr.right;
+    const onTop=inX&&e.clientY>=sr.top&&e.clientY<sr.top+HIT_V;
+    const onBot=inX&&e.clientY>sr.bottom-HIT_V&&e.clientY<=sr.bottom;
+    if(onTop){showScrollEdge("top",sr);}
+    else if(onBot){showScrollEdge("bottom",sr);}
+    else{hideScrollEdges();}
+    const vside=onTop?"top":onBot?"bottom":null;
+    if(vside&&vside!==_vScrollSide){
+      clearTimeout(_vScrollTimer);_vScrollSide=vside;
+      _vScrollTimer=setTimeout(()=>{
+        _vScrollSide=null;
+        const step=vside==="top"?-120:120;
+        sb.el.scrollBy({top:step,behavior:"smooth"});
+        setTimeout(hideScrollEdges,400);
+      },1000);
+    }else if(!vside){clearTimeout(_vScrollTimer);_vScrollSide=null;}
+  }else{
+    hideScrollEdges();
   }
 });
 
@@ -747,13 +808,36 @@ function setupTouch(item,tid2){
             tEdgeSide=null;
             if(side==="left")navPrev();else navNext();
             setTimeout(hideCalEdges,400);
-          },1000); /* 1 seconde avant défilement */
+          },1000);
         }else if(!side){clearTimeout(tEdgeTimer);tEdgeSide=null;}
+        /* Défilement vertical touch (semaine/jour) */
+        const tsb=getActiveScrollBox();
+        if(tsb){
+          const sr=tsb.rect;
+          const HIT_V=64;
+          const inX=cx>=sr.left&&cx<=sr.right;
+          const onTop=inX&&cy>=sr.top&&cy<sr.top+HIT_V;
+          const onBot=inX&&cy>sr.bottom-HIT_V&&cy<=sr.bottom;
+          if(onTop){showScrollEdge("top",sr);}
+          else if(onBot){showScrollEdge("bottom",sr);}
+          else{hideScrollEdges();}
+          const vside=onTop?"top":onBot?"bottom":null;
+          if(vside&&vside!==_vScrollSide){
+            clearTimeout(_vScrollTimer);_vScrollSide=vside;
+            _vScrollTimer=setTimeout(()=>{
+              _vScrollSide=null;
+              const step=vside==="top"?-120:120;
+              tsb.el.scrollBy({top:step,behavior:"smooth"});
+              setTimeout(hideScrollEdges,400);
+            },1000);
+          }else if(!vside){clearTimeout(_vScrollTimer);_vScrollSide=null;}
+        }else{hideScrollEdges();}
       }
     }
   },{passive:false});
   item.addEventListener("touchend",e=>{
     clearTimeout(tEdgeTimer);tEdgeSide=null;
+    clearTimeout(_vScrollTimer);_vScrollSide=null;
     hideCalEdges();
     if(touchDragId){
       const under=document.elementFromPoint(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
