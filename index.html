@@ -77,26 +77,23 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .vb{padding:6px 13px;border:none;background:transparent;border-radius:8px;font-family:inherit;font-weight:800;font-size:12px;color:var(--tx2);cursor:pointer;transition:all .15s;}
 .vb.active{background:#fff;color:var(--bl);box-shadow:0 1px 6px rgba(26,86,160,.12);}
 .vb:not(.active):hover{color:var(--bl);}
-/* Boutons nav prev/next */
-.nav-btn{
-  width:34px;height:34px;border-radius:9px;border:1.5px solid var(--blb);
-  background:#fff;color:var(--bl);font-size:20px;font-weight:900;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .15s;flex-shrink:0;line-height:1;
+/* Zones de scroll latéral (overlay sur les bords du calendrier) */
+.edge-zone{
+  position:fixed;top:0;bottom:0;width:72px;z-index:300;
+  pointer-events:none; /* activées uniquement pendant drag via JS */
+  opacity:0;transition:opacity .2s;
+  display:flex;align-items:center;justify-content:center;
 }
-.nav-btn:hover{background:var(--bll);border-color:var(--bl);}
-body.dragging-task .nav-btn{
-  background:var(--orbg);border-color:var(--or);color:#c07000;
-  animation:navpulse 1.1s ease-in-out infinite;
+.edge-zone.left{background:linear-gradient(to right,rgba(245,166,35,.45),transparent);}
+.edge-zone.right{background:linear-gradient(to left,rgba(245,166,35,.45),transparent);}
+.edge-zone.lit{opacity:1;}
+.edge-arrow{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--or);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:900;
+  box-shadow:0 3px 12px rgba(245,166,35,.55);
 }
-@keyframes navpulse{0%,100%{box-shadow:0 0 0 2px rgba(245,166,35,.25);}50%{box-shadow:0 0 0 6px rgba(245,166,35,.40);}}
-body.dragging-task .nav-btn.drag-ov,
-body.dragging-task .nav-btn:hover{
-  background:var(--or)!important;color:#fff!important;border-color:var(--or)!important;
-  transform:scale(1.15);box-shadow:0 4px 16px rgba(245,166,35,.55)!important;
-}
-/* Edge zones (legacy, cachées) */
-.edge-zone,.edge-arrow{display:none;}
 /* Month */
 .mg-wrap{position:relative;}
 .mg{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
@@ -268,9 +265,6 @@ body.dragging-task .nav-btn:hover{
       <div class="agp" id="agp"></div>
       <select id="h-start" style="display:none"></select>
       <select id="h-end" style="display:none"></select>
-      <!-- Boutons nav toujours présents, s'allument en orange pendant un drag -->
-      <button class="nav-btn" id="nav-prev" onclick="navPrev()">&#8249;</button>
-      <button class="nav-btn" id="nav-next" onclick="navNext()">&#8250;</button>
       <div class="vsw">
         <button class="vb active" id="vb-month" data-view="month" onclick="setView('month')">Mois</button>
         <button class="vb" id="vb-week" data-view="week" onclick="setView('week')">Semaine</button>
@@ -397,59 +391,61 @@ function renderAg(){if(view==="month")renderMonth();else if(view==="week")render
 const MO=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const DN=["Lu","Ma","Me","Je","Ve","Sa","Di"];
 
-/* ══ NAV PAR DRAG ══ */
-function makeEdgeZones(){} /* no-op */
+/* ══ NAVIGATION PAR DRAG ══
+   Utilise pointermove sur document (fonctionne pendant un drag HTML5,
+   contrairement à dragover qui est capricieux selon les navigateurs).
+   Deux zones overlay fixes sur les bords s'allument en orange quand
+   le curseur s'approche pendant un drag. */
 
-let _edgeDragActive=false;
-document.addEventListener("dragstart",()=>{_edgeDragActive=true;document.body.classList.add("dragging-task");});
+const _ezL=document.createElement("div");_ezL.className="edge-zone left";
+_ezL.innerHTML='<div class="edge-arrow">&#8249;</div>';
+document.body.appendChild(_ezL);
+const _ezR=document.createElement("div");_ezR.className="edge-zone right";
+_ezR.innerHTML='<div class="edge-arrow">&#8250;</div>';
+document.body.appendChild(_ezR);
+
+let _dragging=false;
+document.addEventListener("dragstart",()=>{_dragging=true;});
 document.addEventListener("dragend",()=>{
-  _edgeDragActive=false;
-  document.body.classList.remove("dragging-task");
+  _dragging=false;
   clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
-  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("drag-ov"));
+  _ezL.classList.remove("lit");_ezR.classList.remove("lit");
+  _ezL.style.left="";_ezL.style.width="";
+  _ezR.style.right="";_ezR.style.width="";
 });
 document.addEventListener("dragover",e=>{e.preventDefault();});
 
-/* Fonction edge appelée par dragover sur le wrapper de chaque vue */
-function edgeDragOver(e){
-  if(!_edgeDragActive)return;
-  const rect=document.getElementById("ag-body").getBoundingClientRect();
-  const onL=e.clientX<rect.left+60, onR=e.clientX>rect.right-60;
-  const btnP=document.getElementById("nav-prev"),btnN=document.getElementById("nav-next");
-  if(btnP)btnP.classList.toggle("drag-ov",onL);
-  if(btnN)btnN.classList.toggle("drag-ov",onR);
+/* pointermove fonctionne pendant un drag sur tous les navigateurs desktop */
+document.addEventListener("pointermove",e=>{
+  if(!_dragging)return;
+  /* Positionner les zones sur les bords du calendrier */
+  const body=document.getElementById("ag-body");
+  if(!body)return;
+  const rect=body.getBoundingClientRect();
+  _ezL.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:72px;`;
+  _ezR.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-72}px;width:72px;`;
+  const onL=e.clientX>=rect.left&&e.clientX<rect.left+72&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
+  const onR=e.clientX>rect.right-72&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
+  _ezL.classList.toggle("lit",onL);
+  _ezR.classList.toggle("lit",onR);
   if(onL||onR){
     const side=onL?"left":"right";
     if(side!==edgeSide){
       clearTimeout(edgeTimer);edgeSide=side;
       edgeTimer=setTimeout(()=>{
         edgeSide=null;edgeTimer=null;
-        if(btnP)btnP.classList.remove("drag-ov");
-        if(btnN)btnN.classList.remove("drag-ov");
+        _ezL.classList.remove("lit");_ezR.classList.remove("lit");
         if(side==="left")navPrev();else navNext();
       },EDGE_MS);
     }
   }else{
     if(edgeSide){clearTimeout(edgeTimer);edgeSide=null;}
-    if(btnP)btnP.classList.remove("drag-ov");
-    if(btnN)btnN.classList.remove("drag-ov");
   }
-}
-function edgeDragEnd(){
-  clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
-  document.getElementById("nav-prev")?.classList.remove("drag-ov");
-  document.getElementById("nav-next")?.classList.remove("drag-ov");
-}
-
-/* Les boutons nav dans la toolbar déclenchent aussi nav au drop direct */
-["nav-prev","nav-next"].forEach(id=>{
-  const btn=document.getElementById(id);
-  const side=id==="nav-prev"?"left":"right";
-  btn.addEventListener("dragenter",e=>{e.preventDefault();if(_edgeDragActive)btn.classList.add("drag-ov");});
-  btn.addEventListener("dragover",e=>{e.preventDefault();});
-  btn.addEventListener("dragleave",()=>btn.classList.remove("drag-ov"));
-  btn.addEventListener("drop",e=>{e.preventDefault();btn.classList.remove("drag-ov");clearTimeout(edgeTimer);edgeSide=null;if(side==="left")navPrev();else navNext();});
 });
+
+function makeEdgeZones(){} /* no-op — gardé pour compatibilité */
+function edgeDragOver(){}
+function edgeDragEnd(){}
 
 /* ══ MONTH VIEW ══ */
 function renderMonth(){
@@ -712,32 +708,25 @@ function setupTouch(item,tid2){
       const under=document.elementFromPoint(cx,cy);
       const tgt=under?.closest("[data-date]");
       if(tgt)tgt.classList.add("drag-ov");
-      /* Edge nav via touch — même logique que les boutons nav */
-      const agRect=document.getElementById("ag-body").getBoundingClientRect();
-      const side=cx<agRect.left+72?"left":cx>agRect.right-72?"right":null;
-      const btnPrev=document.getElementById("nav-prev");
-      const btnNext=document.getElementById("nav-next");
-      if(btnPrev)btnPrev.classList.toggle("drag-ov",side==="left");
-      if(btnNext)btnNext.classList.toggle("drag-ov",side==="right");
+      /* Edge nav via touch */
+      const agBody=document.getElementById("ag-body");
+      const agRect=agBody?agBody.getBoundingClientRect():{left:0,right:window.innerWidth,top:0,bottom:window.innerHeight};
+      const onL=cx>=agRect.left&&cx<agRect.left+72&&cy>=agRect.top&&cy<=agRect.bottom;
+      const onR=cx>agRect.right-72&&cx<=agRect.right&&cy>=agRect.top&&cy<=agRect.bottom;
+      _ezL.classList.toggle("lit",onL);_ezR.classList.toggle("lit",onR);
+      const side=onL?"left":onR?"right":null;
       if(side&&side!==tEdgeSide){
         clearTimeout(tEdgeTimer);tEdgeSide=side;
         tEdgeTimer=setTimeout(()=>{
-          tEdgeSide=null;
-          if(btnPrev)btnPrev.classList.remove("drag-ov");
-          if(btnNext)btnNext.classList.remove("drag-ov");
+          tEdgeSide=null;_ezL.classList.remove("lit");_ezR.classList.remove("lit");
           if(side==="left")navPrev();else navNext();
         },EDGE_MS);
-      }else if(!side){
-        clearTimeout(tEdgeTimer);tEdgeSide=null;
-        if(btnPrev)btnPrev.classList.remove("drag-ov");
-        if(btnNext)btnNext.classList.remove("drag-ov");
-      }
+      }else if(!side){clearTimeout(tEdgeTimer);tEdgeSide=null;}
     }
   },{passive:false});
   item.addEventListener("touchend",e=>{
     clearTimeout(tEdgeTimer);tEdgeSide=null;
-    document.getElementById("nav-prev")?.classList.remove("drag-ov");
-    document.getElementById("nav-next")?.classList.remove("drag-ov");
+    _ezL.classList.remove("lit");_ezR.classList.remove("lit");
     if(touchDragId){
       const under=document.elementFromPoint(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
       const tgt=under?.closest("[data-date]");
@@ -808,23 +797,17 @@ function buildTask(t){
   if(!gcalEv){const desc=mk("textarea","td-desc");desc.placeholder="Ajouter un descriptif…";desc.value=t.desc||"";desc.style.display="none";desc.oninput=()=>{t.desc=desc.value;lsSave();};item.appendChild(desc);}
   if(!gcalEv){
     item.draggable=true;
-    /* Basculer vers l'agenda AU mousedown, avant que dragstart se déclenche,
-       pour que le DOM du calendrier (et ses edge zones) existe déjà */
-    item.addEventListener("mousedown",()=>{
-      if(curTab!=="agenda")goTab("agenda");
-    });
     item.addEventListener("dragstart",e=>{
       e.dataTransfer.setData("tid",t.id);
       e.dataTransfer.effectAllowed="move";
       item.classList.add("dragging");
-      document.body.classList.add("dragging-task");
+      _dragging=true;
       clearTimeout(edgeTimer);edgeSide=null;
+      /* Basculer vers l'agenda immédiatement (pas de setTimeout) */
+      if(curTab!=="agenda")goTab("agenda");
     });
     item.addEventListener("dragend",()=>{
       item.classList.remove("dragging");
-      document.body.classList.remove("dragging-task");
-      clearTimeout(edgeTimer);edgeSide=null;
-      document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("drag-ov"));
     });
     setupTouch(item,t.id);
   }
