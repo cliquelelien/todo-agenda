@@ -83,7 +83,6 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   pointer-events:none;
   opacity:0;transition:opacity .15s;
   display:flex;align-items:center;justify-content:center;
-  overflow:hidden;
 }
 .edge-zone.left{background:linear-gradient(to right,rgba(245,166,35,.75),transparent);}
 .edge-zone.right{background:linear-gradient(to left,rgba(245,166,35,.75),transparent);}
@@ -423,17 +422,22 @@ document.addEventListener("pointermove",e=>{
   const body=document.getElementById("ag-body");
   if(!body)return;
   const rect=body.getBoundingClientRect();
-  if(rect.height===0)return; // panel agenda pas encore visible
-  const HIT=60; // zone de détection large (invisible)
-  const onL=e.clientX>=rect.left&&e.clientX<rect.left+HIT&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
-  const onR=e.clientX>rect.right-HIT&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
-  // Surbrillance : positionner uniquement le bord actif sur 28px
+  if(rect.height===0)return;
+  // Bords visibles (clampés à la fenêtre, car .ww peut déborder en semaine)
+  const visL=Math.max(rect.left,0);
+  const visR=Math.min(rect.right,window.innerWidth);
+  const visT=Math.max(rect.top,0);
+  const visB=Math.min(rect.bottom,window.innerHeight);
+  const HIT=64;
+  const inCal=e.clientY>=visT&&e.clientY<=visB;
+  const onL=inCal&&e.clientX>=visL&&e.clientX<visL+HIT;
+  const onR=inCal&&e.clientX>visR-HIT&&e.clientX<=visR;
   if(onL){
-    _ezL.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.left}px;width:28px;`;
+    _ezL.style.cssText=`position:fixed;top:${visT}px;height:${visB-visT}px;left:${visL}px;width:28px;`;
     _ezL.classList.add("lit");
     _ezR.classList.remove("lit");_ezR.style.cssText="";
   }else if(onR){
-    _ezR.style.cssText=`position:fixed;top:${rect.top}px;height:${rect.height}px;left:${rect.right-28}px;width:28px;`;
+    _ezR.style.cssText=`position:fixed;top:${visT}px;height:${visB-visT}px;left:${visR-28}px;width:28px;`;
     _ezR.classList.add("lit");
     _ezL.classList.remove("lit");_ezL.style.cssText="";
   }else{
