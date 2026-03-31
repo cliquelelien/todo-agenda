@@ -381,45 +381,40 @@ const MO=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Se
 const DN=["Lu","Ma","Me","Je","Ve","Sa","Di"];
 
 /* ══ EDGE SCROLL ENGINE ══
-   Each view registers its edge zones. The document-level dragover handler
-   (registered once) checks all active zones every time the pointer moves.
-   This avoids the issue where child dragover/dragleave events prevent the
-   container from reliably receiving these events. */
-let activeEdgeZones=null; // {container, left, right}
+   Les zones sont cherchées en live dans le DOM à chaque dragover,
+   évitant le problème de références périmées quand renderAg() recrée le DOM. */
 
 function makeEdgeZones(container){
   const left=mk("div","edge-zone left");
-  const la=mk("div","edge-arrow");la.textContent="‹";left.appendChild(la);
+  left.innerHTML='<div class="edge-arrow">&#8249;</div>';
   container.appendChild(left);
   const right=mk("div","edge-zone right");
-  const ra=mk("div","edge-arrow");ra.textContent="›";right.appendChild(ra);
+  right.innerHTML='<div class="edge-arrow">&#8250;</div>';
   container.appendChild(right);
-  activeEdgeZones={container,left,right};
 }
 
-/* Single document-level handler — runs during any drag */
 let _edgeDragActive=false;
 document.addEventListener("dragstart",()=>{_edgeDragActive=true;});
 document.addEventListener("dragend",()=>{
   _edgeDragActive=false;
   clearTimeout(edgeTimer);edgeSide=null;edgeTimer=null;
-  if(activeEdgeZones){
-    activeEdgeZones.left.classList.remove("lit");
-    activeEdgeZones.right.classList.remove("lit");
-  }
+  document.querySelectorAll(".edge-zone").forEach(z=>z.classList.remove("lit"));
 });
-/* Use dragover on document to track position — fires reliably regardless of child elements */
+
 document.addEventListener("dragover",e=>{
-  e.preventDefault(); /* required to allow drop */
-  if(!_edgeDragActive||!activeEdgeZones)return;
-  const{container,left,right}=activeEdgeZones;
+  e.preventDefault();
+  if(!_edgeDragActive)return;
+  /* Cherche les zones live dans le DOM actuel */
+  const left=document.querySelector(".edge-zone.left");
+  const right=document.querySelector(".edge-zone.right");
+  if(!left||!right)return;
+  const container=left.parentElement;
   const rect=container.getBoundingClientRect();
-  /* Only act if pointer is within the container vertically */
   if(e.clientY<rect.top||e.clientY>rect.bottom){
     left.classList.remove("lit");right.classList.remove("lit");
     clearTimeout(edgeTimer);edgeSide=null;return;
   }
-  const onL=e.clientX<rect.left+64, onR=e.clientX>rect.right-64;
+  const onL=e.clientX<rect.left+72, onR=e.clientX>rect.right-72;
   left.classList.toggle("lit",onL);
   right.classList.toggle("lit",onR);
   if(onL||onR){
@@ -692,17 +687,28 @@ function setupTouch(item,tid2){
       const under=document.elementFromPoint(cx,cy);
       const tgt=under?.closest("[data-date]");
       if(tgt)tgt.classList.add("drag-ov");
-      /* Edge nav via touch */
-      const rect=document.getElementById("ag-body").getBoundingClientRect();
-      const side=cx<rect.left+64?"left":cx>rect.right-64?"right":null;
+      /* Edge nav via touch - zones live dans le DOM */
+      const agRect=document.getElementById("ag-body").getBoundingClientRect();
+      const side=cx<agRect.left+72?"left":cx>agRect.right-72?"right":null;
+      /* Surbrillance live */
+      const ezL=document.querySelector(".edge-zone.left");
+      const ezR=document.querySelector(".edge-zone.right");
+      if(ezL)ezL.classList.toggle("lit",side==="left");
+      if(ezR)ezR.classList.toggle("lit",side==="right");
       if(side&&side!==tEdgeSide){
         clearTimeout(tEdgeTimer);tEdgeSide=side;
-        tEdgeTimer=setTimeout(()=>{tEdgeSide=null;if(side==="left")navPrev();else navNext();},EDGE_MS);
+        tEdgeTimer=setTimeout(()=>{
+          tEdgeSide=null;
+          if(ezL)ezL.classList.remove("lit");
+          if(ezR)ezR.classList.remove("lit");
+          if(side==="left")navPrev();else navNext();
+        },EDGE_MS);
       }else if(!side){clearTimeout(tEdgeTimer);tEdgeSide=null;}
     }
   },{passive:false});
   item.addEventListener("touchend",e=>{
     clearTimeout(tEdgeTimer);tEdgeSide=null;
+    document.querySelectorAll(".edge-zone").forEach(z=>z.classList.remove("lit"));
     if(touchDragId){
       const under=document.elementFromPoint(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
       const tgt=under?.closest("[data-date]");
