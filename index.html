@@ -112,7 +112,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .md.tdy .mn{color:var(--bl);}.md.sel .mn{color:var(--or);}
 .mds{display:flex;flex-direction:column;gap:2px;overflow:hidden;flex:1;margin-top:3px;}
 .dot{height:13px;flex-shrink:0;border-radius:4px;font-size:9px;font-weight:700;color:#fff;padding:0 5px;display:flex;align-items:center;overflow:hidden;white-space:nowrap;}
-.dot-td{background:var(--bl);}.dot-dn{background:#6ec96e;}.dot-gc{background:var(--gr);}.dot-mo{background:var(--tx3);}
+.dot-td{background:var(--bl);}.dot-dn{background:#6ec96e;}.dot-gc{background:var(--gr);}.dot-mo{background:var(--tx3);}.dot-arc{background:var(--tx3);text-decoration:line-through;}
 /* Week */
 .ww{position:relative;overflow:hidden;}
 .wg{width:100%;}
@@ -129,7 +129,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .wac{background:#fff;border:1px solid var(--blb);min-height:20px;padding:2px 3px;overflow:hidden;}
 .wac.drag-ov{background:var(--orbg)!important;border-color:var(--or)!important;box-shadow:inset 0 0 0 2px rgba(245,166,35,.25);}
 .wch{border-radius:4px;font-size:9px;font-weight:700;color:#fff;padding:1px 5px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;cursor:pointer;}
-.wch-td{background:var(--bl);}.wch-dn{background:#6ec96e;}.wch-gc{background:var(--gr);}
+.wch-td{background:var(--bl);}.wch-dn{background:#6ec96e;}.wch-gc{background:var(--gr);}.wch-arc{background:var(--tx3);text-decoration:line-through;}
 .w-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--blb) transparent;}
 .w-scroll::-webkit-scrollbar{width:5px;}
 .w-scroll::-webkit-scrollbar-thumb{background:var(--blb);border-radius:3px;}
@@ -138,7 +138,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .wsl{height:48px;background:#fff;border:1px solid var(--blb);border-top:none;position:relative;overflow:hidden;}
 .wsl.drag-ov{background:var(--orbg)!important;border-color:var(--or)!important;box-shadow:inset 0 0 0 2px rgba(245,166,35,.25);}
 .wev{position:absolute;left:2px;right:2px;top:3px;border-radius:5px;font-size:9px;font-weight:700;color:#fff;padding:2px 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.12);}
-.wev-td{background:var(--bl);}.wev-dn{background:#6ec96e;}.wev-gc{background:var(--gr);}
+.wev-td{background:var(--bl);}.wev-dn{background:#6ec96e;}.wev-gc{background:var(--gr);}.wev-arc{background:var(--tx3);text-decoration:line-through;}
 /* Day */
 .day-allday{background:var(--blbg);border:1.5px solid var(--blb);border-radius:11px;padding:10px 13px;margin-bottom:10px;}
 .day-allday-t{font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
@@ -153,7 +153,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .day-sl.first{border-top:1px solid var(--blb);}
 .day-sl.drag-ov{background:var(--orbg)!important;border-color:var(--or)!important;box-shadow:inset 0 0 0 2px rgba(245,166,35,.25);}
 .day-ev{position:absolute;left:4px;right:4px;top:3px;border-radius:7px;font-size:11px;font-weight:700;color:#fff;padding:3px 9px;overflow:hidden;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.13);}
-.day-ev-td{background:var(--bl);}.day-ev-dn{background:#6ec96e;}.day-ev-gc{background:var(--gr);}
+.day-ev-td{background:var(--bl);}.day-ev-dn{background:#6ec96e;}.day-ev-gc{background:var(--gr);}.day-ev-arc{background:var(--tx3);text-decoration:line-through;}
 .now-line{position:absolute;left:44px;right:0;height:2px;background:var(--rd);z-index:5;pointer-events:none;}
 .now-dot{position:absolute;left:-5px;top:-4px;width:10px;height:10px;background:var(--rd);border-radius:50%;}
 /* Detail */
@@ -217,6 +217,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <span style="font-size:20px">&#128203;</span>
   <h1>Planning</h1>
   <span id="gs">Non connect&#233;</span>
+  <button id="mic-btn" onclick="startVoice()" title="Dicter une t&#226;che" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 10px;color:#fff;font-size:16px;cursor:pointer;transition:background .15s;" aria-label="Microphone">&#127908;</button>
   <button id="bg" onclick="handleAuth()">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
     Connexion Google
@@ -390,8 +391,44 @@ function isArchived(id){return metaOf(id)?.archived||false;}
 /* ══ GOOGLE AUTH ══ */
 let gapiOk=false,gisOk=false,tc=null;
 function onGapiLoad(){gapi.load("client",async()=>{await gapi.client.init({});await gapi.client.load("https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest");gapiOk=true;tryRestore();});}
-function onGisLoad(){tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:async r=>{if(r.error){toast("❌ Connexion annulée");return;}token=r.access_token;gapi.client.setToken({access_token:token});localStorage.setItem("gt",token);await onConnected();}});gisOk=true;tryRestore();}
-function tryRestore(){if(!gapiOk||!gisOk)return;const t=localStorage.getItem("gt");if(t){token=t;gapi.client.setToken({access_token:t});onConnected();}}
+function onGisLoad(){
+  tc=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,scope:SCOPES,
+    callback:async r=>{
+      if(r.error){
+        // Erreur silencieuse au restore = pas de compte sélectionné → ignorer
+        if(!r._silent)toast("❌ Connexion annulée");
+        return;
+      }
+      token=r.access_token;
+      gapi.client.setToken({access_token:token});
+      localStorage.setItem("gt",token);
+      await onConnected();
+    }
+  });
+  gisOk=true;tryRestore();
+}
+function tryRestore(){
+  if(!gapiOk||!gisOk)return;
+  const saved=localStorage.getItem("gt");
+  if(saved){
+    // Essayer de restaurer silencieusement (prompt:"none" = pas de popup)
+    token=saved;gapi.client.setToken({access_token:saved});
+    // Tester le token en fetchant rapidement, si invalide → reconnecter silencieusement
+    gapi.client.request({path:"https://www.googleapis.com/oauth2/v1/tokeninfo",params:{access_token:saved}}).then(r=>{
+      if(r.result&&r.result.email){onConnected();}
+      else{
+        localStorage.removeItem("gt");token=null;
+        // Tentative silencieuse de re-connexion (consent:none = si déjà autorisé)
+        const req=Object.assign({},tc);
+        tc.requestAccessToken({prompt:"none",hint:r.result?.email||""});
+      }
+    }).catch(()=>{
+      localStorage.removeItem("gt");token=null;
+      try{tc.requestAccessToken({prompt:"none"});}catch(e){}
+    });
+  }
+}
 function handleAuth(){if(token){doLogout();return;}if(!tc){toast("Chargement…");return;}tc.requestAccessToken({prompt:""});}
 function doLogout(){google.accounts.oauth2.revoke(token,()=>{});token=null;gcal=[];localStorage.removeItem("gt");document.getElementById("gs").textContent="Non connecté";document.getElementById("gs").className="";document.getElementById("bg").innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:14px;height:14px" alt="G"> Connexion Google';toast("Déconnecté");renderTasks();if(curTab==="agenda")renderAg();}
 async function onConnected(){document.getElementById("gs").textContent="✓ Connecté";document.getElementById("gs").className="ok";document.getElementById("bg").innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:14px;height:14px" alt="G"> Déconnecter';toast("✓ Google connecté !");await requestNotifPermission();await fetchGcal();scheduleAllNotifs();renderTasks();if(curTab==="agenda")renderAg();}
@@ -579,11 +616,11 @@ function renderMonth(){
     div.dataset.date=date;
     if(date===today)div.classList.add("tdy");
     if(date===selDay)div.classList.add("sel");
-    const evs=eventsOn(date).filter(e=>!isArchived(e.id));
+    const evs=eventsOn(date);
     div.innerHTML=`<div class="mn">${c.d}</div><div class="mds"></div>`;
     const mds=div.querySelector(".mds");
     let n=0;
-    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+(isDone(e.id)?"dot-dn":"dot-td"));dot.textContent=e.title;mds.appendChild(dot);n++;});
+    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+(isArchived(e.id)?"dot-arc":isDone(e.id)?"dot-dn":"dot-td"));dot.textContent=e.title;dot.style.opacity=isArchived(e.id)?"0.45":"1";mds.appendChild(dot);n++;});
     if(evs.length>2){const m=mk("div","dot dot-mo");m.textContent="+"+(evs.length-2)+" autre"+(evs.length-2>1?"s":"");mds.appendChild(m);}
     div.addEventListener("click",()=>{selDay=date;cDay=date;setView("day");});
     div.addEventListener("dragenter",e=>{e.preventDefault();div.classList.add("drag-ov");});
@@ -627,7 +664,7 @@ function renderWeek(){
   const al=mk("div","wal");al.textContent="Jour";ar.appendChild(al);
   days.forEach(day=>{
     const cell=mk("div","wac");cell.dataset.date=day.date;
-    eventsOn(day.date).filter(e=>e.allDay&&!isArchived(e.id)).slice(0,3).forEach(e=>{const c=mk("div","wch "+(isDone(e.id)?"wch-dn":"wch-td"));c.textContent=e.title;c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
+    eventsOn(day.date).filter(e=>e.allDay).slice(0,3).forEach(e=>{const c=mk("div","wch "+(isArchived(e.id)?"wch-arc":isDone(e.id)?"wch-dn":"wch-td"));c.textContent=e.title;c.style.opacity=isArchived(e.id)?"0.4":"1";c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
     bindDrop(cell,day.date,false);ar.appendChild(cell);
   });
 
@@ -641,8 +678,8 @@ function renderWeek(){
     days.forEach(day=>{
       const slot=mk("div","wsl");slot.dataset.date=day.date;slot.dataset.hour=h;
       bindDrop(slot,day.date,true,h);
-      eventsOn(day.date).filter(e=>!e.allDay&&!isArchived(e.id)&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
-        const ev=mk("div","wev "+(isDone(e.id)?"wev-dn":"wev-td"));
+      eventsOn(day.date).filter(e=>!e.allDay&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
+        const ev=mk("div","wev "+(isArchived(e.id)?"wev-arc":isDone(e.id)?"wev-dn":"wev-td"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
         ev.textContent=fT(e.start)+" "+e.title;ev.style.top=(i*22+3)+"px";
         ev.onclick=()=>openEvModal(e.id);slot.appendChild(ev);
       });
@@ -666,7 +703,7 @@ function renderDay(){
   dayWrap.addEventListener("dragleave",edgeDragEnd);
   dayWrap.addEventListener("drop",edgeDragEnd);
 
-  const alEvs=eventsOn(cDay).filter(e=>e.allDay&&!isArchived(e.id));
+  const alEvs=eventsOn(cDay).filter(e=>e.allDay);
   if(alEvs.length){
     const sec=mk("div","day-allday");dayWrap.appendChild(sec);
     const tit=mk("div","day-allday-t");tit.textContent="Journée entière";sec.appendChild(tit);
@@ -686,8 +723,8 @@ function renderDay(){
     const slot=mk("div","day-sl"+(h===0?" first":""));
     slot.dataset.date=cDay;slot.dataset.hour=h;
     bindDrop(slot,cDay,true,h);
-    eventsOn(cDay).filter(e=>!e.allDay&&!isArchived(e.id)&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
-      const ev=mk("div","day-ev "+(isDone(e.id)?"day-ev-dn":"day-ev-td"));
+    eventsOn(cDay).filter(e=>!e.allDay&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
+      const ev=mk("div","day-ev "+(isArchived(e.id)?"day-ev-arc":isDone(e.id)?"day-ev-dn":"day-ev-td"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
       ev.textContent=fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):"")+" "+e.title;
       ev.style.top=(i*28+3)+"px";ev.onclick=()=>openEvModal(e.id);slot.appendChild(ev);
     });
@@ -709,7 +746,7 @@ function renderDay(){
 /* ══ DETAIL PANEL ══ */
 function showDet(date){
   const panel=document.getElementById("detail");
-  const evs=eventsOn(date).filter(e=>!isArchived(e.id));
+  const evs=eventsOn(date);
   if(!evs.length){panel.style.display="none";return;}
   panel.style.display="block";
   const d=new Date(date+"T00:00:00");
@@ -1100,6 +1137,101 @@ function scheduleNotif(task,gcalEvent){
 function scheduleAllNotifs(){
   if(!("Notification" in window)||Notification.permission!=="granted")return;
   S.tasks.forEach(t=>{const ev=gcal.find(e=>e.id===t.id);if(ev)scheduleNotif(t,ev);});
+}
+
+
+/* ══ DICTÉE VOCALE ══ */
+function startVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast("❌ Dictée non supportée sur ce navigateur");return;}
+  const r=new SR();
+  r.lang="fr-FR";r.continuous=false;r.interimResults=false;
+  const btn=document.getElementById("mic-btn");
+  btn.textContent="🔴";btn.style.background="rgba(217,48,37,.5)";
+  r.onresult=e=>{
+    btn.textContent="🎙";btn.style.background="";
+    const txt=e.results[0][0].transcript.trim();
+    toast("🎙 \""+txt+"\"");
+    parseVoiceTask(txt);
+  };
+  r.onerror=()=>{btn.textContent="🎙";btn.style.background="";toast("❌ Dictée échouée");};
+  r.onend=()=>{btn.textContent="🎙";btn.style.background="";};
+  r.start();
+}
+
+function parseVoiceTask(txt){
+  // Extraire l'heure : "à 14h30", "à 9h", "à 14:30"
+  let timeStr=null,timeEnd=null;
+  const tMatch=txt.match(/à\s*(\d{1,2})[h:](\d{0,2})/i);
+  if(tMatch){
+    const h=String(tMatch[1]).padStart(2,"0");
+    const m=tMatch[2]?String(tMatch[2]).padStart(2,"0"):"00";
+    timeStr=h+":"+m;
+    timeEnd=addOneHour(timeStr);
+  }
+
+  // Extraire la date
+  const today=new Date();
+  let dateStr=null;
+  const txt2=txt.toLowerCase();
+  if(/aujourd[''']?hui|ce soir|ce matin|cet après-midi/i.test(txt2)){
+    dateStr=ds(today);
+  } else if(/demain/i.test(txt2)){
+    const d=new Date(today);d.setDate(d.getDate()+1);dateStr=ds(d);
+  } else if(/après.demain/i.test(txt2)){
+    const d=new Date(today);d.setDate(d.getDate()+2);dateStr=ds(d);
+  } else {
+    // "lundi", "mardi" ... "dimanche"
+    const days=["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+    for(let i=0;i<days.length;i++){
+      if(txt2.includes(days[i])){
+        const d=new Date(today);
+        let diff=(i-d.getDay()+7)%7||7;
+        d.setDate(d.getDate()+diff);dateStr=ds(d);break;
+      }
+    }
+    if(!dateStr){
+      // "le 15", "le 15 janvier", "le 15/01"
+      const dm=txt2.match(/le\s+(\d{1,2})\s*(?:\/|janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)?(?:\s+(\d{4}))?/i);
+      if(dm){
+        const months=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+        let month=today.getMonth();
+        for(let i=0;i<months.length;i++){if(txt2.includes(months[i])){month=i;break;}}
+        const year=dm[2]?parseInt(dm[2]):today.getFullYear();
+        dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(dm[1]).padStart(2,"0")}`;
+      }
+    }
+  }
+
+  // Extraire le titre : tout ce qui n'est pas la date/heure
+  let title=txt
+    .replace(/à\s*\d{1,2}[h:]\d{0,2}/gi,"")
+    .replace(/aujourd[''']?hui|demain|après.demain|ce soir|ce matin|cet après-midi/gi,"")
+    .replace(/lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche/gi,"")
+    .replace(/le\s+\d{1,2}\s*(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)?\s*(?:\d{4})?/gi,"")
+    .replace(/rappel(?:le)?[- ]*moi/gi,"")
+    .replace(/ajoute[rz]?|créer?|noter?|pense[rz]? à|n'oublie pas/gi,"")
+    .replace(/\s{2,}/g," ").trim();
+
+  if(!title){toast("❌ Titre introuvable dans la dictée");return;}
+
+  const remind=parseInt(document.getElementById("default-remind").value)||0;
+  const newTask={id:uid(),title,desc:"",due:dateStr||null,done:false,archived:false,gcalId:null,plannedDate:null,remind};
+  S.tasks.unshift(newTask);lsSave();renderTasks();
+
+  if(dateStr&&timeStr&&token){
+    // Planifier directement dans Google Calendar
+    planTask(newTask.id,dateStr,timeStr,timeEnd);
+    toast('✅ "'+title.slice(0,20)+'" → '+fD(dateStr)+" à "+timeStr);
+  } else if(dateStr){
+    toast('✅ "'+title.slice(0,20)+'" → '+fD(dateStr));
+    // Même sans heure, planifier en journée entière
+    if(token)planTask(newTask.id,dateStr,null,null);
+  } else {
+    toast('✅ "'+title.slice(0,20)+'" ajoutée à la liste');
+    // Basculer sur l'onglet tâches pour montrer la nouvelle tâche
+    if(curTab!=="todo")goTab("todo");
+  }
 }
 
 /* ══ INIT ══ */
