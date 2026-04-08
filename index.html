@@ -483,7 +483,8 @@ function initFirebase(){
         // Mettre à jour le header
         document.getElementById("gs").textContent="✓ "+user.displayName||user.email;
         document.getElementById("gs").className="ok";
-        document.getElementById("bg").innerHTML='<img src="'+(user.photoURL||"https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg")+'" style="width:22px;height:22px;border-radius:50%" alt="">';
+        const photoURL=user.photoURL||"https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
+        document.getElementById("bg").innerHTML='<img src="'+photoURL+'" style="width:22px;height:22px;border-radius:50%" alt="">';
         // Initialiser GAPI Calendar
         if(!gapiOk)initGapi();
         else{await fetchGcal();renderTasks();renderAg();}
@@ -501,37 +502,29 @@ function initGapi(){
     await gapi.client.init({});
     await gapi.client.load("https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest");
     gapiOk=true;
-    // Essayer de récupérer le token depuis Firebase (connexion Google)
-    if(fbUser){
-      const result=await fbUser.getIdTokenResult();
-      // Si l'utilisateur s'est connecté via Google, demander le token OAuth Calendar
-      tc=google.accounts.oauth2.initTokenClient({
-        client_id:CLIENT_ID,scope:SCOPES,
-        hint:fbUser.email,
-        callback:async r=>{
-          if(r.error){console.warn("OAuth Calendar:",r.error);return;}
-          token=r.access_token;
-          gapi.client.setToken({access_token:token});
-          await fetchGcal();
-          if(typeof scheduleAllNotifs==="function")scheduleAllNotifs();
-          renderTasks();renderAg();
-        }
-      });
-      tc.requestAccessToken({prompt:""});
-    }
+    // Récupérer un token Google Calendar via OAuth
+    tc=google.accounts.oauth2.initTokenClient({
+      client_id:CLIENT_ID,scope:SCOPES,
+      callback:async r=>{
+        if(r.error)return;
+        token=r.access_token;
+        gapi.client.setToken({access_token:token});
+        await fetchGcal();
+        scheduleAllNotifs();
+        renderTasks();renderAg();
+      }
+    });
+    tc.requestAccessToken({prompt:""});
   });
 }
 
-function onGisLoad(){
-  // GIS chargé — sera utilisé dans initGapi()
-}
-
 function onGapiLoad(){if(fbUser&&!gapiOk)initGapi();}
+function onGisLoad(){} /* GIS chargé — utilisé dans initGapi */
 
 function toggleAuthMode(){
   AUTH_MODE=AUTH_MODE==='login'?'register':'login';
-  document.getElementById("auth-main-btn").textContent=AUTH_MODE==='login'?'Se connecter':'S'inscrire';
-  document.getElementById("auth-toggle").textContent=AUTH_MODE==='login'?'Pas de compte ? S'inscrire':'Déjà un compte ? Se connecter';
+  document.getElementById("auth-main-btn").textContent=AUTH_MODE==='login'?"Se connecter":"S\u2019inscrire";
+  document.getElementById("auth-toggle").textContent=AUTH_MODE==='login'?"Pas de compte\u00a0? S\u2019inscrire":"D\u00e9j\u00e0 un compte\u00a0? Se connecter";
   document.getElementById("auth-error").style.display="none";
 }
 
@@ -539,15 +532,14 @@ function showAuthError(msg){const el=document.getElementById("auth-error");el.te
 function setAuthLoading(v){document.getElementById("auth-loading").style.display=v?"block":"none";document.getElementById("auth-forms").style.display=v?"none":"block";}
 
 function authGoogle(){
-  if(!fbAuth){showAuthError("Firebase pas encore prêt, réessayez dans un instant.");return;}
+  if(!fbAuth){showAuthError("Chargement en cours, réessayez dans un instant.");return;}
   showAuthError("");setAuthLoading(true);
-  const provider=new firebase.auth.GoogleAuthProvider();
-  provider.addScope("https://www.googleapis.com/auth/calendar");
-  fbAuth.signInWithPopup(provider)
+  fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
     .catch(e=>{setAuthLoading(false);showAuthError(e.message);});
 }
 
 function authEmail(){
+  if(!fbAuth){showAuthError("Chargement en cours, réessayez dans un instant.");return;}
   const email=document.getElementById("auth-email").value.trim();
   const pwd=document.getElementById("auth-pwd").value;
   if(!email||!pwd){showAuthError("Veuillez renseigner email et mot de passe.");return;}
@@ -1413,3 +1405,4 @@ initFirebase();
 <script src="https://apis.google.com/js/api.js" onload="onGapiLoad()"></script>
 <script src="https://accounts.google.com/gsi/client" onload="onGisLoad()"></script>
 </body>
+</html>
