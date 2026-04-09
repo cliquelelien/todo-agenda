@@ -478,16 +478,21 @@ function initFirebase(){
     fbAuth.onAuthStateChanged(async user=>{
       if(user){
         fbUser=user;
+        /* Afficher l'app */
         document.getElementById("auth-overlay").classList.add("hidden");
         document.getElementById("app-content").style.display="block";
-        // Mettre à jour le header
-        document.getElementById("gs").textContent="✓ "+user.displayName||user.email;
+        /* Header */
+        document.getElementById("gs").textContent="\u2713 "+(user.displayName||user.email||"");
         document.getElementById("gs").className="ok";
         const photoURL=user.photoURL||"https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg";
-        document.getElementById("bg").innerHTML='<img src="'+photoURL+'" style="width:22px;height:22px;border-radius:50%" alt="">';
-        // Initialiser GAPI Calendar
+        document.getElementById("bg").innerHTML='<img src="'+photoURL+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover" alt="">';
+        /* Render initial immédiat (sans gcal) */
+        renderMiniCal();
+        renderTasks();
+        renderAg();
+        /* Puis charger Google Calendar en arrière-plan sans re-render visuel brutal */
         if(!gapiOk)initGapi();
-        else{await fetchGcal();renderTasks();renderAg();}
+        else _refreshCalendar();
       } else {
         fbUser=null;token=null;
         document.getElementById("auth-overlay").classList.remove("hidden");
@@ -497,29 +502,34 @@ function initFirebase(){
   }catch(e){console.error("Firebase init error",e);}
 }
 
+async function _refreshCalendar(){
+  await fetchGcal();
+  if(typeof scheduleAllNotifs==="function")scheduleAllNotifs();
+  renderTasks();
+  renderAg();
+}
+
 function initGapi(){
   gapi.load("client",async()=>{
     await gapi.client.init({});
     await gapi.client.load("https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest");
     gapiOk=true;
-    // Récupérer un token Google Calendar via OAuth
     tc=google.accounts.oauth2.initTokenClient({
       client_id:CLIENT_ID,scope:SCOPES,
       callback:async r=>{
         if(r.error)return;
         token=r.access_token;
         gapi.client.setToken({access_token:token});
-        await fetchGcal();
-        scheduleAllNotifs();
-        renderTasks();renderAg();
+        /* Refresh silencieux : fetchGcal puis re-render discret */
+        await _refreshCalendar();
       }
     });
+    /* prompt:"" = silent token refresh, sans popup ni page blanche */
     tc.requestAccessToken({prompt:""});
   });
 }
 
 function onGapiLoad(){if(fbUser&&!gapiOk)initGapi();}
-function onGisLoad(){} /* GIS chargé — utilisé dans initGapi */
 
 function toggleAuthMode(){
   AUTH_MODE=AUTH_MODE==='login'?'register':'login';
@@ -530,6 +540,8 @@ function toggleAuthMode(){
 
 function showAuthError(msg){const el=document.getElementById("auth-error");el.textContent=msg;el.style.display="block";}
 function setAuthLoading(v){document.getElementById("auth-loading").style.display=v?"block":"none";document.getElementById("auth-forms").style.display=v?"none":"block";}
+
+function onGisLoad(){} /* GIS chargé — utilisé dans initGapi */
 
 function authGoogle(){
   if(!fbAuth){showAuthError("Chargement en cours, réessayez dans un instant.");return;}
@@ -1396,9 +1408,7 @@ document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.t
 
 /* ══ INIT ══ */
 document.getElementById("ti").addEventListener("keydown",e=>{if(e.key==="Enter")addTask();});
-renderMiniCal();
-renderTasks();
-renderAg();
+/* Ne pas rendre ici — tout est déclenché par onAuthStateChanged */
 initFirebase();
 </script>
 </div><!-- /app-content -->
