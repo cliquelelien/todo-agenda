@@ -262,6 +262,9 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <h1>Planify</h1>
   <span id="gs">Non connect&#233;</span>
   <button id="mic-btn" onclick="startVoice()" title="Dicter une t&#226;che" style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 13px;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;" aria-label="Microphone">&#127908; <span style="font-size:11px">Dicter</span></button>
+  <button id="cal-connect-btn" onclick="connectCalendar()" style="display:none;align-items:center;gap:5px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:6px 11px;color:#fff;font-size:11px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap;" title="Connecter Google Agenda">
+    &#128197; Agenda
+  </button>
   <button id="bg" onclick="handleAuth()">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
     Connexion Google
@@ -499,14 +502,13 @@ function initFirebase(){
 }
 
 function loadGapiThenInit(){
-  /* Si GAPI déjà prêt, aller directement */
+  /* Si GAPI déjà prêt, demander le token silencieusement */
   if(gapiOk&&tc){
-    tc.requestAccessToken({prompt:''});
+    tc.requestAccessToken({prompt:'none'});
     return;
   }
-  /* Sinon attendre que le script GAPI soit chargé */
   if(typeof gapi==='undefined'){
-    /* GAPI pas encore chargé, onGapiLoad() appellera loadGapiThenInit */
+    /* GAPI pas encore chargé — onGapiLoad() reprendra */
     return;
   }
   gapi.load('client',function(){
@@ -514,28 +516,32 @@ function loadGapiThenInit(){
       return gapi.client.load('https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest');
     }).then(function(){
       gapiOk=true;
+      var hint=fbUser&&fbUser.email?fbUser.email:'';
       tc=google.accounts.oauth2.initTokenClient({
         client_id:CLIENT_ID,scope:SCOPES,
         callback:function(r){
           if(r.error){
-            /* Pas de token Calendar → initApp quand même avec données locales */
+            /* Échec silencieux → lancer l'app sans Calendar */
+            console.info('Calendar token silent fail:',r.error);
             initApp();
             return;
           }
           token=r.access_token;
           gapi.client.setToken({access_token:token});
-          /* Charger gcal puis initApp — une seule fois */
           fetchGcal().then(function(){
             if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
             initApp();
           });
         }
       });
-      /* Silent token request (sans popup) */
-      tc.requestAccessToken({prompt:''});
+      /* ===== CLÉ : prompt:'none' = JAMAIS de popup =====
+         Si l'utilisateur a déjà autorisé Calendar, le token
+         arrive en silence. Sinon, callback reçoit error:'access_denied'
+         et on lance l'app quand même (pas de blocage). */
+      tc.requestAccessToken({prompt:'none',hint:hint,login_hint:hint});
     }).catch(function(e){
       console.warn('GAPI init error',e);
-      initApp(); /* Fallback : lancer l'app sans Calendar */
+      initApp();
     });
   });
 }
@@ -552,6 +558,21 @@ function initApp(){
   renderTasks();
   renderAg();
   if(typeof requestNotifPermission==='function')requestNotifPermission();
+  /* Si pas de token Calendar : montrer bouton discret */
+  updateCalendarBtn();
+}
+
+function updateCalendarBtn(){
+  var btn=document.getElementById('cal-connect-btn');
+  if(!btn)return;
+  if(token){btn.style.display='none';}
+  else{btn.style.display='flex';}
+}
+
+function connectCalendar(){
+  /* Appel explicite avec popup — uniquement si l'user clique */
+  if(!tc){toast("\u23f3 GAPI pas pr\u00eat, attendez...");return;}
+  tc.requestAccessToken({prompt:'consent'});
 }
 
 function renderAuthButtons(){
@@ -571,7 +592,7 @@ function doLogout(){if(fbAuth)fbAuth.signOut();}
 /* ══ INIT ══ */
 /* Pas de render ici — tout passe par onAuthStateChanged → initApp */
 initFirebase();
-async function fetchGcal(){if(!token)return;showSync("Chargement Agenda…");try{const tMin=new Date();tMin.setMonth(tMin.getMonth()-2);const tMax=new Date();tMax.setMonth(tMax.getMonth()+4);const r=await gapi.client.calendar.events.list({calendarId:"primary",timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:true,orderBy:"startTime",maxResults:500});gcal=(r.result.items||[]).map(e=>({id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime}));hideSync();}catch(e){hideSync();if(e.status===401){token=null;localStorage.removeItem("gt");}}}
+async function fetchGcal(){if(!token)return;if(typeof updateCalendarBtn==='function')updateCalendarBtn();showSync("Chargement Agenda…");try{const tMin=new Date();tMin.setMonth(tMin.getMonth()-2);const tMax=new Date();tMax.setMonth(tMax.getMonth()+4);const r=await gapi.client.calendar.events.list({calendarId:"primary",timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:true,orderBy:"startTime",maxResults:500});gcal=(r.result.items||[]).map(e=>({id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime}));hideSync();}catch(e){hideSync();if(e.status===401){token=null;localStorage.removeItem("gt");}}}
 async function createGcalEv(title,desc,date,tS,tE,remindMin=0){if(!token)return null;try{const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;const reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};const r=await gapi.client.calendar.events.insert({calendarId:"primary",resource:{summary:title,description:desc||"",reminders,start:tS?{dateTime:`${date}T${tS}:00`,timeZone:tz}:{date},end:tE?{dateTime:`${date}T${tE}:00`,timeZone:tz}:{date}}});return r.result;}catch(e){return null;}}
 async function updateGcalEv(gcalId,title,desc,date,tS,tE){if(!token||!gcalId)return;try{const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;await gapi.client.calendar.events.patch({calendarId:"primary",eventId:gcalId,resource:{summary:title,description:desc||"",start:tS?{dateTime:`${date}T${tS}:00`,timeZone:tz}:{date},end:tE?{dateTime:`${date}T${tE}:00`,timeZone:tz}:{date}}});}catch(e){}}
 async function delGcalEv(gcalId){if(!token||!gcalId)return;try{await gapi.client.calendar.events.delete({calendarId:"primary",eventId:gcalId});gcal=gcal.filter(e=>e.id!==gcalId);}catch(e){}}
