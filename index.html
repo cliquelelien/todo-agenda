@@ -262,9 +262,6 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <h1>Planify</h1>
   <span id="gs">Non connect&#233;</span>
   <button id="mic-btn" onclick="startVoice()" title="Dicter une t&#226;che" style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 13px;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;" aria-label="Microphone">&#127908; <span style="font-size:11px">Dicter</span></button>
-  <button id="cal-connect-btn" onclick="connectCalendar()" style="display:none;align-items:center;gap:5px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:6px 11px;color:#fff;font-size:11px;font-weight:800;font-family:inherit;cursor:pointer;white-space:nowrap;" title="Connecter Google Agenda">
-    &#128197; Agenda
-  </button>
   <button id="bg" onclick="handleAuth()">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
     Connexion Google
@@ -463,7 +460,7 @@ function isArchived(id){return metaOf(id)?.archived||false;}
 /* Hidden selects kept for compatibility */
 (function(){const hs=document.getElementById("h-start"),he=document.getElementById("h-end");for(let h=0;h<24;h++){[hs,he].forEach(s=>{const o=document.createElement("option");o.value=h;o.textContent=h+"h00";s.appendChild(o);});}hs.value=0;he.value=24;})();
 
-/* ══ FIREBASE AUTH — pattern SuperCaca ══ */
+/* ══ FIREBASE AUTH — connexion unique, pas de double popup ══ */
 const FIREBASE_CONFIG={
   apiKey:"AIzaSyDr4hzkX78G2BfuFF1stKdeYATiDKLkQ5Y",
   authDomain:"supercaca-47497.firebaseapp.com",
@@ -471,7 +468,6 @@ const FIREBASE_CONFIG={
 };
 
 var fbAuth=null,fbUser=null,AUTH_MODE='login';
-var gapiOk=false,tc=null;
 
 function initFirebase(){
   try{
@@ -480,16 +476,21 @@ function initFirebase(){
     fbAuth.onAuthStateChanged(function(user){
       if(user){
         fbUser=user;
-        /* Masquer l'overlay auth, afficher l'app */
+        /* Récupérer le token Calendar stocké depuis la dernière connexion Google */
+        var stored=localStorage.getItem('gcal_token');
+        if(stored)token=stored;
+        /* Afficher l'app instantanément */
         document.getElementById('auth-overlay').style.display='none';
         document.getElementById('app-content').style.display='block';
-        /* Mettre à jour le header */
         var photo=user.photoURL||'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg';
-        document.getElementById('gs').textContent='\u2713 '+(user.displayName||user.email||'');
+        document.getElementById('gs').textContent='✓ '+(user.displayName||user.email||'');
         document.getElementById('gs').className='ok';
         document.getElementById('bg').innerHTML='<img src="'+photo+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover" alt="">';
-        /* Charger GAPI puis initApp — une seule fois, comme SuperCaca */
-        loadGapiThenInit();
+        /* Lancer l'app sans attendre */
+        initApp();
+        /* Charger Calendar en arrière-plan si token dispo */
+        if(token){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});}
+        updateCalendarBtn();
       } else {
         fbUser=null;token=null;
         document.getElementById('auth-overlay').style.display='flex';
@@ -501,101 +502,110 @@ function initFirebase(){
   }catch(e){console.error('Firebase init error',e);}
 }
 
-function loadGapiThenInit(){
-  /* Si GAPI déjà prêt, demander le token silencieusement */
-  if(gapiOk&&tc){
-    tc.requestAccessToken({prompt:'none'});
-    return;
-  }
-  if(typeof gapi==='undefined'){
-    /* GAPI pas encore chargé — onGapiLoad() reprendra */
-    return;
-  }
-  gapi.load('client',function(){
-    gapi.client.init({}).then(function(){
-      return gapi.client.load('https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest');
-    }).then(function(){
-      gapiOk=true;
-      var hint=fbUser&&fbUser.email?fbUser.email:'';
-      tc=google.accounts.oauth2.initTokenClient({
-        client_id:CLIENT_ID,scope:SCOPES,
-        callback:function(r){
-          if(r.error){
-            /* Échec silencieux → lancer l'app sans Calendar */
-            console.info('Calendar token silent fail:',r.error);
-            initApp();
-            return;
-          }
-          token=r.access_token;
-          gapi.client.setToken({access_token:token});
-          fetchGcal().then(function(){
-            if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
-            initApp();
-          });
-        }
-      });
-      /* ===== CLÉ : prompt:'none' = JAMAIS de popup =====
-         Si l'utilisateur a déjà autorisé Calendar, le token
-         arrive en silence. Sinon, callback reçoit error:'access_denied'
-         et on lance l'app quand même (pas de blocage). */
-      tc.requestAccessToken({prompt:'none',hint:hint,login_hint:hint});
-    }).catch(function(e){
-      console.warn('GAPI init error',e);
-      initApp();
-    });
-  });
-}
-
-function onGapiLoad(){
-  /* Appelé quand apis.google.com/js/api.js est chargé */
-  if(fbUser)loadGapiThenInit();
-}
-
 function initApp(){
-  /* Appelé UNE SEULE FOIS, après auth + chargement données */
   document.getElementById('ti').addEventListener('keydown',function(e){if(e.key==='Enter')addTask();});
-  renderMiniCal();
-  renderTasks();
-  renderAg();
+  renderMiniCal();renderTasks();renderAg();
   if(typeof requestNotifPermission==='function')requestNotifPermission();
-  /* Si pas de token Calendar : montrer bouton discret */
   updateCalendarBtn();
 }
 
 function updateCalendarBtn(){
   var btn=document.getElementById('cal-connect-btn');
-  if(!btn)return;
-  if(token){btn.style.display='none';}
-  else{btn.style.display='flex';}
+  if(btn)btn.style.display=token?'none':'flex';
 }
 
+/* Connexion Calendar : une seule popup Google qui donne Firebase + Calendar */
 function connectCalendar(){
-  /* Appel explicite avec popup — uniquement si l'user clique */
-  if(!tc){toast("\u23f3 GAPI pas pr\u00eat, attendez...");return;}
-  tc.requestAccessToken({prompt:'consent'});
+  if(!fbAuth){toast('⏳ Chargement…');return;}
+  var provider=new firebase.auth.GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/calendar');
+  fbAuth.signInWithPopup(provider).then(function(result){
+    if(result.credential&&result.credential.accessToken){
+      token=result.credential.accessToken;
+      localStorage.setItem('gcal_token',token);
+      fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();updateCalendarBtn();toast('✅ Agenda Google connecté !');});
+    }
+  }).catch(function(e){toast('❌ '+e.message);});
 }
 
 function renderAuthButtons(){
-  var b=document.getElementById('auth-main-btn');
-  var l=document.getElementById('auth-toggle');
-  if(b)b.textContent=AUTH_MODE==='login'?'Se connecter':"S\u2019inscrire";
-  if(l)l.textContent=AUTH_MODE==='login'?"Pas de compte\u00a0? S\u2019inscrire":"D\u00e9j\u00e0 un compte\u00a0? Se connecter";
+  var b=document.getElementById('auth-main-btn');var l=document.getElementById('auth-toggle');
+  if(b)b.textContent=AUTH_MODE==='login'?'Se connecter':"S’inscrire";
+  if(l)l.textContent=AUTH_MODE==='login'?"Pas de compte ? S’inscrire":"Déjà un compte ? Se connecter";
 }
 function toggleAuthMode(){AUTH_MODE=AUTH_MODE==='login'?'register':'login';renderAuthButtons();document.getElementById('auth-error').style.display='none';}
 function showAuthError(msg){var el=document.getElementById('auth-error');if(el){el.textContent=msg;el.style.display='block';}}
 function setAuthLoading(on){var lo=document.getElementById('auth-loading');var fo=document.getElementById('auth-forms');if(lo)lo.style.display=on?'block':'none';if(fo)fo.style.display=on?'none':'block';}
-function authGoogle(){if(!fbAuth){showAuthError('Chargement\u2026 r\u00e9essayez.');return;}showAuthError('');setAuthLoading(true);fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(e){setAuthLoading(false);showAuthError(e.message);});}
-function authEmail(){if(!fbAuth){showAuthError('Chargement\u2026 r\u00e9essayez.');return;}var email=document.getElementById('auth-email').value.trim();var pwd=document.getElementById('auth-pwd').value;if(!email||!pwd){showAuthError('Veuillez renseigner email et mot de passe.');return;}setAuthLoading(true);(AUTH_MODE==='login'?fbAuth.signInWithEmailAndPassword(email,pwd):fbAuth.createUserWithEmailAndPassword(email,pwd)).catch(function(e){setAuthLoading(false);showAuthError(e.message);});}
-function handleAuth(){if(fbUser&&confirm('Se d\u00e9connecter ?'))fbAuth.signOut();}
-function doLogout(){if(fbAuth)fbAuth.signOut();}
 
-/* ══ INIT ══ */
-/* Pas de render ici — tout passe par onAuthStateChanged → initApp */
+function authGoogle(){
+  if(!fbAuth){showAuthError('Chargement… réessayez.');return;}
+  showAuthError('');setAuthLoading(true);
+  /* Scope Calendar inclus dans la connexion Google → un seul popup */
+  var provider=new firebase.auth.GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/calendar');
+  fbAuth.signInWithPopup(provider).then(function(result){
+    if(result.credential&&result.credential.accessToken){
+      token=result.credential.accessToken;
+      localStorage.setItem('gcal_token',token);
+    }
+  }).catch(function(e){setAuthLoading(false);showAuthError(e.message);});
+}
+
+function authEmail(){
+  if(!fbAuth){showAuthError('Chargement… réessayez.');return;}
+  var email=document.getElementById('auth-email').value.trim();
+  var pwd=document.getElementById('auth-pwd').value;
+  if(!email||!pwd){showAuthError('Veuillez renseigner email et mot de passe.');return;}
+  setAuthLoading(true);
+  (AUTH_MODE==='login'?fbAuth.signInWithEmailAndPassword(email,pwd):fbAuth.createUserWithEmailAndPassword(email,pwd))
+  .catch(function(e){setAuthLoading(false);showAuthError(e.message);});
+}
+function handleAuth(){if(fbUser&&confirm('Se déconnecter ?')){localStorage.removeItem('gcal_token');token=null;fbAuth.signOut();}}
+function doLogout(){localStorage.removeItem('gcal_token');token=null;if(fbAuth)fbAuth.signOut();}
+
 initFirebase();
-async function fetchGcal(){if(!token)return;if(typeof updateCalendarBtn==='function')updateCalendarBtn();showSync("Chargement Agenda…");try{const tMin=new Date();tMin.setMonth(tMin.getMonth()-2);const tMax=new Date();tMax.setMonth(tMax.getMonth()+4);const r=await gapi.client.calendar.events.list({calendarId:"primary",timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:true,orderBy:"startTime",maxResults:500});gcal=(r.result.items||[]).map(e=>({id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime}));hideSync();}catch(e){hideSync();if(e.status===401){token=null;localStorage.removeItem("gt");}}}
-async function createGcalEv(title,desc,date,tS,tE,remindMin=0){if(!token)return null;try{const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;const reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};const r=await gapi.client.calendar.events.insert({calendarId:"primary",resource:{summary:title,description:desc||"",reminders,start:tS?{dateTime:`${date}T${tS}:00`,timeZone:tz}:{date},end:tE?{dateTime:`${date}T${tE}:00`,timeZone:tz}:{date}}});return r.result;}catch(e){return null;}}
-async function updateGcalEv(gcalId,title,desc,date,tS,tE){if(!token||!gcalId)return;try{const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;await gapi.client.calendar.events.patch({calendarId:"primary",eventId:gcalId,resource:{summary:title,description:desc||"",start:tS?{dateTime:`${date}T${tS}:00`,timeZone:tz}:{date},end:tE?{dateTime:`${date}T${tE}:00`,timeZone:tz}:{date}}});}catch(e){}}
-async function delGcalEv(gcalId){if(!token||!gcalId)return;try{await gapi.client.calendar.events.delete({calendarId:"primary",eventId:gcalId});gcal=gcal.filter(e=>e.id!==gcalId);}catch(e){}}
+/* Calendar via fetch REST direct — pas de SDK GAPI */
+async function calFetch(method,path,body){
+  if(!token)return null;
+  var url='https://www.googleapis.com/calendar/v3'+path;
+  var opts={method:method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}};
+  if(body)opts.body=JSON.stringify(body);
+  var r=await fetch(url,opts);
+  if(r.status===401){token=null;localStorage.removeItem('gcal_token');updateCalendarBtn();return null;}
+  if(!r.ok)return null;
+  if(r.status===204)return {};
+  return r.json();
+}
+
+async function fetchGcal(){
+  if(!token)return;
+  showSync("Chargement Agenda…");
+  try{
+    var tMin=new Date();tMin.setMonth(tMin.getMonth()-2);
+    var tMax=new Date();tMax.setMonth(tMax.getMonth()+4);
+    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
+    var data=await calFetch('GET','/calendars/primary/events?'+params);
+    if(data&&data.items)gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
+    hideSync();
+  }catch(e){hideSync();}
+}
+async function createGcalEv(title,desc,date,tS,tE,remindMin){
+  if(!token)return null;
+  remindMin=remindMin||0;
+  var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
+  return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date}});
+}
+async function updateGcalEv(gcalId,title,desc,date,tS,tE){
+  if(!token||!gcalId)return;
+  var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date}});
+}
+async function delGcalEv(gcalId){
+  if(!token||!gcalId)return;
+  await calFetch('DELETE','/calendars/primary/events/'+gcalId);
+  gcal=gcal.filter(function(e){return e.id!==gcalId;});
+}
 
 /* ══ TABS ══ */
 function goTab(t){curTab=t;document.querySelectorAll(".tab").forEach((el,i)=>el.classList.toggle("active",(i===0&&t==="todo")||(i===1&&t==="agenda")));document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));document.getElementById("panel-"+t).classList.add("active");if(t==="agenda"){renderAg();if(token)fetchGcal().then(()=>renderAg());}}
@@ -1429,7 +1439,6 @@ function saveTaskEdit(){
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 </script>
 </div><!-- /app-content -->
-<script src="https://apis.google.com/js/api.js" onload="onGapiLoad()"></script>
-<script src="https://accounts.google.com/gsi/client"></script>
+<!-- GAPI et GSI supprimés — Calendar via fetch REST direct -->
 </body>
 </html>
