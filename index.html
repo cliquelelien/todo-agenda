@@ -1338,121 +1338,122 @@ function startVoice(){
 }
 
 function parseVoiceTask(txt){
-  const txt2=txt.toLowerCase()
-    // Normaliser les variantes typographiques
-    .replace(/[\u2018\u2019']/g,"'")
-    .replace(/heures?\s+et\s+demie?/g,"h30")
-    .replace(/heures?\s+et\s+quart/g,"h15")
-    .replace(/heures?\s+moins\s+le\s+quart/g,"h45") // approx
-    .replace(/heures?\s+(\d{1,2})/g,"h$1")
-    .replace(/heures?/g,"h")
-    .replace(/midi/g,"12h")
-    .replace(/minuit/g,"00h");
+  /* ── Normalisation de base ── */
+  const raw=txt.toLowerCase().replace(/[\u2018\u2019']/g,"'").trim();
 
-  /* ── HEURE ──
-     Gère : "à 14h30", "à 14h", "à 14:30", "à 14 h 30",
-            "9h", "9 heures", "9 heures 30", chiffres en lettres */
-  const NUMS={"zéro":0,"un":1,"une":1,"deux":2,"trois":3,"quatre":4,"cinq":5,
+  /* ── Dictionnaires ── */
+  const NUMS_H={
+    "zéro":0,"un":1,"une":1,"deux":2,"trois":3,"quatre":4,"cinq":5,
     "six":6,"sept":7,"huit":8,"neuf":9,"dix":10,"onze":11,"douze":12,
     "treize":13,"quatorze":14,"quinze":15,"seize":16,"dix-sept":17,
-    "dix-huit":18,"dix-neuf":19,"vingt":20};
+    "dix-huit":18,"dix-neuf":19,"vingt":20,"vingt et un":21,"vingt-et-un":21,
+    "vingt-deux":22,"vingt-trois":23
+  };
+  const NUMS_M={
+    "zéro":0,"cinq":5,"dix":10,"quinze":15,"vingt":20,"vingt-cinq":25,
+    "trente":30,"trente-cinq":35,"quarante":40,"quarante-cinq":45,
+    "cinquante":50,"cinquante-cinq":55
+  };
 
-  let timeStr=null,timeEnd=null;
-  // Chiffres : "à 14h30", "14h30", "14:30", "14 h 30"
-  let tm=txt2.match(/(?:à\s+)?(\d{1,2})\s*h\s*(\d{2})/);
-  if(!tm)tm=txt2.match(/(?:à\s+)?(\d{1,2})\s*h(?:\s|$)/);
-  if(!tm)tm=txt2.match(/(?:à\s+)?(\d{1,2}):(\d{2})/);
+  /* ── HEURE ── */
+  let timeStr=null, timeEnd=null;
+
+  /* Étape 1 : remplacer les mots-heures connus par leur valeur numérique
+     Ex: "quatorze heures trente" → "14 heures 30"
+         "neuf heures et demie"   → "9 heures 30" */
+  let txt2=raw;
+
+  // Remplacer les nombres en lettres (heures) par des chiffres
+  for(const [word,val] of Object.entries(NUMS_H)){
+    txt2=txt2.replace(new RegExp("\\b"+word+"\\b","g"),String(val));
+  }
+  // Remplacer les minutes en lettres par des chiffres
+  for(const [word,val] of Object.entries(NUMS_M)){
+    txt2=txt2.replace(new RegExp("\\b"+word+"\\b","g"),String(val));
+  }
+
+  // Normaliser "et demie/demi" → 30, "et quart" → 15, "moins le quart" → 45
+  txt2=txt2
+    .replace(/et\s+demie?/g,"30")
+    .replace(/et\s+quart/g,"15")
+    .replace(/moins\s+le\s+quart/g,"45")
+    .replace(/\bmidi\b/g,"12h00")
+    .replace(/\bminuit\b/g,"0h00");
+
+  // Normaliser "heures?" → "h" (après remplacement des lettres)
+  txt2=txt2.replace(/\s*heures?\s*/g,"h");
+
+  // Essai 1 : "14h30" ou "14 h 30"
+  let tm=txt2.match(/\bà?\s*(\d{1,2})\s*h\s*(\d{2})\b/);
+  // Essai 2 : "14h" seul
+  if(!tm) tm=txt2.match(/\bà?\s*(\d{1,2})\s*h(?:\s|$|[^0-9])/);
+  // Essai 3 : "14:30"
+  if(!tm) tm=txt2.match(/\bà?\s*(\d{1,2}):(\d{2})\b/);
+  // Essai 4 : "à 14 30" (STT peut omettre "h")
+  if(!tm) tm=txt2.match(/\bà\s+(\d{1,2})\s+(\d{2})\b/);
+
   if(tm){
     const h=parseInt(tm[1]);
-    const m=tm[2]?parseInt(tm[2]):0;
+    const m=tm[2]!==undefined?parseInt(tm[2]):0;
     if(h>=0&&h<=23&&m>=0&&m<=59){
       timeStr=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
       timeEnd=addOneHour(timeStr);
     }
   }
-  // En lettres : "à neuf heures", "à neuf heures trente"
-  if(!timeStr){
-    for(const [word,val] of Object.entries(NUMS)){
-      const re=new RegExp("(?:à\\s+)?"+word+"\\s*h(?:\\s+(\\w+))?");
-      const m2=txt2.match(re);
-      if(m2){
-        let min=0;
-        if(m2[1]){for(const [w2,v2] of Object.entries(NUMS)){if(m2[1].includes(w2)){min=v2;break;}}}
-        if(m2[1]&&m2[1].includes("trente"))min=30;
-        if(m2[1]&&m2[1].includes("quinze"))min=15;
-        if(m2[1]&&m2[1].includes("quarante"))min=40;
-        if(m2[1]&&m2[1].includes("cinquante"))min=50;
-        timeStr=String(val).padStart(2,"0")+":"+String(min).padStart(2,"0");
-        timeEnd=addOneHour(timeStr);
-        break;
-      }
-    }
-  }
 
-  /* ── DATE ──
-     Gère : "aujourd'hui", "demain", "après-demain",
-            "lundi", "mardi"…, "le 15", "le 15 janvier",
-            "15 janvier", "15/01", "15 01" */
+  /* ── DATE ── */
   const today=new Date();
   let dateStr=null;
 
-  if(/aujourd[\s']*hui|ce\s*soir|ce\s*matin|cet\s*apr[eè]s[\s-]*midi/i.test(txt2)){
+  if(/aujourd[\s']*hui|ce\s*soir|ce\s*matin|cet\s*apr[eè]s[\s-]*midi/i.test(raw)){
     dateStr=ds(today);
-  } else if(/apr[eè]s[\s-]*demain/i.test(txt2)){
+  } else if(/apr[eè]s[\s-]*demain/i.test(raw)){
     const d=new Date(today);d.setDate(d.getDate()+2);dateStr=ds(d);
-  } else if(/demain/i.test(txt2)){
+  } else if(/demain/i.test(raw)){
     const d=new Date(today);d.setDate(d.getDate()+1);dateStr=ds(d);
   } else {
     // Jours de la semaine
-    const days=["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
-    for(let i=0;i<days.length;i++){
-      if(txt2.includes(days[i])){
+    const DAYS=["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+    for(let i=0;i<DAYS.length;i++){
+      if(raw.includes(DAYS[i])){
         const d=new Date(today);
-        let diff=(i-d.getDay()+7)%7||7; // toujours dans le futur
+        let diff=(i-d.getDay()+7)%7||7;
         d.setDate(d.getDate()+diff);dateStr=ds(d);break;
       }
     }
     if(!dateStr){
-      const MONTHS=["janvier","f[eé]vrier","mars","avril","mai","juin",
-        "juillet","ao[uû]t","septembre","octobre","novembre","d[eé]cembre"];
-      const MONTHS_IDX=["janvier","février","mars","avril","mai","juin",
-        "juillet","août","septembre","octobre","novembre","décembre"];
+      const MONTHS=[
+        "janvier","f[eé]vrier","mars","avril","mai","juin",
+        "juillet","ao[uû]t","septembre","octobre","novembre","d[eé]cembre"
+      ];
       let foundMonth=-1,foundDay=-1,foundYear=-1;
-      // Chercher le mois en lettres
       for(let i=0;i<MONTHS.length;i++){
         const re=new RegExp("(\\d{1,2})\\s+"+MONTHS[i]+"|"+MONTHS[i]+"\\s+(\\d{1,2})","i");
-        const mm=txt2.match(re);
+        const mm=raw.match(re);
         if(mm){foundDay=parseInt(mm[1]||mm[2]);foundMonth=i;break;}
       }
-      // Chercher une année
-      const yre=txt2.match(/\b(20\d{2})\b/);
+      const yre=raw.match(/\b(20\d{2})\b/);
       if(yre)foundYear=parseInt(yre[1]);
-      // Chercher "le X" ou juste "X" si mois trouvé
       if(foundDay===-1){
-        const dm=txt2.match(/(?:le\s+)?(\d{1,2})(?:\s*[\/\-]\s*(\d{1,2}))?/);
-        if(dm){
-          foundDay=parseInt(dm[1]);
-          if(dm[2]&&foundMonth===-1)foundMonth=parseInt(dm[2])-1;
-        }
+        const dm=raw.match(/(?:le\s+)?(\d{1,2})(?:\s*[\/\-]\s*(\d{1,2}))?/);
+        if(dm){foundDay=parseInt(dm[1]);if(dm[2]&&foundMonth===-1)foundMonth=parseInt(dm[2])-1;}
       }
       if(foundDay>=1&&foundDay<=31){
         let month=foundMonth>=0?foundMonth:today.getMonth();
         let year=foundYear>0?foundYear:today.getFullYear();
-        // Si la date est passée dans ce mois → mois suivant
         const candidate=new Date(year,month,foundDay);
-        if(foundMonth===-1&&candidate<today){
-          month=(month+1)%12;
-          if(month===0)year++;
-        }
+        if(foundMonth===-1&&candidate<today){month=(month+1)%12;if(month===0)year++;}
         dateStr=year+"-"+String(month+1).padStart(2,"0")+"-"+String(foundDay).padStart(2,"0");
       }
     }
   }
 
-  /* ── TITRE : supprimer tous les éléments de date/heure ── */
+  /* ── TITRE : supprimer les fragments date/heure du texte original ── */
   let title=txt
     .replace(/(?:à\s+)?\d{1,2}\s*h\s*\d{0,2}/gi,"")
     .replace(/(?:à\s+)?\d{1,2}:\d{2}/gi,"")
+    // Heures en lettres : "à quatorze heures trente", "à neuf heures et demie"
+    .replace(/à\s+(?:zéro|un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|dix-sept|dix-huit|dix-neuf|vingt(?:\s*(?:et\s*un|deux|trois))?)\s+heures?(?:\s+(?:et\s+(?:demie?|quart)|moins\s+le\s+quart|trente|quarante(?:-cinq)?|vingt(?:-cinq)?|cinquante(?:-cinq)?|quinze|cinq|dix))?/gi,"")
     .replace(/aujourd[\s']*hui|apr[eè]s[\s-]*demain|demain/gi,"")
     .replace(/ce\s*soir|ce\s*matin|cet\s*apr[eè]s[\s-]*midi/gi,"")
     .replace(/lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche/gi,"")
@@ -1465,8 +1466,7 @@ function parseVoiceTask(txt){
 
   if(!title){toast("\u274c Titre introuvable — réessayez");return;}
 
-  // Confirmation visuelle de ce qui a été compris
-  let confirm_msg='"'+title.slice(0,25)+'"';
+  let confirm_msg='"'+title.slice(0,30)+'"';
   if(dateStr)confirm_msg+=" \u2192 "+fD(dateStr);
   if(timeStr)confirm_msg+=" \u00e0 "+timeStr;
   toast("\uD83D\uDCCB "+confirm_msg);
@@ -1478,7 +1478,7 @@ function parseVoiceTask(txt){
   if(token&&dateStr){
     planTask(newTask.id,dateStr,timeStr||null,timeEnd||null);
   } else if(!token&&dateStr){
-    toast("\uD83D\uDD12 Connectez-vous pour enregistrer dans l'agenda");
+    toast("\uD83D\uDD12 Connectez-vous pour enregistrer dans l\u2019agenda");
   } else {
     if(curTab!=="todo")goTab("todo");
   }
