@@ -1338,79 +1338,152 @@ function startVoice(){
 }
 
 function parseVoiceTask(txt){
-  // Extraire l'heure : "à 14h30", "à 9h", "à 14:30"
+  const txt2=txt.toLowerCase()
+    // Normaliser les variantes typographiques
+    .replace(/[\u2018\u2019']/g,"'")
+    .replace(/heures?\s+et\s+demie?/g,"h30")
+    .replace(/heures?\s+et\s+quart/g,"h15")
+    .replace(/heures?\s+moins\s+le\s+quart/g,"h45") // approx
+    .replace(/heures?\s+(\d{1,2})/g,"h$1")
+    .replace(/heures?/g,"h")
+    .replace(/midi/g,"12h")
+    .replace(/minuit/g,"00h");
+
+  /* ── HEURE ──
+     Gère : "à 14h30", "à 14h", "à 14:30", "à 14 h 30",
+            "9h", "9 heures", "9 heures 30", chiffres en lettres */
+  const NUMS={"zéro":0,"un":1,"une":1,"deux":2,"trois":3,"quatre":4,"cinq":5,
+    "six":6,"sept":7,"huit":8,"neuf":9,"dix":10,"onze":11,"douze":12,
+    "treize":13,"quatorze":14,"quinze":15,"seize":16,"dix-sept":17,
+    "dix-huit":18,"dix-neuf":19,"vingt":20};
+
   let timeStr=null,timeEnd=null;
-  const tMatch=txt.match(/à\s*(\d{1,2})[h:](\d{0,2})/i);
-  if(tMatch){
-    const h=String(tMatch[1]).padStart(2,"0");
-    const m=tMatch[2]?String(tMatch[2]).padStart(2,"0"):"00";
-    timeStr=h+":"+m;
-    timeEnd=addOneHour(timeStr);
+  // Chiffres : "à 14h30", "14h30", "14:30", "14 h 30"
+  let tm=txt2.match(/(?:à\s+)?(\d{1,2})\s*h\s*(\d{2})/);
+  if(!tm)tm=txt2.match(/(?:à\s+)?(\d{1,2})\s*h(?:\s|$)/);
+  if(!tm)tm=txt2.match(/(?:à\s+)?(\d{1,2}):(\d{2})/);
+  if(tm){
+    const h=parseInt(tm[1]);
+    const m=tm[2]?parseInt(tm[2]):0;
+    if(h>=0&&h<=23&&m>=0&&m<=59){
+      timeStr=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
+      timeEnd=addOneHour(timeStr);
+    }
+  }
+  // En lettres : "à neuf heures", "à neuf heures trente"
+  if(!timeStr){
+    for(const [word,val] of Object.entries(NUMS)){
+      const re=new RegExp("(?:à\\s+)?"+word+"\\s*h(?:\\s+(\\w+))?");
+      const m2=txt2.match(re);
+      if(m2){
+        let min=0;
+        if(m2[1]){for(const [w2,v2] of Object.entries(NUMS)){if(m2[1].includes(w2)){min=v2;break;}}}
+        if(m2[1]&&m2[1].includes("trente"))min=30;
+        if(m2[1]&&m2[1].includes("quinze"))min=15;
+        if(m2[1]&&m2[1].includes("quarante"))min=40;
+        if(m2[1]&&m2[1].includes("cinquante"))min=50;
+        timeStr=String(val).padStart(2,"0")+":"+String(min).padStart(2,"0");
+        timeEnd=addOneHour(timeStr);
+        break;
+      }
+    }
   }
 
-  // Extraire la date
+  /* ── DATE ──
+     Gère : "aujourd'hui", "demain", "après-demain",
+            "lundi", "mardi"…, "le 15", "le 15 janvier",
+            "15 janvier", "15/01", "15 01" */
   const today=new Date();
   let dateStr=null;
-  const txt2=txt.toLowerCase();
-  if(/aujourd[''']?hui|ce soir|ce matin|cet après-midi/i.test(txt2)){
+
+  if(/aujourd[\s']*hui|ce\s*soir|ce\s*matin|cet\s*apr[eè]s[\s-]*midi/i.test(txt2)){
     dateStr=ds(today);
+  } else if(/apr[eè]s[\s-]*demain/i.test(txt2)){
+    const d=new Date(today);d.setDate(d.getDate()+2);dateStr=ds(d);
   } else if(/demain/i.test(txt2)){
     const d=new Date(today);d.setDate(d.getDate()+1);dateStr=ds(d);
-  } else if(/après.demain/i.test(txt2)){
-    const d=new Date(today);d.setDate(d.getDate()+2);dateStr=ds(d);
   } else {
-    // "lundi", "mardi" ... "dimanche"
+    // Jours de la semaine
     const days=["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
     for(let i=0;i<days.length;i++){
       if(txt2.includes(days[i])){
         const d=new Date(today);
-        let diff=(i-d.getDay()+7)%7||7;
+        let diff=(i-d.getDay()+7)%7||7; // toujours dans le futur
         d.setDate(d.getDate()+diff);dateStr=ds(d);break;
       }
     }
     if(!dateStr){
-      // "le 15", "le 15 janvier", "le 15/01"
-      const dm=txt2.match(/le\s+(\d{1,2})\s*(?:\/|janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)?(?:\s+(\d{4}))?/i);
-      if(dm){
-        const months=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
-        let month=today.getMonth();
-        for(let i=0;i<months.length;i++){if(txt2.includes(months[i])){month=i;break;}}
-        const year=dm[2]?parseInt(dm[2]):today.getFullYear();
-        dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(dm[1]).padStart(2,"0")}`;
+      const MONTHS=["janvier","f[eé]vrier","mars","avril","mai","juin",
+        "juillet","ao[uû]t","septembre","octobre","novembre","d[eé]cembre"];
+      const MONTHS_IDX=["janvier","février","mars","avril","mai","juin",
+        "juillet","août","septembre","octobre","novembre","décembre"];
+      let foundMonth=-1,foundDay=-1,foundYear=-1;
+      // Chercher le mois en lettres
+      for(let i=0;i<MONTHS.length;i++){
+        const re=new RegExp("(\\d{1,2})\\s+"+MONTHS[i]+"|"+MONTHS[i]+"\\s+(\\d{1,2})","i");
+        const mm=txt2.match(re);
+        if(mm){foundDay=parseInt(mm[1]||mm[2]);foundMonth=i;break;}
+      }
+      // Chercher une année
+      const yre=txt2.match(/\b(20\d{2})\b/);
+      if(yre)foundYear=parseInt(yre[1]);
+      // Chercher "le X" ou juste "X" si mois trouvé
+      if(foundDay===-1){
+        const dm=txt2.match(/(?:le\s+)?(\d{1,2})(?:\s*[\/\-]\s*(\d{1,2}))?/);
+        if(dm){
+          foundDay=parseInt(dm[1]);
+          if(dm[2]&&foundMonth===-1)foundMonth=parseInt(dm[2])-1;
+        }
+      }
+      if(foundDay>=1&&foundDay<=31){
+        let month=foundMonth>=0?foundMonth:today.getMonth();
+        let year=foundYear>0?foundYear:today.getFullYear();
+        // Si la date est passée dans ce mois → mois suivant
+        const candidate=new Date(year,month,foundDay);
+        if(foundMonth===-1&&candidate<today){
+          month=(month+1)%12;
+          if(month===0)year++;
+        }
+        dateStr=year+"-"+String(month+1).padStart(2,"0")+"-"+String(foundDay).padStart(2,"0");
       }
     }
   }
 
-  // Extraire le titre : tout ce qui n'est pas la date/heure
+  /* ── TITRE : supprimer tous les éléments de date/heure ── */
   let title=txt
-    .replace(/à\s*\d{1,2}[h:]\d{0,2}/gi,"")
-    .replace(/aujourd[''']?hui|demain|après.demain|ce soir|ce matin|cet après-midi/gi,"")
+    .replace(/(?:à\s+)?\d{1,2}\s*h\s*\d{0,2}/gi,"")
+    .replace(/(?:à\s+)?\d{1,2}:\d{2}/gi,"")
+    .replace(/aujourd[\s']*hui|apr[eè]s[\s-]*demain|demain/gi,"")
+    .replace(/ce\s*soir|ce\s*matin|cet\s*apr[eè]s[\s-]*midi/gi,"")
     .replace(/lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche/gi,"")
-    .replace(/le\s+\d{1,2}\s*(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)?\s*(?:\d{4})?/gi,"")
-    .replace(/rappel(?:le)?[- ]*moi/gi,"")
-    .replace(/ajoute[rz]?|créer?|noter?|pense[rz]? à|n'oublie pas/gi,"")
+    .replace(/\d{1,2}\s*(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s*(?:20\d{2})?/gi,"")
+    .replace(/le\s+\d{1,2}/gi,"")
+    .replace(/\b20\d{2}\b/gi,"")
+    .replace(/rappel(?:le)?[\s-]*moi/gi,"")
+    .replace(/ajoute(?:r|z)?|cr[eé]e(?:r|z)?|note(?:r|z)?|pense(?:r|z)?\s+à|n'oublie\s+pas/gi,"")
     .replace(/\s{2,}/g," ").trim();
 
-  if(!title){toast("❌ Titre introuvable dans la dictée");return;}
+  if(!title){toast("\u274c Titre introuvable — réessayez");return;}
+
+  // Confirmation visuelle de ce qui a été compris
+  let confirm_msg='"'+title.slice(0,25)+'"';
+  if(dateStr)confirm_msg+=" \u2192 "+fD(dateStr);
+  if(timeStr)confirm_msg+=" \u00e0 "+timeStr;
+  toast("\uD83D\uDCCB "+confirm_msg);
 
   const remind=parseInt(document.getElementById("default-remind").value)||0;
   const newTask={id:uid(),title,desc:"",due:dateStr||null,done:false,archived:false,gcalId:null,plannedDate:null,remind};
   S.tasks.unshift(newTask);lsSave();renderTasks();
 
-  if(dateStr&&timeStr&&token){
-    // Planifier directement dans Google Calendar
-    planTask(newTask.id,dateStr,timeStr,timeEnd);
-    toast('✅ "'+title.slice(0,20)+'" → '+fD(dateStr)+" à "+timeStr);
-  } else if(dateStr){
-    toast('✅ "'+title.slice(0,20)+'" → '+fD(dateStr));
-    // Même sans heure, planifier en journée entière
-    if(token)planTask(newTask.id,dateStr,null,null);
+  if(token&&dateStr){
+    planTask(newTask.id,dateStr,timeStr||null,timeEnd||null);
+  } else if(!token&&dateStr){
+    toast("\uD83D\uDD12 Connectez-vous pour enregistrer dans l'agenda");
   } else {
-    toast('✅ "'+title.slice(0,20)+'" ajoutée à la liste');
-    // Basculer sur l'onglet tâches pour montrer la nouvelle tâche
     if(curTab!=="todo")goTab("todo");
   }
 }
+
 
 
 
