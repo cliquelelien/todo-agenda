@@ -1338,76 +1338,88 @@ function startVoice(){
 }
 
 function parseVoiceTask(txt){
-  const raw=txt.toLowerCase().replace(/[\u2018\u2019']/g,"'").replace(/\u00a0/g," ").trim();
+  const raw=txt.toLowerCase()
+    .replace(/['\u2018\u2019]/g,"'")
+    .replace(/\u00a0/g," ")
+    .trim();
 
-  /* ── Tables de mots ── */
-  const M_WORDS={
-    "trente-huit":38,"trente huit":38,"trente-sept":37,"trente sept":37,
-    "trente-six":36,"trente six":36,"trente-cinq":35,"trente cinq":35,
-    "trente-quatre":34,"trente quatre":34,"trente-trois":33,"trente trois":33,
-    "trente-deux":32,"trente deux":32,"trente et un":31,"trente-et-un":31,"trente":30,
-    "vingt-neuf":29,"vingt neuf":29,"vingt-huit":28,"vingt huit":28,
-    "vingt-sept":27,"vingt sept":27,"vingt-six":26,"vingt six":26,
-    "vingt-cinq":25,"vingt cinq":25,"vingt-quatre":24,"vingt quatre":24,
-    "vingt-trois":23,"vingt trois":23,"vingt-deux":22,"vingt deux":22,
-    "vingt et un":21,"vingt-et-un":21,"vingt":20,
-    "dix-neuf":19,"dix-huit":18,"dix-sept":17,"seize":16,"quinze":15,
-    "quatorze":14,"treize":13,"douze":12,"onze":11,"dix":10,
-    "neuf":9,"huit":8,"sept":7,"six":6,"cinq":5,"quatre":4,
-    "trois":3,"deux":2,"une":1,"un":1,"zéro":0,
-    "quarante-neuf":49,"quarante neuf":49,"quarante-huit":48,"quarante huit":48,
-    "quarante-sept":47,"quarante sept":47,"quarante-six":46,"quarante six":46,
-    "quarante-cinq":45,"quarante cinq":45,"quarante-quatre":44,"quarante quatre":44,
-    "quarante-trois":43,"quarante trois":43,"quarante-deux":42,"quarante deux":42,
-    "quarante et un":41,"quarante-et-un":41,"quarante":40,
-    "cinquante-neuf":59,"cinquante neuf":59,"cinquante-huit":58,"cinquante huit":58,
-    "cinquante-sept":57,"cinquante sept":57,"cinquante-six":56,"cinquante six":56,
-    "cinquante-cinq":55,"cinquante cinq":55,"cinquante-quatre":54,"cinquante quatre":54,
-    "cinquante-trois":53,"cinquante trois":53,"cinquante-deux":52,"cinquante deux":52,
-    "cinquante et un":51,"cinquante-et-un":51,"cinquante":50
-  };
-  const H_WORDS={
-    "vingt-trois":23,"vingt-deux":22,"vingt et un":21,"vingt-et-un":21,"vingt":20,
-    "dix-neuf":19,"dix-huit":18,"dix-sept":17,"seize":16,"quinze":15,"quatorze":14,
-    "treize":13,"douze":12,"onze":11,"dix":10,"neuf":9,"huit":8,"sept":7,
-    "six":6,"cinq":5,"quatre":4,"trois":3,"deux":2,"une":1,"un":1,"zéro":0
-  };
+  /* ══ EXTRACTION DE L'HEURE ══
+     Stratégie : on travaille sur une copie normalisée `s`.
+     1. Cas spéciaux (midi, minuit, et demie, et quart)
+     2. Remplacement de TOUS les mots-nombres par leurs chiffres
+        (du plus long au plus court pour éviter les conflits)
+        ex: "quatorze heures trente" → "14 heures 30"
+     3. "X heures Y" → "XhY"
+     4. Regex simple sur les chiffres */
 
-  /* ── Normalisation ── */
-  let n=raw;
-  n=n.replace(/\bmidi\b/g,"12 heures").replace(/\bminuit\b/g,"0 heure");
-  n=n.replace(/et\s+demie?/g,"30").replace(/et\s+quart/g,"15");
-  n=n.replace(/moins\s+le\s+quart/g,"45");
+  let s=raw;
+  s=s.replace(/\bmidi\b/g,"12h00");
+  s=s.replace(/\bminuit\b/g,"0h00");
+  s=s.replace(/et demie?/g," 30");
+  s=s.replace(/et quart/g," 15");
+  s=s.replace(/moins le quart/g," 45");
 
-  /* CLEF : remplacer les MINUTES en lettres AVANT de convertir "heures" → "h"
-     Pattern : "heures? [mot_minute]" → "heures [chiffre]" */
-  const mKeys=Object.keys(M_WORDS).sort((a,b)=>b.length-a.length);
-  for(const w of mKeys){
-    const pat=w.replace(/[-\s]/g,"[-\\s]?");
-    n=n.replace(new RegExp("(heures?)\\s+"+pat+"(?=\\s|$|[,.]?)","gi"),
-      (_,h)=>h+" "+M_WORDS[w]);
+  /* Table unique, ordonnée du plus long au plus court */
+  const WORDS=[
+    ["cinquante-neuf",59],["cinquante neuf",59],
+    ["cinquante-huit",58],["cinquante huit",58],
+    ["cinquante-sept",57],["cinquante sept",57],
+    ["cinquante-six",56],["cinquante six",56],
+    ["cinquante-cinq",55],["cinquante cinq",55],
+    ["cinquante-quatre",54],["cinquante quatre",54],
+    ["cinquante-trois",53],["cinquante trois",53],
+    ["cinquante-deux",52],["cinquante deux",52],
+    ["cinquante et un",51],["cinquante-et-un",51],
+    ["quarante-neuf",49],["quarante neuf",49],
+    ["quarante-huit",48],["quarante huit",48],
+    ["quarante-sept",47],["quarante sept",47],
+    ["quarante-six",46],["quarante six",46],
+    ["quarante-cinq",45],["quarante cinq",45],
+    ["quarante-quatre",44],["quarante quatre",44],
+    ["quarante-trois",43],["quarante trois",43],
+    ["quarante-deux",42],["quarante deux",42],
+    ["quarante et un",41],["quarante-et-un",41],
+    ["trente-neuf",39],["trente neuf",39],
+    ["trente-huit",38],["trente huit",38],
+    ["trente-sept",37],["trente sept",37],
+    ["trente-six",36],["trente six",36],
+    ["trente-cinq",35],["trente cinq",35],
+    ["trente-quatre",34],["trente quatre",34],
+    ["trente-trois",33],["trente trois",33],
+    ["trente-deux",32],["trente deux",32],
+    ["trente et un",31],["trente-et-un",31],
+    ["vingt-neuf",29],["vingt neuf",29],
+    ["vingt-huit",28],["vingt huit",28],
+    ["vingt-sept",27],["vingt sept",27],
+    ["vingt-six",26],["vingt six",26],
+    ["vingt-cinq",25],["vingt cinq",25],
+    ["vingt-quatre",24],["vingt quatre",24],
+    ["vingt-trois",23],["vingt trois",23],
+    ["vingt-deux",22],["vingt deux",22],
+    ["vingt et un",21],["vingt-et-un",21],
+    ["dix-neuf",19],["dix neuf",19],
+    ["dix-huit",18],["dix huit",18],
+    ["dix-sept",17],["dix sept",17],
+    ["cinquante",50],["quarante",40],["trente",30],["vingt",20],
+    ["seize",16],["quinze",15],["quatorze",14],["treize",13],
+    ["douze",12],["onze",11],["dix",10],
+    ["neuf",9],["huit",8],["sept",7],["six",6],["cinq",5],
+    ["quatre",4],["trois",3],["deux",2],["une",1],["un",1],
+    ["z\u00e9ro",0],["zero",0]
+  ];
+  /* split/join : évite les bugs de regex sur les caractères accentués */
+  for(const [w,v] of WORDS){
+    while(s.includes(w))s=s.split(w).join(String(v));
   }
 
-  /* Remplacer les HEURES en lettres */
-  const hKeys=Object.keys(H_WORDS).sort((a,b)=>b.length-a.length);
-  for(const w of hKeys){
-    const pat=w.replace(/[-\s]/g,"[-\\s]?");
-    n=n.replace(new RegExp("\\b"+pat+"\\b","gi"),String(H_WORDS[w]));
-  }
+  /* "12 heures 30" → "12h30", "9 heures" → "9h" */
+  s=s.replace(/(\d)\s*heures?\s*(\d)/g,"$1h$2");
+  s=s.replace(/(\d)\s*heures?/g,"$1h");
+  s=s.replace(/(\d)\s*h\s*(\d)/g,"$1h$2");
 
-  /* "heures NUMBER" → "hNUMBER", "heures" seul → "h" */
-  n=n.replace(/\s*heures?\s+(\d{1,2})\b/gi,(_,m)=>"h"+String(m).padStart(2,"0"));
-  n=n.replace(/\s*heures?\s*/gi,"h");
-  /* "14 h 30" → "14h30" */
-  n=n.replace(/\s*h\s+(\d{2})\b/g,(_,m)=>"h"+m);
-
-  /* ── Extraction de l'heure ── */
+  /* Extraction */
   let timeStr=null,timeEnd=null;
-  let tm=null;
-  if(!tm)tm=n.match(/(?:^|[\s,à])(\d{1,2})h(\d{2})(?=\s|$|[^\d])/);
-  if(!tm)tm=n.match(/(?:^|[\s,à])(\d{1,2})h(?!\d)/);
-  if(!tm)tm=n.match(/(\d{1,2}):(\d{2})/);
-  if(!tm)tm=n.match(/à\s+(\d{1,2})\s+(\d{2})(?=\s|$)/);
+  let tm=s.match(/(\d{1,2})h(\d{2})/)||s.match(/(\d{1,2})h(?!\d)/)||s.match(/(\d{1,2}):(\d{2})/);
   if(tm){
     const h=parseInt(tm[1]),m=tm[2]!==undefined?parseInt(tm[2]):0;
     if(h>=0&&h<=23&&m>=0&&m<=59){
@@ -1416,16 +1428,16 @@ function parseVoiceTask(txt){
     }
   }
 
-  /* ── Extraction de la date ── */
+  /* ══ EXTRACTION DE LA DATE ══ */
   const today=new Date();
   let dateStr=null;
   if(/aujourd[\s']*hui|ce\s*soir|ce\s*matin|cet\s*apr[eè]s[\s-]*midi/i.test(raw)){
     dateStr=ds(today);
-  } else if(/apr[eè]s[\s-]*demain/i.test(raw)){
+  }else if(/apr[eè]s[\s-]*demain/i.test(raw)){
     const d=new Date(today);d.setDate(d.getDate()+2);dateStr=ds(d);
-  } else if(/demain/i.test(raw)){
+  }else if(/demain/i.test(raw)){
     const d=new Date(today);d.setDate(d.getDate()+1);dateStr=ds(d);
-  } else {
+  }else{
     const DAYS=["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
     for(let i=0;i<DAYS.length;i++){
       if(raw.includes(DAYS[i])){
@@ -1454,12 +1466,12 @@ function parseVoiceTask(txt){
     }
   }
 
-  /* ── Titre ── */
+  /* ══ TITRE ══ (extrait du texte original, pas de la version normalisée) */
   let title=txt
     .replace(/(?:à\s+)?\d{1,2}\s*h\s*\d{0,2}/gi,"")
     .replace(/(?:à\s+)?\d{1,2}:\d{2}/gi,"")
-    .replace(/\d{1,2}\s*heures?\s*\d{0,2}\s*(?:minutes?)?/gi,"")
-    .replace(/à\s+(?:zéro|un[e]?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|dix-sept|dix-huit|dix-neuf|vingt(?:[\s-]\w+)?)\s+heures?(?:\s+[\w\s-]+)?/gi,"")
+    .replace(/à\s+(?:zéro|une?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|dix-sept|dix-huit|dix-neuf|vingt(?:[\s-]\w+)?)\s+heures?(?:\s+[\w\s-]+)?/gi,"")
+    .replace(/\d{1,2}\s*heures?\s*\d{0,2}/gi,"")
     .replace(/\bmidi\b|\bminuit\b/gi,"")
     .replace(/aujourd[\s']*hui|apr[eè]s[\s-]*demain|demain/gi,"")
     .replace(/ce\s*soir|ce\s*matin|cet\s*apr[eè]s[\s-]*midi/gi,"")
@@ -1473,7 +1485,7 @@ function parseVoiceTask(txt){
 
   if(!title){toast("\u274c Titre introuvable \u2014 r\u00e9essayez");return;}
 
-  let msg='\uD83D\uDCCB "'+title.slice(0,30)+'"';
+  let msg="\uD83D\uDCCB \""+title.slice(0,30)+"\"";
   if(dateStr)msg+=" \u2192 "+fD(dateStr);
   if(timeStr)msg+=" \u00e0 "+timeStr;
   toast(msg);
@@ -1484,9 +1496,9 @@ function parseVoiceTask(txt){
 
   if(token&&dateStr){
     planTask(newTask.id,dateStr,timeStr||null,timeEnd||null);
-  } else if(!token&&dateStr){
+  }else if(!token&&dateStr){
     toast("\uD83D\uDD12 Connectez-vous pour enregistrer dans l\u2019agenda");
-  } else {
+  }else{
     if(curTab!=="todo")goTab("todo");
   }
 }
