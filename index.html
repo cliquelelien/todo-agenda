@@ -464,23 +464,15 @@ function mk(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2500);}
 function showSync(m){const b=document.getElementById("sync-bar");b.className="sync show";document.getElementById("sync-msg").textContent=m;}
 function hideSync(){document.getElementById("sync-bar").className="sync";}
-/* Retourne tous les événements d'une date :
-   - Événements Google Calendar (gcal)
-   - Tâches locales ayant une due date sur ce jour (non archivées, pas encore dans gcal) */
 function eventsOn(d){
+  /* Événements Google Calendar sur cette date */
   const gcalEvs=gcal.filter(e=>e.start.slice(0,10)===d);
   const gcalIds=new Set(gcalEvs.map(e=>e.id));
-  /* Tâches locales avec due = d, non archivées, et dont l'id n'est pas déjà dans gcal */
+  /* Tâches locales ayant une due date sur ce jour,
+     non archivées, et dont l'id n'est pas déjà dans gcal */
   const localEvs=S.tasks
     .filter(t=>!t.archived && t.due===d && !gcalIds.has(t.id))
-    .map(t=>({
-      id:t.id,
-      title:t.title,
-      start:d,       /* date seule, pas d'heure */
-      end:d,
-      allDay:true,
-      _local:true    /* marqueur pour distinguer */
-    }));
+    .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true}));
   return [...gcalEvs,...localEvs];
 }
 function metaOf(id){return S.tasks.find(t=>t.id===id)||null;}
@@ -613,7 +605,7 @@ async function fetchGcal(){
   try{
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
-    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
+    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'2500'});
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items)gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
     hideSync();
@@ -958,12 +950,8 @@ function buildDetRow(e){
   const chk=mk("div","ck"+(isDone(e.id)?" on":""));
   chk.innerHTML='<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
   chk.onclick=()=>{
-    if(isLocal){
-      const t=S.tasks.find(x=>x.id===e.id);
-      if(t){t.done=!t.done;lsSave();renderAg();renderTasks();}
-    }else{
-      toggleEvDone(e.id);
-    }
+    if(isLocal){const t=S.tasks.find(x=>x.id===e.id);if(t){t.done=!t.done;lsSave();renderAg();renderTasks();}}
+    else{toggleEvDone(e.id);}
   };
   const name=mk("div","det-n");name.textContent=e.title;
   if(!isLocal)name.onclick=()=>openEvModal(e.id);
@@ -971,11 +959,8 @@ function buildDetRow(e){
   time.textContent=e.allDay?"Journée":(fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):""));
   const del=mk("button","det-del");del.textContent="×";del.title="Supprimer";
   del.onclick=async()=>{
-    if(isLocal){
-      S.tasks=S.tasks.filter(x=>x.id!==e.id);lsSave();renderAg();renderTasks();
-    }else{
-      await delGcalEv(e.id);removeMeta(e.id);await fetchGcal();renderAg();renderTasks();
-    }
+    if(isLocal){S.tasks=S.tasks.filter(x=>x.id!==e.id);lsSave();renderAg();renderTasks();}
+    else{await delGcalEv(e.id);removeMeta(e.id);await fetchGcal();renderAg();renderTasks();}
   };
   row.append(chk,name,time,del);return row;
 }
