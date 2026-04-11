@@ -616,7 +616,9 @@ async function fetchGcal(){
       /* Purger les tâches locales dont l'id existe déjà dans GCal (doublons) */
       var gcalIds=new Set(gcal.map(function(e){return e.id;}));
       var before=S.tasks.length;
-      S.tasks=S.tasks.filter(function(t){return!gcalIds.has(t.id)||t.done||t.archived;});
+      /* Garder uniquement les meta locales utiles : archived=true ou done=true (état UI)
+         Les tâches non faites sont entièrement gérées via gcal[], pas S.tasks */
+      S.tasks=S.tasks.filter(function(t){return!gcalIds.has(t.id)||(t.archived||t.done);});
       if(S.tasks.length!==before)lsSave();
     }
     hideSync();
@@ -1242,15 +1244,22 @@ function taskSortKeyDesc(t){const gcalEv=gcal.find(e=>e.id===t.id);if(gcalEv)ret
 
 function renderTasks(){
   const tl=document.getElementById("list-todo"),dl=document.getElementById("list-done"),cd=document.getElementById("card-done"),dh=document.getElementById("dh");
-  const localTasks=S.tasks.filter(t=>!t.archived);
-  /* Événements GCal sans meta locale → tâches virtuelles */
-  const localIds=new Set(S.tasks.map(t=>t.id));
-  const gcalOnlyTasks=gcal
-    .filter(e=>!localIds.has(e.id))
-    .map(e=>({id:e.id,title:e.title,desc:"",due:e.start.slice(0,10),done:false,archived:false,remind:0,_gcalOnly:true}));
-  const allTasks=[...localTasks,...gcalOnlyTasks];
+
+  /* Tâches purement locales (sans correspondance GCal) */
+  const gcalIds=new Set(gcal.map(e=>e.id));
+  const pureLocal=S.tasks.filter(t=>!t.archived&&!gcalIds.has(t.id));
+
+  /* Tous les events GCal → tâches virtuelles, état done/archived depuis meta locale */
+  const gcalTasks=gcal.map(e=>{
+    const meta=S.tasks.find(t=>t.id===e.id);
+    return{id:e.id,title:e.title,desc:meta?.desc||"",due:e.start.slice(0,10),
+           done:meta?.done||false,archived:meta?.archived||false,remind:meta?.remind||0};
+  }).filter(t=>!t.archived);
+
+  const allTasks=[...pureLocal,...gcalTasks];
   const todo=allTasks.filter(t=>!t.done).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
-  const done=localTasks.filter(t=>t.done).sort((a,b)=>taskSortKeyDesc(b).localeCompare(taskSortKeyDesc(a)));
+  const done=allTasks.filter(t=>t.done).sort((a,b)=>taskSortKeyDesc(b).localeCompare(taskSortKeyDesc(a)));
+
   tl.innerHTML="";dl.innerHTML="";
   if(!todo.length){tl.innerHTML='<div class="emp">Aucune tâche 🎉</div>';dh.style.display="none";}
   else{todo.forEach(t=>tl.appendChild(buildTask(t)));dh.style.display="block";}
