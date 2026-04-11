@@ -279,7 +279,6 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <div class="ar">
       <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
       <input type="date" id="tdat">
-      <input type="time" id="theure" title="Heure (optionnelle)" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;">
       <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
@@ -303,6 +302,18 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <div class="ct">&#9989; Termin&#233;es</div>
     <div class="tl" id="list-done"></div>
   </div>
+  <div style="text-align:center;margin:4px 0 8px">
+    <button id="btn-archives" onclick="toggleArchives()" style="font-family:inherit;font-size:12px;font-weight:700;color:var(--tx3);background:none;border:1.5px solid var(--blb);border-radius:20px;padding:6px 18px;cursor:pointer;transition:all .15s;">
+      &#128452; Voir les archives
+    </button>
+  </div>
+  <div class="card" id="card-archives" style="display:none">
+    <div class="ct" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>&#128452; Archives</span>
+      <button onclick="toggleArchives()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--tx3);">&#10005;</button>
+    </div>
+    <div class="tl" id="list-archives"></div>
+  </div>
   <div class="mini-cal-wrap" id="mini-cal-wrap">
     <div class="mini-cal-card">
       <div class="mini-cal-head">
@@ -323,9 +334,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <div id="sync-bar" class="sync"><div class="spinner"></div><span id="sync-msg"></span></div>
   <div class="card">
     <div class="agt">
-      <button onclick="navPrev()" style="background:none;border:1.5px solid var(--blb);border-radius:8px;padding:5px 11px;font-size:16px;cursor:pointer;color:var(--bld);">&#9664;</button>
       <div class="agp" id="agp"></div>
-      <button onclick="navNext()" style="background:none;border:1.5px solid var(--blb);border-radius:8px;padding:5px 11px;font-size:16px;cursor:pointer;color:var(--bld);">&#9654;</button>
       <select id="h-start" style="display:none"></select>
       <select id="h-end" style="display:none"></select>
       <div class="vsw">
@@ -392,8 +401,6 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <input type="text" id="te-title" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:8px">
     <label>&#201;ch&#233;ance</label>
     <input type="date" id="te-due" style="margin-bottom:8px">
-    <label>Heure (optionnelle)</label>
-    <input type="time" id="te-heure" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;margin-bottom:8px;color-scheme:light;">
     <label>Descriptif</label>
     <textarea id="te-desc" rows="3" placeholder="Descriptif optionnel&#8230;" style="margin-bottom:8px"></textarea>
     <label>&#128276; Rappel</label>
@@ -455,7 +462,6 @@ function fDLong(s){if(!s)return"";return new Date(s+"T00:00:00").toLocaleDateStr
 function fT(iso){if(!iso||!iso.includes("T"))return"";return iso.split("T")[1].slice(0,5);}
 function mk(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e;}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2500);}
-function toastLong(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),4000);}
 function showSync(m){const b=document.getElementById("sync-bar");b.className="sync show";document.getElementById("sync-msg").textContent=m;}
 function hideSync(){document.getElementById("sync-bar").className="sync";}
 function eventsOn(d){return gcal.filter(e=>e.start.slice(0,10)===d);}
@@ -495,7 +501,7 @@ function initFirebase(){
         /* Lancer l'app sans attendre */
         initApp();
         /* Charger Calendar en arrière-plan si token dispo */
-        if(token){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();if(typeof syncPendingVoiceTasks==='function')syncPendingVoiceTasks();});}
+        if(token){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});}
         updateCalendarBtn();
       } else {
         fbUser=null;token=null;
@@ -518,13 +524,6 @@ function initApp(){
 function updateCalendarBtn(){
   var btn=document.getElementById('cal-connect-btn');
   if(btn)btn.style.display=token?'none':'flex';
-}
-function syncPendingVoiceTasks(){
-  if(!token)return;
-  var pending=S.tasks.filter(function(t){return t.plannedDate&&t.plannedStart&&!t.gcalId&&!t.done&&!t.archived;});
-  if(!pending.length)return;
-  pending.forEach(function(t){planTask(t.id,t.plannedDate,t.plannedStart,t.plannedEnd||null);});
-  toast('📅 '+pending.length+' tâche(s) synchronisée(s)');
 }
 
 /* Connexion Calendar : une seule popup Google qui donne Firebase + Calendar */
@@ -594,8 +593,8 @@ async function fetchGcal(){
   if(!token)return;
   showSync("Chargement Agenda…");
   try{
-    var tMin=new Date();tMin.setMonth(tMin.getMonth()-2);
-    var tMax=new Date();tMax.setMonth(tMax.getMonth()+4);
+    var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
+    var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
     var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items)gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
@@ -990,7 +989,8 @@ async function saveEvEdit(){
 }
 async function evToggleDone(){if(!evPending)return;toggleEvDone(evPending);closeEvModal();renderAg();renderTasks();}
 async function evDelete(){if(!evPending)return;showSync("Suppression…");await delGcalEv(evPending);removeMeta(evPending);hideSync();closeEvModal();await fetchGcal();renderAg();renderTasks();toast("🗑 Supprimé");}
-function evArchive(){if(!evPending)return;ensureMeta(evPending,"");const meta=metaOf(evPending);if(meta)meta.archived=true;lsSave();closeEvModal();renderAg();renderTasks();toast("🗄 Archivé");}
+function evArchive(){if(!evPending)return;ensureMeta(evPending,"");const meta=metaOf(evPending);if(meta)meta.archived=true;lsSave();closeEvModal();renderAg();renderTasks();toast("🗄 Archivé");
+if(!_archivesOpen)toggleArchives();}
 
 /* ══ META ══ */
 function ensureMeta(gcalId,title){if(!S.tasks.find(t=>t.id===gcalId))S.tasks.push({id:gcalId,title:title||"",desc:"",done:false,archived:false});}
@@ -1120,33 +1120,90 @@ async function planTask(tid,date,tS,tE){
 }
 
 /* ══ CRUD TASKS ══ */
-function addTask(){
-  const title=document.getElementById("ti").value.trim();if(!title)return;
-  const due=document.getElementById("tdat").value||null;
-  const heure=document.getElementById("theure").value||null;
-  const remind=parseInt(document.getElementById("default-remind").value)||0;
-  const t={id:uid(),title,desc:"",due,plannedDate:due||null,
-    plannedStart:heure||null,plannedEnd:heure?addOneHour(heure):null,
-    done:false,archived:false,gcalId:null,remind};
-  S.tasks.unshift(t);lsSave();renderTasks();
-  if(due&&heure&&token)planTask(t.id,due,heure,addOneHour(heure));
-  document.getElementById("ti").value="";
-  document.getElementById("tdat").value="";
-  document.getElementById("theure").value="";
-}
+function addTask(){const title=document.getElementById("ti").value.trim();if(!title)return;const due=document.getElementById("tdat").value||null;const remind=parseInt(document.getElementById("default-remind").value)||0;S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind});lsSave();renderTasks();document.getElementById("ti").value="";document.getElementById("tdat").value="";}
 
 /* ══ RENDER TASKS ══ */
 function taskSortKey(t){const gcalEv=gcal.find(e=>e.id===t.id);if(gcalEv)return gcalEv.start;return t.due||"9999-12-31";}
+function taskSortKeyDesc(t){const gcalEv=gcal.find(e=>e.id===t.id);if(gcalEv)return gcalEv.start;return t.due||"0000-00-00";}
+
 function renderTasks(){
   const tl=document.getElementById("list-todo"),dl=document.getElementById("list-done"),cd=document.getElementById("card-done"),dh=document.getElementById("dh");
   const localTasks=S.tasks.filter(t=>!t.archived);
   const todo=localTasks.filter(t=>!t.done).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
-  const done=localTasks.filter(t=>t.done).sort((a,b)=>taskSortKey(b).localeCompare(taskSortKey(a)));
+  const done=localTasks.filter(t=>t.done).sort((a,b)=>taskSortKeyDesc(b).localeCompare(taskSortKeyDesc(a)));
   tl.innerHTML="";dl.innerHTML="";
   if(!todo.length){tl.innerHTML='<div class="emp">Aucune tâche 🎉</div>';dh.style.display="none";}
   else{todo.forEach(t=>tl.appendChild(buildTask(t)));dh.style.display="block";}
   cd.style.display=done.length?"block":"none";
   done.forEach(t=>dl.appendChild(buildTask(t)));
+  /* Mettre à jour archives si ouvertes */
+  const ca=document.getElementById("card-archives");
+  if(ca&&ca.style.display!=="none")renderArchives();
+}
+
+let _archivesOpen=false;
+function toggleArchives(){
+  _archivesOpen=!_archivesOpen;
+  const ca=document.getElementById("card-archives");
+  const btn=document.getElementById("btn-archives");
+  if(_archivesOpen){
+    renderArchives();
+    ca.style.display="block";
+    btn.innerHTML="&#128452; Masquer les archives";
+    btn.style.color="var(--bl)";
+    ca.scrollIntoView({behavior:"smooth",block:"nearest"});
+  } else {
+    ca.style.display="none";
+    btn.innerHTML="&#128452; Voir les archives";
+    btn.style.color="var(--tx3)";
+  }
+}
+
+function renderArchives(){
+  const al=document.getElementById("list-archives");
+  if(!al)return;
+  /* Trier: plus récent en premier — par gcal.start, ou due, ou date d'archivage */
+  const archived=S.tasks.filter(t=>t.archived).sort((a,b)=>{
+    const ka=taskSortKeyDesc(a), kb=taskSortKeyDesc(b);
+    return kb.localeCompare(ka);
+  });
+  al.innerHTML="";
+  if(!archived.length){al.innerHTML='<div class="emp">Aucune tâche archivée</div>';return;}
+  archived.forEach(t=>al.appendChild(buildArchivedTask(t)));
+}
+
+function buildArchivedTask(t){
+  const gcalEv=gcal.find(e=>e.id===t.id);
+  const item=mk("div","ti done");
+  item.style.opacity="0.7";
+  const top=mk("div","ti-top");
+  const icon=mk("div");icon.textContent="🗄";icon.style="font-size:16px;flex-shrink:0;";
+  const body=mk("div","tb");
+  const name=mk("div","tn");name.textContent=t.title;name.style.textDecoration="line-through";
+  const tags=mk("div","tgs");
+  /* Date */
+  const dateKey=gcalEv?gcalEv.start.slice(0,10):t.due||null;
+  if(dateKey){
+    const tg=mk("div","tg tg-d");
+    let lbl="📅 "+fD(dateKey);
+    if(gcalEv&&!gcalEv.allDay&&gcalEv.start.includes("T"))lbl+=" à "+fT(gcalEv.start);
+    tg.textContent=lbl;tags.appendChild(tg);
+  }
+  body.append(name,tags);
+  /* Bouton désarchiver */
+  const unarch=mk("button","td-btn");unarch.title="Désarchiver";unarch.innerHTML="↩";unarch.style.fontSize="16px";
+  unarch.onclick=()=>{t.archived=false;t.done=false;lsSave();renderTasks();toast("↩ Désarchivée");};
+  /* Bouton supprimer */
+  const del=mk("button","td-btn");del.innerHTML="×";
+  del.onclick=async()=>{
+    if(!confirm("Supprimer définitivement ?"))return;
+    if(gcalEv){showSync("Suppression…");await delGcalEv(t.id);hideSync();}
+    S.tasks=S.tasks.filter(x=>x.id!==t.id);
+    lsSave();renderArchives();renderTasks();
+    if(gcalEv)await fetchGcal();
+  };
+  top.append(icon,body,unarch,del);item.appendChild(top);
+  return item;
 }
 function buildTask(t){
   const item=mk("div","ti"+(t.done?" done":""));item.dataset.id=t.id;
@@ -1160,12 +1217,7 @@ function buildTask(t){
   const name=mk("div","tn");name.textContent=t.title;
   if(!gcalEv){name.onclick=()=>openTaskEdit(t.id);name.style.textDecoration="underline dotted";name.style.cursor="pointer";}
   const tags=mk("div","tgs");
-  if(t.due&&!gcalEv){
-    const tg=mk("div","tg tg-d"+(overdue?" ov":""));
-    let lbl="📅 "+fD(t.due);
-    if(t.plannedStart)lbl+=" à "+t.plannedStart;
-    tg.textContent=lbl;tags.appendChild(tg);
-  }
+  if(t.due&&!gcalEv){const tg=mk("div","tg tg-d"+(overdue?" ov":""));tg.textContent="📅 Échéance : "+fD(t.due);tags.appendChild(tg);}
   if(gcalEv){
     const tg=mk("div","tg tg-p");let label="📌 ";
     if(!gcalEv.allDay&&gcalEv.start.includes("T"))label+=fT(gcalEv.start)+(gcalEv.end&&gcalEv.end.includes("T")?" – "+fT(gcalEv.end):"")+" ";
@@ -1182,7 +1234,17 @@ function buildTask(t){
   const del=mk("button","td-btn");del.innerHTML="×";
   del.onclick=async()=>{if(gcalEv){showSync("Suppression…");await delGcalEv(t.id);hideSync();}S.tasks=S.tasks.filter(x=>x.id!==t.id);lsSave();if(gcalEv)await fetchGcal();renderTasks();if(curTab==="agenda")renderAg();};
   top.append(chk,body,remSel,plan,del);item.appendChild(top);
-  if(t.done){const arch=mk("button","btn btn-gh");arch.style="font-size:11px;padding:4px 10px;margin-top:7px;";arch.innerHTML="🗄 Archiver";arch.onclick=()=>{t.archived=true;lsSave();renderTasks();toast("Archivé");};item.appendChild(arch);}
+  if(t.done){
+    const arch=mk("button","btn btn-gh");
+    arch.style="font-size:11px;padding:4px 10px;margin-top:7px;";
+    arch.innerHTML="🗄 Archiver";
+    arch.onclick=()=>{
+      t.archived=true;lsSave();renderTasks();toast("🗄 Archivé");
+      /* Ouvrir les archives automatiquement pour montrer la tâche */
+      if(!_archivesOpen)toggleArchives();
+    };
+    item.appendChild(arch);
+  }
   if(!gcalEv){const desc=mk("textarea","td-desc");desc.placeholder="Ajouter un descriptif…";desc.value=t.desc||"";desc.style.display="none";desc.oninput=()=>{t.desc=desc.value;lsSave();};item.appendChild(desc);}
   if(!gcalEv){
     item.draggable=true;
@@ -1356,17 +1418,15 @@ function startVoice(){
   const r=new SR();
   r.lang="fr-FR";r.continuous=false;r.interimResults=false;
   const btn=document.getElementById("mic-btn");
-  btn.innerHTML='🔴 <span style="font-size:11px">Écoute…</span>';
-  btn.style.background="rgba(217,48,37,.6)";
+  btn.textContent="🔴";btn.style.background="rgba(217,48,37,.5)";
   r.onresult=e=>{
-    btn.innerHTML='🎙 <span style="font-size:11px">Dicter</span>';
-    btn.style.background="";
+    btn.textContent="🎙";btn.style.background="";
     const txt=e.results[0][0].transcript.trim();
-    toastLong("🎙 "+txt);
-    setTimeout(()=>parseVoiceTask(txt),200);
+    toast("🎙 \""+txt+"\"");
+    parseVoiceTask(txt);
   };
-  r.onerror=ev=>{btn.innerHTML='🎙 <span style="font-size:11px">Dicter</span>';btn.style.background="";toast("❌ "+ev.error);};
-  r.onend=()=>{btn.innerHTML='🎙 <span style="font-size:11px">Dicter</span>';btn.style.background="";};
+  r.onerror=()=>{btn.textContent="🎙";btn.style.background="";toast("❌ Dictée échouée");};
+  r.onend=()=>{btn.textContent="🎙";btn.style.background="";};
   r.start();
 }
 
@@ -1512,23 +1572,15 @@ function parseVoiceTask(txt){
   toast(msg);
 
   const remind=parseInt(document.getElementById("default-remind").value)||0;
-  const newTask={id:uid(),title,desc:"",due:dateStr||null,
-    plannedDate:dateStr||null,plannedStart:timeStr||null,plannedEnd:timeEnd||null,
-    done:false,archived:false,gcalId:null,remind};
+  const newTask={id:uid(),title,desc:"",due:dateStr||null,done:false,archived:false,gcalId:null,plannedDate:null,remind};
   S.tasks.unshift(newTask);lsSave();renderTasks();
 
-  if(dateStr&&timeStr){
-    if(token){
-      planTask(newTask.id,dateStr,timeStr,timeEnd);
-    } else {
-      toast('📋 "'+title.slice(0,20)+'" → '+fD(dateStr)+' à '+timeStr+' (hors-ligne)');
-      goTab("todo");
-    }
-  } else if(dateStr){
-    if(token)planTask(newTask.id,dateStr,null,null);
-    else{toast('📋 "'+title.slice(0,20)+'" → '+fD(dateStr));goTab("todo");}
+  if(token&&dateStr){
+    planTask(newTask.id,dateStr,timeStr||null,timeEnd||null);
+  } else if(!token&&dateStr){
+    toast("\uD83D\uDD12 Connectez-vous pour enregistrer dans l\u2019agenda");
   } else {
-    goTab("todo");
+    if(curTab!=="todo")goTab("todo");
   }
 }
 
@@ -1541,7 +1593,6 @@ function openTaskEdit(tid){
   _editTaskId=tid;
   document.getElementById("te-title").value=t.title||"";
   document.getElementById("te-due").value=t.due||"";
-  document.getElementById("te-heure").value=t.plannedStart||"";
   document.getElementById("te-desc").value=t.desc||"";
   document.getElementById("te-remind").value=String(t.remind||0);
   document.getElementById("task-edit-overlay").classList.add("open");
@@ -1552,14 +1603,9 @@ function saveTaskEdit(){
   const t=S.tasks.find(x=>x.id===_editTaskId);if(!t)return;
   t.title=document.getElementById("te-title").value.trim()||t.title;
   t.due=document.getElementById("te-due").value||null;
-  const h=document.getElementById("te-heure").value||null;
-  t.plannedDate=t.due||null;
-  t.plannedStart=h||null;
-  t.plannedEnd=h?addOneHour(h):null;
   t.desc=document.getElementById("te-desc").value;
   t.remind=parseInt(document.getElementById("te-remind").value)||0;
   lsSave();closeTaskEdit();renderTasks();toast("✓ Tâche modifiée");
-  if(t.due&&h&&token&&!t.gcalId)planTask(t.id,t.due,h,addOneHour(h));
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 </script>
