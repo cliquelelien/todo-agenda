@@ -621,10 +621,25 @@ async function fetchGcal(){
   try{
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
+
+    /* Récupérer la liste des calendriers pour exclure les anniversaires */
+    var calList=await calFetch('GET','/users/me/calendarList');
+    var excludeIds=new Set();
+    if(calList&&calList.items){
+      calList.items.forEach(function(c){
+        var name=(c.summary||'').toLowerCase();
+        if(name.includes('anniversaire')||name.includes('birthday')||name.includes('contact')){
+          excludeIds.add(c.id);
+        }
+      });
+    }
+
     var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items){
-      gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
+      gcal=data.items
+        .filter(function(e){return!excludeIds.has(e.organizer&&e.organizer.email);})
+        .map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
       /* Purger les tâches locales dont l'id existe déjà dans GCal (doublons) */
       var gcalIds=new Set(gcal.map(function(e){return e.id;}));
       var before=S.tasks.length;
