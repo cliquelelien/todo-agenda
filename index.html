@@ -1213,7 +1213,28 @@ async function retryPendingTasks(){
 }
 
 /* ══ CRUD TASKS ══ */
-function addTask(){const title=document.getElementById("ti").value.trim();if(!title)return;const due=document.getElementById("tdat").value||null;const remind=parseInt(document.getElementById("default-remind").value)||0;S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind});lsSave();renderTasks();document.getElementById("ti").value="";document.getElementById("tdat").value="";}
+async function addTask(){
+  const title=document.getElementById("ti").value.trim();if(!title)return;
+  const due=document.getElementById("tdat").value||null;
+  const remind=parseInt(document.getElementById("default-remind").value)||0;
+  document.getElementById("ti").value="";document.getElementById("tdat").value="";
+  if(token&&due){
+    /* Envoi direct dans Google Calendar (journée entière) */
+    showSync("Ajout dans Google Agenda…");
+    const ev=await createGcalEv(title,"",due,null,null,remind);
+    hideSync();
+    if(ev&&ev.id){
+      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind});
+      lsSave();await fetchGcal();renderTasks();renderAg();
+      toast('📌 "'+title.slice(0,20)+'" → GCal le '+fD(due));return;
+    }
+    /* Echec GCal → fallback local */
+  }
+  /* Pas de token ou pas de date : création locale uniquement */
+  S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind});
+  lsSave();renderTasks();
+  if(!token&&due)toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
+}
 
 /* ══ RENDER TASKS ══ */
 function taskSortKey(t){const gcalEv=gcal.find(e=>e.id===t.id);if(gcalEv)return gcalEv.start;return t.due||"9999-12-31";}
@@ -1222,14 +1243,19 @@ function taskSortKeyDesc(t){const gcalEv=gcal.find(e=>e.id===t.id);if(gcalEv)ret
 function renderTasks(){
   const tl=document.getElementById("list-todo"),dl=document.getElementById("list-done"),cd=document.getElementById("card-done"),dh=document.getElementById("dh");
   const localTasks=S.tasks.filter(t=>!t.archived);
-  const todo=localTasks.filter(t=>!t.done).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
+  /* Événements GCal sans meta locale → tâches virtuelles */
+  const localIds=new Set(S.tasks.map(t=>t.id));
+  const gcalOnlyTasks=gcal
+    .filter(e=>!localIds.has(e.id))
+    .map(e=>({id:e.id,title:e.title,desc:"",due:e.start.slice(0,10),done:false,archived:false,remind:0,_gcalOnly:true}));
+  const allTasks=[...localTasks,...gcalOnlyTasks];
+  const todo=allTasks.filter(t=>!t.done).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
   const done=localTasks.filter(t=>t.done).sort((a,b)=>taskSortKeyDesc(b).localeCompare(taskSortKeyDesc(a)));
   tl.innerHTML="";dl.innerHTML="";
   if(!todo.length){tl.innerHTML='<div class="emp">Aucune tâche 🎉</div>';dh.style.display="none";}
   else{todo.forEach(t=>tl.appendChild(buildTask(t)));dh.style.display="block";}
   cd.style.display=done.length?"block":"none";
   done.forEach(t=>dl.appendChild(buildTask(t)));
-  /* Mettre à jour archives si ouvertes */
   const ca=document.getElementById("card-archives");
   if(ca&&ca.style.display!=="none")renderArchives();
 }
@@ -1682,24 +1708,40 @@ function parseVoiceTask(txt){
     .replace(/\s+le\s*$/gi,"").replace(/^\s*le\s+/gi,"")
     .replace(/\s{2,}/g," ").trim();
 
-  if(!title){toast("\u274c Titre introuvable \u2014 r\u00e9essayez");return;}
-
-  let msg='\uD83D\uDCCB "'+title.slice(0,30)+'"';
-  if(dateStr)msg+=" \u2192 "+fD(dateStr);
-  if(timeStr)msg+=" \u00e0 "+timeStr;
-  toast(msg);
+  if(!title){toast("❌ Titre introuvable — réessayez");return;}
 
   const remind=parseInt(document.getElementById("default-remind").value)||0;
-  const newTask={id:uid(),title,desc:"",due:dateStr||null,done:false,archived:false,gcalId:null,plannedDate:null,remind};
-  S.tasks.unshift(newTask);lsSave();renderTasks();
 
   if(token&&dateStr){
-    planTask(newTask.id,dateStr,timeStr||null,timeEnd||null);
-  } else if(!token&&dateStr){
-    toast("\uD83D\uDD12 Connectez-vous pour enregistrer dans l\u2019agenda");
-  } else {
-    if(curTab!=="todo")goTab("todo");
+    /* Envoi direct dans Google Calendar */
+    showSync("Ajout dans Google Agenda…");
+    const ev=await createGcalEv(title,"",dateStr,timeStr||null,timeEnd||null,remind);
+    hideSync();
+    if(ev&&ev.id){
+      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind});
+      lsSave();await fetchGcal();
+      let msg='📌 "'+title.slice(0,25)+'" → '+fD(dateStr);
+      if(timeStr)msg+=" à "+timeStr;
+      toast(msg);
+      selDay=dateStr;cDay=dateStr;
+      if(curTab!=="agenda"){goTab("agenda");}else{renderAg();}
+      renderTasks();return;
+    }
+    /* Echec GCal → fallback local avec pending */
+    const newTask={id:uid(),title,desc:"",due:dateStr,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingDate:dateStr,_pendingTS:timeStr||null,_pendingTE:timeEnd||null};
+    S.tasks.unshift(newTask);lsSave();renderTasks();
+    toast('⚠️ Erreur GCal — tâche sauvegardée localement');
+    return;
   }
+
+  /* Pas de token ou pas de date → local uniquement */
+  const newTask={id:uid(),title,desc:"",due:dateStr||null,done:false,archived:false,gcalId:null,plannedDate:null,remind};
+  S.tasks.unshift(newTask);lsSave();renderTasks();
+  let msg='📋 "'+title.slice(0,30)+'"';
+  if(dateStr)msg+=" → "+fD(dateStr);
+  if(!token&&dateStr)msg+=" (🔒 hors ligne)";
+  toast(msg);
+  if(curTab!=="todo")goTab("todo");
 }
 
 
