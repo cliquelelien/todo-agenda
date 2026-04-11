@@ -467,9 +467,11 @@ function showSync(m){const b=document.getElementById("sync-bar");b.className="sy
 function hideSync(){document.getElementById("sync-bar").className="sync";}
 function eventsOn(d){
   const gcalEvs=gcal.filter(e=>e.start.slice(0,10)===d);
-  const gcalIds=new Set(gcalEvs.map(e=>e.id));
+  const allGcalIds=new Set(gcal.map(e=>e.id));
+  /* Tâches locales à afficher : non archivées, échéance = d,
+     ET dont l'id n'est pas déjà dans gcal (évite les doublons) */
   const localEvs=S.tasks
-    .filter(t=>!t.archived&&t.due===d&&!gcalIds.has(t.id))
+    .filter(t=>!t.archived&&t.due===d&&!allGcalIds.has(t.id))
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true}));
   return [...gcalEvs,...localEvs];
 }
@@ -609,7 +611,14 @@ async function fetchGcal(){
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
     var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
     var data=await calFetch('GET','/calendars/primary/events?'+params);
-    if(data&&data.items)gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
+    if(data&&data.items){
+      gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
+      /* Purger les tâches locales dont l'id existe déjà dans GCal (doublons) */
+      var gcalIds=new Set(gcal.map(function(e){return e.id;}));
+      var before=S.tasks.length;
+      S.tasks=S.tasks.filter(function(t){return!gcalIds.has(t.id)||t.done||t.archived;});
+      if(S.tasks.length!==before)lsSave();
+    }
     hideSync();
   }catch(e){hideSync();}
 }
