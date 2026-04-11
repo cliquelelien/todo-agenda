@@ -323,9 +323,9 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <div id="sync-bar" class="sync"><div class="spinner"></div><span id="sync-msg"></span></div>
   <div class="card">
     <div class="agt">
-      <button onclick="navPrev()" style="background:none;border:1.5px solid var(--blb);border-radius:8px;padding:5px 11px;font-size:16px;cursor:pointer;color:var(--bld);font-weight:700;">&#9664;</button>
+      <button onclick="navPrev()" style="background:none;border:1.5px solid var(--blb);border-radius:8px;padding:5px 11px;font-size:16px;cursor:pointer;color:var(--bld);">&#9664;</button>
       <div class="agp" id="agp"></div>
-      <button onclick="navNext()" style="background:none;border:1.5px solid var(--blb);border-radius:8px;padding:5px 11px;font-size:16px;cursor:pointer;color:var(--bld);font-weight:700;">&#9654;</button>
+      <button onclick="navNext()" style="background:none;border:1.5px solid var(--blb);border-radius:8px;padding:5px 11px;font-size:16px;cursor:pointer;color:var(--bld);">&#9654;</button>
       <select id="h-start" style="display:none"></select>
       <select id="h-end" style="display:none"></select>
       <div class="vsw">
@@ -455,6 +455,7 @@ function fDLong(s){if(!s)return"";return new Date(s+"T00:00:00").toLocaleDateStr
 function fT(iso){if(!iso||!iso.includes("T"))return"";return iso.split("T")[1].slice(0,5);}
 function mk(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e;}
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2500);}
+function toastLong(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),4000);}
 function showSync(m){const b=document.getElementById("sync-bar");b.className="sync show";document.getElementById("sync-msg").textContent=m;}
 function hideSync(){document.getElementById("sync-bar").className="sync";}
 function eventsOn(d){return gcal.filter(e=>e.start.slice(0,10)===d);}
@@ -494,7 +495,7 @@ function initFirebase(){
         /* Lancer l'app sans attendre */
         initApp();
         /* Charger Calendar en arrière-plan si token dispo */
-        if(token){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();syncPendingVoiceTasks();});}
+        if(token){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();if(typeof syncPendingVoiceTasks==='function')syncPendingVoiceTasks();});}
         updateCalendarBtn();
       } else {
         fbUser=null;token=null;
@@ -518,13 +519,12 @@ function updateCalendarBtn(){
   var btn=document.getElementById('cal-connect-btn');
   if(btn)btn.style.display=token?'none':'flex';
 }
-
 function syncPendingVoiceTasks(){
   if(!token)return;
   var pending=S.tasks.filter(function(t){return t.plannedDate&&t.plannedStart&&!t.gcalId&&!t.done&&!t.archived;});
   if(!pending.length)return;
-  toast('📅 Sync '+pending.length+' tâche(s)…');
   pending.forEach(function(t){planTask(t.id,t.plannedDate,t.plannedStart,t.plannedEnd||null);});
+  toast('📅 '+pending.length+' tâche(s) synchronisée(s)');
 }
 
 /* Connexion Calendar : une seule popup Google qui donne Firebase + Calendar */
@@ -1125,7 +1125,9 @@ function addTask(){
   const due=document.getElementById("tdat").value||null;
   const heure=document.getElementById("theure").value||null;
   const remind=parseInt(document.getElementById("default-remind").value)||0;
-  const t={id:uid(),title,desc:"",due,plannedDate:due||null,plannedStart:heure||null,plannedEnd:heure?addOneHour(heure):null,done:false,archived:false,gcalId:null,remind};
+  const t={id:uid(),title,desc:"",due,plannedDate:due||null,
+    plannedStart:heure||null,plannedEnd:heure?addOneHour(heure):null,
+    done:false,archived:false,gcalId:null,remind};
   S.tasks.unshift(t);lsSave();renderTasks();
   if(due&&heure&&token)planTask(t.id,due,heure,addOneHour(heure));
   document.getElementById("ti").value="";
@@ -1354,15 +1356,17 @@ function startVoice(){
   const r=new SR();
   r.lang="fr-FR";r.continuous=false;r.interimResults=false;
   const btn=document.getElementById("mic-btn");
-  btn.textContent="🔴";btn.style.background="rgba(217,48,37,.5)";
+  btn.innerHTML='🔴 <span style="font-size:11px">Écoute…</span>';
+  btn.style.background="rgba(217,48,37,.6)";
   r.onresult=e=>{
-    btn.textContent="🎙";btn.style.background="";
+    btn.innerHTML='🎙 <span style="font-size:11px">Dicter</span>';
+    btn.style.background="";
     const txt=e.results[0][0].transcript.trim();
-    toast("🎙 \""+txt+"\"");
-    parseVoiceTask(txt);
+    toastLong("🎙 "+txt);
+    setTimeout(()=>parseVoiceTask(txt),200);
   };
-  r.onerror=()=>{btn.textContent="🎙";btn.style.background="";toast("❌ Dictée échouée");};
-  r.onend=()=>{btn.textContent="🎙";btn.style.background="";};
+  r.onerror=ev=>{btn.innerHTML='🎙 <span style="font-size:11px">Dicter</span>';btn.style.background="";toast("❌ "+ev.error);};
+  r.onend=()=>{btn.innerHTML='🎙 <span style="font-size:11px">Dicter</span>';btn.style.background="";};
   r.start();
 }
 
@@ -1508,15 +1512,23 @@ function parseVoiceTask(txt){
   toast(msg);
 
   const remind=parseInt(document.getElementById("default-remind").value)||0;
-  const newTask={id:uid(),title,desc:"",due:dateStr||null,done:false,archived:false,gcalId:null,plannedDate:null,remind};
+  const newTask={id:uid(),title,desc:"",due:dateStr||null,
+    plannedDate:dateStr||null,plannedStart:timeStr||null,plannedEnd:timeEnd||null,
+    done:false,archived:false,gcalId:null,remind};
   S.tasks.unshift(newTask);lsSave();renderTasks();
 
-  if(token&&dateStr){
-    planTask(newTask.id,dateStr,timeStr||null,timeEnd||null);
-  } else if(!token&&dateStr){
-    toast("\uD83D\uDD12 Connectez-vous pour enregistrer dans l\u2019agenda");
+  if(dateStr&&timeStr){
+    if(token){
+      planTask(newTask.id,dateStr,timeStr,timeEnd);
+    } else {
+      toast('📋 "'+title.slice(0,20)+'" → '+fD(dateStr)+' à '+timeStr+' (hors-ligne)');
+      goTab("todo");
+    }
+  } else if(dateStr){
+    if(token)planTask(newTask.id,dateStr,null,null);
+    else{toast('📋 "'+title.slice(0,20)+'" → '+fD(dateStr));goTab("todo");}
   } else {
-    if(curTab!=="todo")goTab("todo");
+    goTab("todo");
   }
 }
 
