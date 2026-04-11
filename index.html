@@ -1524,18 +1524,25 @@ function parseVoiceTask(txt){
   /* "heures NUMBER" → "hNUMBER", "heures" seul → "h" */
   n=n.replace(/\s*heures?\s+(\d{1,2})\b/gi,(_,m)=>"h"+String(m).padStart(2,"0"));
   n=n.replace(/\s*heures?\s*/gi,"h");
-  /* "14 h 30" → "14h30" */
-  n=n.replace(/\s*h\s+(\d{2})\b/g,(_,m)=>"h"+m);
+  /* "14 h 30" → "14h30" ; "14h 30" → "14h30" */
+  n=n.replace(/(\d{1,2})\s*h\s+(\d{2})\b/g,(_,h,m)=>h+"h"+m);
 
   /* ── Extraction de l'heure ── */
   let timeStr=null,timeEnd=null;
   let tm=null;
-  if(!tm)tm=n.match(/(?:^|[\s,à])(\d{1,2})h(\d{2})(?=\s|$|[^\d])/);
-  if(!tm)tm=n.match(/(?:^|[\s,à])(\d{1,2})h(?!\d)/);
+  /* 1) "18h30" ou "8h05" dans le texte normalisé */
+  if(!tm)tm=n.match(/(?:^|[\s,àa])(\d{1,2})h(\d{2})(?:\s|$|[^\d])/);
+  /* 2) heure ronde "18h" sans minutes */
+  if(!tm)tm=n.match(/(?:^|[\s,àa])(\d{1,2})h(?!\d)/);
+  /* 3) format HH:MM */
   if(!tm)tm=n.match(/(\d{1,2}):(\d{2})/);
-  if(!tm)tm=n.match(/à\s+(\d{1,2})\s+(\d{2})(?=\s|$)/);
+  /* 4) "à 18 30" (chiffres séparés après normalisation incomplète) */
+  if(!tm)tm=n.match(/à\s+(\d{1,2})\s+(\d{2})(?:\s|$)/);
+  /* 5) Fallback direct sur le texte brut : "18 heures 30" en chiffres */
+  if(!tm){const r2=raw.match(/(?:^|[\s,à])(\d{1,2})\s*h(?:eures?)?\s*(\d{2})(?:\s|$)/i);if(r2)tm=r2;}
+  if(!tm){const r2=raw.match(/(?:^|[\s,à])(\d{1,2})\s*heures?(?:\s+(\d{1,2})(?:\s|$))?/i);if(r2)tm=r2;}
   if(tm){
-    const h=parseInt(tm[1]),m=tm[2]!==undefined?parseInt(tm[2]):0;
+    const h=parseInt(tm[1]),m=tm[2]!==undefined&&tm[2]!==''?parseInt(tm[2]):0;
     if(h>=0&&h<=23&&m>=0&&m<=59){
       timeStr=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
       timeEnd=addOneHour(timeStr);
