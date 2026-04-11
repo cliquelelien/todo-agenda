@@ -591,7 +591,26 @@ async function calFetch(method,path,body){
   var opts={method:method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}};
   if(body)opts.body=JSON.stringify(body);
   var r=await fetch(url,opts);
-  if(r.status===401){token=null;localStorage.removeItem('gcal_token');updateCalendarBtn();toast('🔒 Session Google expirée — reconnectez-vous');return null;}
+  if(r.status===401){
+    /* Token expiré — tentative de renouvellement silencieux via Firebase */
+    token=null;localStorage.removeItem('gcal_token');
+    try{
+      var provider=new firebase.auth.GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/calendar');
+      var result=await fbAuth.signInWithPopup(provider);
+      if(result.credential&&result.credential.accessToken){
+        token=result.credential.accessToken;
+        localStorage.setItem('gcal_token',token);
+        /* Rejouer la requête avec le nouveau token */
+        opts.headers['Authorization']='Bearer '+token;
+        r=await fetch(url,opts);
+        if(!r.ok){var err2=null;try{err2=await r.json();}catch(e){}toast('❌ Erreur Google '+r.status+' : '+(err2&&err2.error&&err2.error.message||r.statusText));return null;}
+        if(r.status===204)return {};
+        return r.json();
+      }
+    }catch(e){toast('🔒 Reconnexion requise');}
+    updateCalendarBtn();return null;
+  }
   if(!r.ok){var err=null;try{err=await r.json();}catch(e){}toast('❌ Erreur Google '+r.status+' : '+(err&&err.error&&err.error.message||r.statusText));return null;}
   if(r.status===204)return {};
   return r.json();
@@ -1150,7 +1169,7 @@ async function planTask(tid,date,tS,tE){
   if(t.gcalId){showSync("Mise à jour…");await delGcalEv(t.gcalId);t.gcalId=null;}
   showSync("Envoi Google Agenda…");const ev=await createGcalEv(t.title,t.desc,date,tS,tE,t.remind||0);hideSync();
   if(ev&&ev.id){S.tasks=S.tasks.filter(x=>x.id!==tid);S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0});lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:""));}
-  else{alert("ERREUR planTask\nev="+JSON.stringify(ev)+"\ntS="+tS+"\ndate="+date);}
+  else if(!ev)toast("❌ Erreur lors de l'envoi");
 }
 
 /* ══ CRUD TASKS ══ */
