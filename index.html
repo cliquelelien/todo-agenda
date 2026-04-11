@@ -611,12 +611,15 @@ async function fetchGcal(){
 }
 async function createGcalEv(title,desc,date,tS,tE,remindMin){
   if(!token)return null;
-  /* Traiter chaîne vide comme null */
   tS=tS||null; tE=tE||null;
   remindMin=remindMin||0;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
-  return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date}});
+  var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
+  var endObj=tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date};
+  /* DEBUG — à supprimer après vérification */
+  alert("DEBUG createGcalEv\ntS reçu = «"+tS+"»\nstart envoyé = "+JSON.stringify(startObj));
+  return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:startObj,end:endObj});
 }
 async function updateGcalEv(gcalId,title,desc,date,tS,tE){
   if(!token||!gcalId)return;
