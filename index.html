@@ -373,6 +373,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <div class="ep-desc" id="ev-desc-view"></div>
     <hr class="ep-sep" id="ev-edit-sep" style="display:none">
     <div id="ev-edit-area" style="display:none">
+      <label>Titre</label><input type="text" id="ev-titlefield" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:6px">
       <label>Date</label><input type="date" id="ev-date">
       <label>Heure d&#233;but</label><input type="time" id="ev-tstart">
       <label>Heure fin</label><input type="time" id="ev-tend">
@@ -465,13 +466,10 @@ function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t
 function showSync(m){const b=document.getElementById("sync-bar");b.className="sync show";document.getElementById("sync-msg").textContent=m;}
 function hideSync(){document.getElementById("sync-bar").className="sync";}
 function eventsOn(d){
-  /* Événements Google Calendar sur cette date */
   const gcalEvs=gcal.filter(e=>e.start.slice(0,10)===d);
   const gcalIds=new Set(gcalEvs.map(e=>e.id));
-  /* Tâches locales ayant une due date sur ce jour,
-     non archivées, et dont l'id n'est pas déjà dans gcal */
   const localEvs=S.tasks
-    .filter(t=>!t.archived && t.due===d && !gcalIds.has(t.id))
+    .filter(t=>!t.archived&&t.due===d&&!gcalIds.has(t.id))
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true}));
   return [...gcalEvs,...localEvs];
 }
@@ -605,7 +603,7 @@ async function fetchGcal(){
   try{
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
-    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'2500'});
+    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items)gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
     hideSync();
@@ -613,6 +611,8 @@ async function fetchGcal(){
 }
 async function createGcalEv(title,desc,date,tS,tE,remindMin){
   if(!token)return null;
+  /* Traiter chaîne vide comme null */
+  tS=tS||null; tE=tE||null;
   remindMin=remindMin||0;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
@@ -620,6 +620,8 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin){
 }
 async function updateGcalEv(gcalId,title,desc,date,tS,tE){
   if(!token||!gcalId)return;
+  /* Traiter chaîne vide comme null */
+  tS=tS||null; tE=tE||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date}});
 }
@@ -871,7 +873,7 @@ function renderWeek(){
       eventsOn(day.date).filter(e=>!e.allDay&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
         const ev=mk("div","wev "+(isArchived(e.id)?"wev-arc":isDone(e.id)?"wev-dn":"wev-td"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
         ev.textContent=fT(e.start)+" "+e.title;ev.style.top=(i*22+3)+"px";
-        if(!e._local)ev.onclick=()=>openEvModal(e.id);slot.appendChild(ev);
+        ev.onclick=()=>openEvModal(e.id);slot.appendChild(ev);
       });
       tr.appendChild(slot);
     });
@@ -916,7 +918,7 @@ function renderDay(){
     eventsOn(cDay).filter(e=>!e.allDay&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
       const ev=mk("div","day-ev "+(isArchived(e.id)?"day-ev-arc":isDone(e.id)?"day-ev-dn":"day-ev-td"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
       ev.textContent=fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):"")+" "+e.title;
-      ev.style.top=(i*28+3)+"px";if(!e._local)ev.onclick=()=>openEvModal(e.id);slot.appendChild(ev);
+      ev.style.top=(i*28+3)+"px";ev.onclick=()=>openEvModal(e.id);slot.appendChild(ev);
     });
     grid.appendChild(slot);
   }
@@ -983,6 +985,7 @@ function openEvModal(gcalId){
   document.getElementById("ev-save-btn").style.display="none";
   document.getElementById("ev-edit-btn").textContent="✎ Modifier";
   document.getElementById("ev-date").value=dateStr;
+  document.getElementById("ev-titlefield").value=e.title;
   document.getElementById("ev-tstart").value=e.allDay?"":(fT(e.start));
   document.getElementById("ev-tend").value=e.allDay||!e.end?"":fT(e.end);
   document.getElementById("ev-descfield").value=meta?.desc||"";
@@ -996,14 +999,26 @@ function toggleEvEdit(){
   editBtn.textContent=open?"✕ Annuler":"✎ Modifier";
 }
 async function saveEvEdit(){
-  if(!evPending)return;const e=gcal.find(x=>x.id===evPending);if(!e)return;
+  if(!evPending)return;
+  const e=gcal.find(x=>x.id===evPending);if(!e)return;
   const date=document.getElementById("ev-date").value;
   const ts=document.getElementById("ev-tstart").value||null;
   const te=document.getElementById("ev-tend").value||null;
+  const newTitle=document.getElementById("ev-titlefield").value.trim()||e.title;
   const desc=document.getElementById("ev-descfield").value;
-  showSync("Mise à jour…");await updateGcalEv(evPending,e.title,desc,date,ts,te);
-  ensureMeta(evPending,e.title);const meta=metaOf(evPending);if(meta)meta.desc=desc;lsSave();
-  await fetchGcal();hideSync();closeEvModal();renderAg();renderTasks();toast("✓ Mis à jour");
+  showSync("Mise à jour…");
+  await updateGcalEv(evPending,newTitle,desc,date,ts,te);
+  /* Mettre à jour localement : méta + cache gcal */
+  ensureMeta(evPending,newTitle);
+  const meta=metaOf(evPending);
+  if(meta){meta.title=newTitle;meta.desc=desc;}
+  e.title=newTitle;
+  /* Afficher le nouveau titre dans le h3 */
+  document.getElementById("ev-title").textContent=newTitle;
+  lsSave();
+  await fetchGcal();
+  hideSync();closeEvModal();renderAg();renderTasks();
+  toast("✓ Mis à jour");
 }
 async function evToggleDone(){if(!evPending)return;toggleEvDone(evPending);closeEvModal();renderAg();renderTasks();}
 async function evDelete(){if(!evPending)return;showSync("Suppression…");await delGcalEv(evPending);removeMeta(evPending);hideSync();closeEvModal();await fetchGcal();renderAg();renderTasks();toast("🗑 Supprimé");}
