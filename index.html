@@ -689,7 +689,7 @@ async function fetchGcal(){
 
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
-    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
+    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500',eventTypes:'default'});
 
     /* Fetcher chaque calendrier sélectionné */
     var calIds=(_selectedCalIds&&_selectedCalIds.length)?_selectedCalIds:['primary'];
@@ -704,6 +704,7 @@ async function fetchGcal(){
     var seen=new Set();
     allItems=allItems.filter(function(e){if(seen.has(e.id))return false;seen.add(e.id);return true;});
 
+    allItems=allItems.filter(function(e){return e.eventType!=='birthday';});
     gcal=allItems.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
 
     var gcalIds=new Set(gcal.map(function(e){return e.id;}));
