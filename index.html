@@ -591,8 +591,8 @@ async function calFetch(method,path,body){
   var opts={method:method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}};
   if(body)opts.body=JSON.stringify(body);
   var r=await fetch(url,opts);
-  if(r.status===401){token=null;localStorage.removeItem('gcal_token');updateCalendarBtn();return null;}
-  if(!r.ok)return null;
+  if(r.status===401){token=null;localStorage.removeItem('gcal_token');updateCalendarBtn();toast('🔒 Session Google expirée — reconnectez-vous');return null;}
+  if(!r.ok){var err=null;try{err=await r.json();}catch(e){}toast('❌ Erreur Google '+r.status+' : '+(err&&err.error&&err.error.message||r.statusText));return null;}
   if(r.status===204)return {};
   return r.json();
 }
@@ -617,8 +617,6 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin){
   var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
   var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
   var endObj=tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date};
-  /* DEBUG — à supprimer après vérification */
-  alert("DEBUG createGcalEv\ntS reçu = «"+tS+"»\nstart envoyé = "+JSON.stringify(startObj));
   return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:startObj,end:endObj});
 }
 async function updateGcalEv(gcalId,title,desc,date,tS,tE){
@@ -1619,9 +1617,6 @@ function parseVoiceTask(txt){
     .replace(/\s{2,}/g," ").trim();
 
   if(!title){toast("\u274c Titre introuvable \u2014 r\u00e9essayez");return;}
-
-  /* DEBUG — affiche le parsing pour vérification, à supprimer ensuite */
-  alert("\uD83D\uDD0D DEBUG PARSING\n\nTranscription brute :\n\u00ab"+txt+"\u00bb\n\nTexte normalisé :\n\u00ab"+n+"\u00bb\n\nRésultat :\ntitle = "+title+"\ntimeStr = "+(timeStr||"null ← PROBLÈME")+"\ndateStr = "+(dateStr||"null"));
 
   let msg='\uD83D\uDCCB "'+title.slice(0,30)+'"';
   if(dateStr)msg+=" \u2192 "+fD(dateStr);
