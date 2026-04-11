@@ -1617,6 +1617,9 @@ function parseVoiceTask(txt){
 
   if(!title){toast("\u274c Titre introuvable \u2014 r\u00e9essayez");return;}
 
+  /* DEBUG — affiche le parsing pour vérification, à supprimer ensuite */
+  alert("\uD83D\uDD0D DEBUG PARSING\n\nTranscription brute :\n\u00ab"+txt+"\u00bb\n\nTexte normalisé :\n\u00ab"+n+"\u00bb\n\nRésultat :\ntitle = "+title+"\ntimeStr = "+(timeStr||"null ← PROBLÈME")+"\ndateStr = "+(dateStr||"null"));
+
   let msg='\uD83D\uDCCB "'+title.slice(0,30)+'"';
   if(dateStr)msg+=" \u2192 "+fD(dateStr);
   if(timeStr)msg+=" \u00e0 "+timeStr;
