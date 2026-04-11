@@ -1587,21 +1587,32 @@ function parseVoiceTask(txt){
     }
   }
 
-  /* ── Titre ── */
+  /* ── Titre ── (supprimer "heures" AVANT "h" pour éviter de couper le mot) */
   let title=txt
-    .replace(/(?:à\s+)?\d{1,2}\s*h\s*\d{0,2}/gi,"")
-    .replace(/(?:à\s+)?\d{1,2}:\d{2}/gi,"")
-    .replace(/\d{1,2}\s*heures?\s*\d{0,2}\s*(?:minutes?)?/gi,"")
-    .replace(/à\s+(?:zéro|un[e]?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|dix-sept|dix-huit|dix-neuf|vingt(?:[\s-]\w+)?)\s+heures?(?:\s+[\w\s-]+)?/gi,"")
+    /* 1. expressions en toutes lettres : "à dix-huit heures trente" */
+    .replace(/(?:à\s+)?(?:zéro|un[e]?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|dix-sept|dix-huit|dix-neuf|vingt(?:[\s-]\w+)?)\s+heures?\s*(?:(?:et\s+)?(?:demie?|quart)|moins\s+le\s+quart|(?:\w+(?:\s+\w+){0,3}))?/gi,"")
+    /* 2. "midi" / "minuit" */
     .replace(/\bmidi\b|\bminuit\b/gi,"")
+    /* 3. chiffres + "heures" + minutes optionnelles : "18 heures 30", "18 heures" */
+    .replace(/(?:à\s+)?\d{1,2}\s*heures?\s*(?:\d{1,2}\s*(?:minutes?)?)?\s*/gi,"")
+    /* 4. format "18h30" ou "18h" (après élimination de "heures", plus de risque de couper) */
+    .replace(/(?:à\s+)?\d{1,2}\s*h\s*\d{0,2}/gi,"")
+    /* 5. format HH:MM */
+    .replace(/(?:à\s+)?\d{1,2}:\d{2}/gi,"")
+    /* 6. mots temporels */
     .replace(/aujourd[\s']*hui|apr[eè]s[\s-]*demain|demain/gi,"")
     .replace(/ce\s*soir|ce\s*matin|cet\s*apr[eè]s[\s-]*midi/gi,"")
     .replace(/lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche/gi,"")
     .replace(/\d{1,2}\s*(?:janvier|f[eé]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[eé]cembre)\s*(?:20\d{2})?/gi,"")
-    .replace(/le\s+\d{1,2}/gi,"")
     .replace(/\b20\d{2}\b/gi,"")
+    /* 7. verbes parasites */
     .replace(/rappel(?:le)?[\s-]*moi/gi,"")
     .replace(/ajoute(?:r|z)?|cr[eé]e(?:r|z)?|note(?:r|z)?|pense(?:r|z)?\s+à|n'oublie\s+pas/gi,"")
+    /* 8. chiffres isolés résiduels */
+    .replace(/\b\d{1,2}\b/g,"")
+    /* 9. prépositions/articles orphelins en fin ou début */
+    .replace(/\s+à\s*$/gi,"").replace(/^\s*à\s+/gi,"")
+    .replace(/\s+le\s*$/gi,"").replace(/^\s*le\s+/gi,"")
     .replace(/\s{2,}/g," ").trim();
 
   if(!title){toast("\u274c Titre introuvable \u2014 r\u00e9essayez");return;}
