@@ -279,6 +279,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <div class="ar">
       <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
       <input type="date" id="tdat">
+      <input type="time" id="theure" title="Heure (optionnelle)" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;">
       <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
@@ -322,7 +323,9 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <div id="sync-bar" class="sync"><div class="spinner"></div><span id="sync-msg"></span></div>
   <div class="card">
     <div class="agt">
+      <button onclick="navPrev()" style="background:none;border:1.5px solid var(--blb);border-radius:8px;padding:5px 11px;font-size:16px;cursor:pointer;color:var(--bld);font-weight:700;">&#9664;</button>
       <div class="agp" id="agp"></div>
+      <button onclick="navNext()" style="background:none;border:1.5px solid var(--blb);border-radius:8px;padding:5px 11px;font-size:16px;cursor:pointer;color:var(--bld);font-weight:700;">&#9654;</button>
       <select id="h-start" style="display:none"></select>
       <select id="h-end" style="display:none"></select>
       <div class="vsw">
@@ -389,6 +392,8 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <input type="text" id="te-title" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:8px">
     <label>&#201;ch&#233;ance</label>
     <input type="date" id="te-due" style="margin-bottom:8px">
+    <label>Heure (optionnelle)</label>
+    <input type="time" id="te-heure" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;margin-bottom:8px;color-scheme:light;">
     <label>Descriptif</label>
     <textarea id="te-desc" rows="3" placeholder="Descriptif optionnel&#8230;" style="margin-bottom:8px"></textarea>
     <label>&#128276; Rappel</label>
@@ -1115,7 +1120,18 @@ async function planTask(tid,date,tS,tE){
 }
 
 /* ══ CRUD TASKS ══ */
-function addTask(){const title=document.getElementById("ti").value.trim();if(!title)return;const due=document.getElementById("tdat").value||null;const remind=parseInt(document.getElementById("default-remind").value)||0;S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind});lsSave();renderTasks();document.getElementById("ti").value="";document.getElementById("tdat").value="";}
+function addTask(){
+  const title=document.getElementById("ti").value.trim();if(!title)return;
+  const due=document.getElementById("tdat").value||null;
+  const heure=document.getElementById("theure").value||null;
+  const remind=parseInt(document.getElementById("default-remind").value)||0;
+  const t={id:uid(),title,desc:"",due,plannedDate:due||null,plannedStart:heure||null,plannedEnd:heure?addOneHour(heure):null,done:false,archived:false,gcalId:null,remind};
+  S.tasks.unshift(t);lsSave();renderTasks();
+  if(due&&heure&&token)planTask(t.id,due,heure,addOneHour(heure));
+  document.getElementById("ti").value="";
+  document.getElementById("tdat").value="";
+  document.getElementById("theure").value="";
+}
 
 /* ══ RENDER TASKS ══ */
 function taskSortKey(t){const gcalEv=gcal.find(e=>e.id===t.id);if(gcalEv)return gcalEv.start;return t.due||"9999-12-31";}
@@ -1142,7 +1158,12 @@ function buildTask(t){
   const name=mk("div","tn");name.textContent=t.title;
   if(!gcalEv){name.onclick=()=>openTaskEdit(t.id);name.style.textDecoration="underline dotted";name.style.cursor="pointer";}
   const tags=mk("div","tgs");
-  if(t.due&&!gcalEv){const tg=mk("div","tg tg-d"+(overdue?" ov":""));tg.textContent="📅 Échéance : "+fD(t.due);tags.appendChild(tg);}
+  if(t.due&&!gcalEv){
+    const tg=mk("div","tg tg-d"+(overdue?" ov":""));
+    let lbl="📅 "+fD(t.due);
+    if(t.plannedStart)lbl+=" à "+t.plannedStart;
+    tg.textContent=lbl;tags.appendChild(tg);
+  }
   if(gcalEv){
     const tg=mk("div","tg tg-p");let label="📌 ";
     if(!gcalEv.allDay&&gcalEv.start.includes("T"))label+=fT(gcalEv.start)+(gcalEv.end&&gcalEv.end.includes("T")?" – "+fT(gcalEv.end):"")+" ";
@@ -1508,6 +1529,7 @@ function openTaskEdit(tid){
   _editTaskId=tid;
   document.getElementById("te-title").value=t.title||"";
   document.getElementById("te-due").value=t.due||"";
+  document.getElementById("te-heure").value=t.plannedStart||"";
   document.getElementById("te-desc").value=t.desc||"";
   document.getElementById("te-remind").value=String(t.remind||0);
   document.getElementById("task-edit-overlay").classList.add("open");
@@ -1518,9 +1540,14 @@ function saveTaskEdit(){
   const t=S.tasks.find(x=>x.id===_editTaskId);if(!t)return;
   t.title=document.getElementById("te-title").value.trim()||t.title;
   t.due=document.getElementById("te-due").value||null;
+  const h=document.getElementById("te-heure").value||null;
+  t.plannedDate=t.due||null;
+  t.plannedStart=h||null;
+  t.plannedEnd=h?addOneHour(h):null;
   t.desc=document.getElementById("te-desc").value;
   t.remind=parseInt(document.getElementById("te-remind").value)||0;
   lsSave();closeTaskEdit();renderTasks();toast("✓ Tâche modifiée");
+  if(t.due&&h&&token&&!t.gcalId)planTask(t.id,t.due,h,addOneHour(h));
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 </script>
