@@ -562,13 +562,25 @@ function setAuthLoading(on){var lo=document.getElementById('auth-loading');var f
 function authGoogle(){
   if(!fbAuth){showAuthError('Chargement… réessayez.');return;}
   showAuthError('');setAuthLoading(true);
-  /* Scope Calendar inclus dans la connexion Google → un seul popup */
   var provider=new firebase.auth.GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/calendar');
   fbAuth.signInWithPopup(provider).then(function(result){
+    setAuthLoading(false);
     if(result.credential&&result.credential.accessToken){
       token=result.credential.accessToken;
       localStorage.setItem('gcal_token',token);
+    }
+    var user=result.user;
+    if(user){
+      fbUser=user;
+      document.getElementById('auth-overlay').style.display='none';
+      document.getElementById('app-content').style.display='block';
+      var photo=user.photoURL||'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg';
+      document.getElementById('gs').textContent='✓ '+(user.displayName||user.email||'');
+      document.getElementById('gs').className='ok';
+      document.getElementById('bg').innerHTML='<img src="'+photo+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover" alt="">';
+      initApp();
+      if(token){fetchGcal().then(function(){renderTasks();renderAg();updateCalendarBtn();toast('✅ Connecté !');retryPendingTasks();});}
     }
   }).catch(function(e){setAuthLoading(false);showAuthError(e.message);});
 }
