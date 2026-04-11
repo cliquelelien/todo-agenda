@@ -1149,8 +1149,8 @@ async function planTask(tid,date,tS,tE){
   if(!token){toast("🔒 Connectez-vous à Google d'abord");return;}
   if(t.gcalId){showSync("Mise à jour…");await delGcalEv(t.gcalId);t.gcalId=null;}
   showSync("Envoi Google Agenda…");const ev=await createGcalEv(t.title,t.desc,date,tS,tE,t.remind||0);hideSync();
-  if(ev){S.tasks=S.tasks.filter(x=>x.id!==tid);S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0});lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:""));}
-  else toast("❌ Erreur lors de l'envoi");
+  if(ev&&ev.id){S.tasks=S.tasks.filter(x=>x.id!==tid);S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0});lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:""));}
+  else{alert("ERREUR planTask\nev="+JSON.stringify(ev)+"\ntS="+tS+"\ndate="+date);}
 }
 
 /* ══ CRUD TASKS ══ */
