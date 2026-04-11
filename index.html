@@ -262,6 +262,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <h1>Planify</h1>
   <span id="gs">Non connect&#233;</span>
   <button id="mic-btn" onclick="startVoice()" title="Dicter une t&#226;che" style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 13px;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;" aria-label="Microphone">&#127908; <span style="font-size:11px">Dicter</span></button>
+  <button onclick="openCalSettings()" title="Calendriers" style="display:flex;align-items:center;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 10px;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;">&#9881;&#65039;</button>
   <button id="bg" onclick="handleAuth()">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
     Connexion Google
@@ -615,39 +616,101 @@ async function calFetch(method,path,body){
   return r.json();
 }
 
+/* ══ SÉLECTION CALENDRIERS ══ */
+var _allCals=[];  // liste complète récupérée depuis Google
+var _selectedCalIds=JSON.parse(localStorage.getItem('planify_cal_ids')||'null');
+// null = pas encore configuré (on demandera après la 1ère connexion)
+
+async function loadCalendarList(){
+  if(!token)return;
+  var data=await calFetch('GET','/users/me/calendarList');
+  if(!data||!data.items)return;
+  _allCals=data.items.map(function(c){return{id:c.id,name:c.summary||c.id,color:c.backgroundColor||'#2a7de1'};});
+  /* 1ère connexion : pré-cocher tout sauf anniversaires/contacts */
+  if(_selectedCalIds===null){
+    _selectedCalIds=_allCals
+      .filter(function(c){
+        var n=c.name.toLowerCase();
+        return!n.includes('anniversaire')&&!n.includes('birthday')&&!n.includes('contact');
+      })
+      .map(function(c){return c.id;});
+    localStorage.setItem('planify_cal_ids',JSON.stringify(_selectedCalIds));
+    /* Afficher la modale pour confirmer */
+    openCalSettings();
+  }
+}
+
+function openCalSettings(){
+  if(!token){toast('🔒 Connectez-vous dabord');return;}
+  var list=document.getElementById('cal-list');
+  list.innerHTML='';
+  if(!_allCals.length){
+    list.innerHTML='<div style="font-size:13px;color:var(--tx3)">Chargement des calendriers…</div>';
+    loadCalendarList().then(function(){openCalSettings();});
+    return;
+  }
+  _allCals.forEach(function(c){
+    var checked=_selectedCalIds&&_selectedCalIds.includes(c.id);
+    var row=document.createElement('label');
+    row.style='display:flex;align-items:center;gap:10px;padding:9px 11px;border:1.5px solid var(--blb);border-radius:10px;cursor:pointer;background:#fff;transition:border-color .15s;';
+    var dot=document.createElement('span');
+    dot.style='width:11px;height:11px;border-radius:50%;background:'+c.color+';flex-shrink:0;';
+    var chk=document.createElement('input');
+    chk.type='checkbox';chk.value=c.id;chk.checked=!!checked;
+    chk.style='width:17px;height:17px;accent-color:var(--bl);cursor:pointer;flex-shrink:0;';
+    var lbl=document.createElement('span');
+    lbl.textContent=c.name;
+    lbl.style='font-size:13px;font-weight:700;color:var(--tx);flex:1;';
+    row.append(dot,chk,lbl);
+    list.appendChild(row);
+  });
+  document.getElementById('cal-settings-overlay').classList.add('open');
+}
+
+function closeCalSettings(){document.getElementById('cal-settings-overlay').classList.remove('open');}
+
+function saveCalSettings(){
+  var checks=document.querySelectorAll('#cal-list input[type=checkbox]');
+  _selectedCalIds=[];
+  checks.forEach(function(c){if(c.checked)_selectedCalIds.push(c.value);});
+  localStorage.setItem('planify_cal_ids',JSON.stringify(_selectedCalIds));
+  closeCalSettings();
+  fetchGcal().then(function(){renderTasks();renderAg();toast('✅ Calendriers mis à jour');});
+}
+
+document.getElementById('cal-settings-overlay').addEventListener('click',function(e){if(e.target===document.getElementById('cal-settings-overlay'))closeCalSettings();});
+
 async function fetchGcal(){
   if(!token)return;
   showSync("Chargement Agenda…");
   try{
+    /* Charger la liste des calendriers si pas encore fait */
+    if(!_allCals.length)await loadCalendarList();
+
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
-
-    /* Récupérer la liste des calendriers pour exclure les anniversaires */
-    var calList=await calFetch('GET','/users/me/calendarList');
-    var excludeIds=new Set();
-    if(calList&&calList.items){
-      calList.items.forEach(function(c){
-        var name=(c.summary||'').toLowerCase();
-        if(name.includes('anniversaire')||name.includes('birthday')||name.includes('contact')){
-          excludeIds.add(c.id);
-        }
-      });
-    }
-
     var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
-    var data=await calFetch('GET','/calendars/primary/events?'+params);
-    if(data&&data.items){
-      gcal=data.items
-        .filter(function(e){return!excludeIds.has(e.organizer&&e.organizer.email);})
-        .map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
-      /* Purger les tâches locales dont l'id existe déjà dans GCal (doublons) */
-      var gcalIds=new Set(gcal.map(function(e){return e.id;}));
-      var before=S.tasks.length;
-      /* Garder uniquement les meta locales utiles : archived=true ou done=true (état UI)
-         Les tâches non faites sont entièrement gérées via gcal[], pas S.tasks */
-      S.tasks=S.tasks.filter(function(t){return!gcalIds.has(t.id)||(t.archived||t.done);});
-      if(S.tasks.length!==before)lsSave();
+
+    /* Fetcher chaque calendrier sélectionné */
+    var calIds=(_selectedCalIds&&_selectedCalIds.length)?_selectedCalIds:['primary'];
+    var allItems=[];
+    for(var i=0;i<calIds.length;i++){
+      var calId=encodeURIComponent(calIds[i]);
+      var data=await calFetch('GET','/calendars/'+calId+'/events?'+params);
+      if(data&&data.items)allItems=allItems.concat(data.items);
     }
+
+    /* Dédoublonner par id */
+    var seen=new Set();
+    allItems=allItems.filter(function(e){if(seen.has(e.id))return false;seen.add(e.id);return true;});
+
+    gcal=allItems.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
+
+    var gcalIds=new Set(gcal.map(function(e){return e.id;}));
+    var before=S.tasks.length;
+    S.tasks=S.tasks.filter(function(t){return!gcalIds.has(t.id)||(t.archived||t.done);});
+    if(S.tasks.length!==before)lsSave();
+
     hideSync();
   }catch(e){hideSync();}
 }
@@ -1805,6 +1868,19 @@ function saveTaskEdit(){
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 </script>
+
+<!-- OVERLAY SÉLECTION CALENDRIERS -->
+<div class="ov" id="cal-settings-overlay">
+  <div class="mo" style="max-width:380px">
+    <h3>&#128197; Calendriers affichés</h3>
+    <p style="font-size:12px;color:var(--tx2);margin-bottom:14px;font-weight:600;">Sélectionnez les calendriers à afficher dans Planify.</p>
+    <div id="cal-list" style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto;"></div>
+    <div class="mo-btns" style="margin-top:16px">
+      <button class="btn btn-gh" onclick="closeCalSettings()">Annuler</button>
+      <button class="btn btn-bl" onclick="saveCalSettings()">&#10003; Enregistrer</button>
+    </div>
+  </div>
+</div>
 </div><!-- /app-content -->
 <!-- GAPI et GSI supprimés — Calendar via fetch REST direct -->
 </body>
