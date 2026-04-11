@@ -296,7 +296,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <div class="card">
     <div class="ct">&#128204; &#192; faire</div>
     <div class="tl" id="list-todo"></div>
-    <div class="dh" id="dh" style="display:none">&#128197; Cliquez sur &#128197; pour planifier une t&#226;che</div>
+    <div class="dh" id="dh" style="display:none">Cliquez sur 📅 pour planifier une tâche</div>
   </div>
   <div class="card" id="card-done" style="display:none">
     <div class="ct">&#9989; Termin&#233;es</div>
@@ -1129,7 +1129,25 @@ function setupTouch(item,tid2){
 
 /* ══ MODAL PLANIFIER ══ */
 function addOneHour(t){const[h,m]=t.split(":").map(Number);const tot=h*60+m+60;return z(Math.min(Math.floor(tot/60),23))+":"+z(tot%60);}
-function openModal(tid,date,tS,tE){const t=S.tasks.find(t=>t.id===tid);if(!t)return;pending={tid,date};document.getElementById("mo-title").value=t.title;document.getElementById("mo-date").value=date;const start=tS||"09:00";document.getElementById("mo-start").value=start;document.getElementById("mo-end").value=tE||addOneHour(start);document.getElementById("overlay").classList.add("open");}
+function openModal(tid,date,tS,tE){
+  const t=S.tasks.find(t=>t.id===tid);if(!t)return;
+  pending={tid,date};
+  document.getElementById("mo-title").value=t.title;
+  document.getElementById("mo-date").value=date;
+  /* Priorité : heure passée en argument > heure GCal existante > heure pending > 09:00 */
+  const gcalEv=gcal.find(e=>e.id===t.id);
+  let start=tS;
+  if(!start&&gcalEv&&!gcalEv.allDay&&gcalEv.start.includes("T"))start=fT(gcalEv.start);
+  if(!start&&t._pendingTS)start=t._pendingTS;
+  if(!start)start="09:00";
+  let end=tE;
+  if(!end&&gcalEv&&!gcalEv.allDay&&gcalEv.end&&gcalEv.end.includes("T"))end=fT(gcalEv.end);
+  if(!end&&t._pendingTE)end=t._pendingTE;
+  if(!end)end=addOneHour(start);
+  document.getElementById("mo-start").value=start;
+  document.getElementById("mo-end").value=end;
+  document.getElementById("overlay").classList.add("open");
+}
 function closeModal(){document.getElementById("overlay").classList.remove("open");pending=null;}
 async function confirmPlan(withTime){
   if(!pending)return;
@@ -1138,9 +1156,11 @@ async function confirmPlan(withTime){
   const te=withTime?document.getElementById("mo-end").value:null;
   const newTitle=document.getElementById("mo-title").value.trim();
   const tid=pending.tid;
-  // Mettre à jour le titre si modifié
-  if(newTitle){const t=S.tasks.find(t=>t.id===tid);if(t&&newTitle!==t.title){t.title=newTitle;lsSave();}}
-  closeModal();await planTask(tid,date,ts,te);
+  /* Mettre à jour le titre si modifié */
+  const t=S.tasks.find(t=>t.id===tid);
+  if(t&&newTitle&&newTitle!==t.title){t.title=newTitle;lsSave();}
+  closeModal();
+  await planTask(tid,date,ts,te);
 }
 document.getElementById("overlay").addEventListener("click",e=>{if(e.target===document.getElementById("overlay"))closeModal();});
 document.getElementById("mo-start").addEventListener("change",()=>{document.getElementById("mo-end").value=addOneHour(document.getElementById("mo-start").value);});
@@ -1151,21 +1171,23 @@ document.getElementById("ev-overlay").addEventListener("click",e=>{if(e.target==
 async function planTask(tid,date,tS,tE){
   const t=S.tasks.find(t=>t.id===tid);if(!t)return;
   if(!token){
-    /* Sauvegarder l'intention de planification avec l'heure pour retry après reconnexion */
     t._pendingDate=date;t._pendingTS=tS||null;t._pendingTE=tE||null;lsSave();
     toast('🔒 Session expirée — appuyez sur votre avatar pour reconnecter');
     return;
   }
+  /* Supprimer l'event GCal existant si la tâche y est déjà (via gcalId ou id direct) */
+  const existingGcal=gcal.find(e=>e.id===tid);
   if(t.gcalId){showSync("Mise à jour…");await delGcalEv(t.gcalId);t.gcalId=null;}
-  showSync("Envoi Google Agenda…");const ev=await createGcalEv(t.title,t.desc,date,tS,tE,t.remind||0);hideSync();
+  else if(existingGcal){showSync("Mise à jour…");await delGcalEv(existingGcal.id);}
+  showSync("Envoi Google Agenda…");
+  const ev=await createGcalEv(t.title,t.desc,date,tS,tE,t.remind||0);
+  hideSync();
   if(ev&&ev.id){
-    /* Nettoyer les champs pending */
     S.tasks=S.tasks.filter(x=>x.id!==tid);
     S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0});
     lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();
-    toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:""));
+    toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:"")+" · "+fD(date));
   } else if(ev===null){
-    /* L'erreur a déjà été affichée par calFetch — sauvegarder pour retry */
     t._pendingDate=date;t._pendingTS=tS||null;t._pendingTE=tE||null;lsSave();
   }
 }
@@ -1287,7 +1309,14 @@ function buildTask(t){
     const tg2=mk("div","tg tg-g");tg2.textContent="✓ Google Agenda";tags.appendChild(tg2);
   }
   body.append(name,tags);
-  const plan=mk("button","td-btn");plan.title="Planifier";plan.innerHTML="📅";plan.onclick=()=>{const d=t.plannedDate||ds(NOW);openModal(t.id,d,"09:00","10:00");};
+  const plan=mk("button","td-btn");plan.title="Planifier / modifier";plan.innerHTML="📅";
+  plan.onclick=()=>{
+    const gcalEv=gcal.find(e=>e.id===t.id);
+    const d=gcalEv?gcalEv.start.slice(0,10):(t._pendingDate||t.due||t.plannedDate||ds(NOW));
+    const tS=gcalEv&&!gcalEv.allDay&&gcalEv.start.includes("T")?fT(gcalEv.start):(t._pendingTS||null);
+    const tE=gcalEv&&!gcalEv.allDay&&gcalEv.end&&gcalEv.end.includes("T")?fT(gcalEv.end):(t._pendingTE||null);
+    openModal(t.id,d,tS,tE);
+  };
   const remSel=mk("select");remSel.title="Rappel";
   remSel.style="font-family:inherit;font-size:11px;font-weight:700;color:var(--tx2);background:var(--blbg);border:1.5px solid var(--blb);border-radius:7px;padding:2px 5px;outline:none;cursor:pointer;";
   [["0","🔔 0min"],["5","🔔 5min"],["10","🔔 10min"],["15","🔔 15min"],["30","🔔 30min"],["60","🔔 1h"]].forEach(([v,lbl])=>{const o=document.createElement("option");o.value=v;o.textContent=lbl;remSel.appendChild(o);});
