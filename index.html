@@ -613,12 +613,14 @@ async function fetchGcal(){
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items){
       gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
-      /* Purger les tâches locales dont l'id existe déjà dans GCal (doublons) */
+      /* Purger les tâches locales dont l'id existe dans GCal ET qui n'ont pas _createdHere
+         Les tâches créées dans cette app (_createdHere) sont conservées même si elles sont dans GCal */
       var gcalIds=new Set(gcal.map(function(e){return e.id;}));
       var before=S.tasks.length;
-      /* Garder uniquement les meta locales utiles : archived=true ou done=true (état UI)
-         Les tâches non faites sont entièrement gérées via gcal[], pas S.tasks */
-      S.tasks=S.tasks.filter(function(t){return!gcalIds.has(t.id)||(t.archived||t.done);});
+      S.tasks=S.tasks.filter(function(t){
+        if(t._createdHere)return true; // toujours garder les tâches créées ici
+        return !gcalIds.has(t.id)||(t.archived||t.done);
+      });
       if(S.tasks.length!==before)lsSave();
     }
     hideSync();
@@ -1245,20 +1247,24 @@ function taskSortKeyDesc(t){const gcalEv=gcal.find(e=>e.id===t.id);if(gcalEv)ret
 function renderTasks(){
   const tl=document.getElementById("list-todo"),dl=document.getElementById("list-done"),cd=document.getElementById("card-done"),dh=document.getElementById("dh");
 
-  /* Tâches purement locales (sans correspondance GCal) */
+  /* Onglet tâches : uniquement les tâches créées dans cette app (_createdHere=true)
+     Les événements GCal préexistants n'apparaissent PAS ici, uniquement dans le calendrier */
   const gcalIds=new Set(gcal.map(e=>e.id));
-  const pureLocal=S.tasks.filter(t=>!t.archived&&!gcalIds.has(t.id));
 
-  /* Tous les events GCal → tâches virtuelles, état done/archived depuis meta locale */
-  const gcalTasks=gcal.map(e=>{
-    const meta=S.tasks.find(t=>t.id===e.id);
-    return{id:e.id,title:e.title,desc:meta?.desc||"",due:e.start.slice(0,10),
-           done:meta?.done||false,archived:meta?.archived||false,remind:meta?.remind||0};
-  }).filter(t=>!t.archived);
+  /* Tâches créées dans l'app : soit locales (pas encore dans gcal), soit créées ici et synchronisées (_createdHere) */
+  const appTasks=S.tasks.filter(t=>!t.archived&&t._createdHere);
 
-  const allTasks=[...pureLocal,...gcalTasks];
-  const todo=allTasks.filter(t=>!t.done).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
-  const done=allTasks.filter(t=>t.done).sort((a,b)=>taskSortKeyDesc(b).localeCompare(taskSortKeyDesc(a)));
+  /* Enrichir avec les données GCal si disponibles */
+  const enriched=appTasks.map(t=>{
+    const gcalEv=gcal.find(e=>e.id===t.id);
+    return{...t,
+      _gcalEv:gcalEv||null,
+      due:gcalEv?gcalEv.start.slice(0,10):(t.due||null)
+    };
+  });
+
+  const todo=enriched.filter(t=>!t.done).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
+  const done=enriched.filter(t=>t.done).sort((a,b)=>taskSortKeyDesc(b).localeCompare(taskSortKeyDesc(a)));
 
   tl.innerHTML="";dl.innerHTML="";
   if(!todo.length){tl.innerHTML='<div class="emp">Aucune tâche 🎉</div>';dh.style.display="none";}
@@ -1335,7 +1341,7 @@ function buildArchivedTask(t){
 }
 function buildTask(t){
   const item=mk("div","ti"+(t.done?" done":""));item.dataset.id=t.id;
-  const gcalEv=gcal.find(e=>e.id===t.id);
+  const gcalEv=t._gcalEv||gcal.find(e=>e.id===t.id);
   const today=ds(NOW);const overdue=t.due&&t.due<today&&!t.done;
   const top=mk("div","ti-top");
   const chk=mk("div","ck"+(t.done?" on":""));
@@ -1727,7 +1733,7 @@ async function parseVoiceTask(txt){
     const ev=await createGcalEv(title,"",dateStr,timeStr||null,timeEnd||null,remind);
     hideSync();
     if(ev&&ev.id){
-      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind});
+      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,_createdHere:true});
       lsSave();await fetchGcal();
       let msg='📌 "'+title.slice(0,25)+'" → '+fD(dateStr);
       if(timeStr)msg+=" à "+timeStr;
@@ -1737,14 +1743,33 @@ async function parseVoiceTask(txt){
       renderTasks();return;
     }
     /* Echec GCal → fallback local avec pending */
-    const newTask={id:uid(),title,desc:"",due:dateStr,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingDate:dateStr,_pendingTS:timeStr||null,_pendingTE:timeEnd||null};
+    const newTask={id:uid(),title,desc:"",due:dateStr,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingDate:dateStr,_pendingTS:timeStr||null,_pendingTE:timeEnd||null,_createdHere:true};
     S.tasks.unshift(newTask);lsSave();renderTasks();
     toast('⚠️ Erreur GCal — tâche sauvegardée localement');
     return;
   }
 
-  /* Pas de token ou pas de date → local uniquement */
-  const newTask={id:uid(),title,desc:"",due:dateStr||null,done:false,archived:false,gcalId:null,plannedDate:null,remind};
+  if(token&&!dateStr){
+    /* Token dispo mais pas de date → créer dans GCal sans date (tâche du jour) */
+    showSync("Ajout dans Google Agenda…");
+    const todayStr=ds(new Date());
+    const ev=await createGcalEv(title,"",todayStr,null,null,remind);
+    hideSync();
+    if(ev&&ev.id){
+      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,_createdHere:true});
+      lsSave();await fetchGcal();
+      toast('📌 "'+title.slice(0,25)+'" ajouté à Google Agenda (aujourd\'hui)');
+      renderTasks();return;
+    }
+    /* Fallback local */
+    const newTask={id:uid(),title,desc:"",due:null,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true};
+    S.tasks.unshift(newTask);lsSave();renderTasks();
+    toast('⚠️ Erreur GCal — tâche sauvegardée localement');
+    return;
+  }
+
+  /* Pas de token → local uniquement */
+  const newTask={id:uid(),title,desc:"",due:dateStr||null,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true};
   S.tasks.unshift(newTask);lsSave();renderTasks();
   let msg='📋 "'+title.slice(0,30)+'"';
   if(dateStr)msg+=" → "+fD(dateStr);
@@ -1774,7 +1799,19 @@ function saveTaskEdit(){
   t.due=document.getElementById("te-due").value||null;
   t.desc=document.getElementById("te-desc").value;
   t.remind=parseInt(document.getElementById("te-remind").value)||0;
-  lsSave();closeTaskEdit();renderTasks();toast("✓ Tâche modifiée");
+  lsSave();closeTaskEdit();
+  /* Synchroniser dans GCal si l'événement existe */
+  const gcalEv=gcal.find(e=>e.id===t.id);
+  if(token&&gcalEv){
+    const date=t.due||(gcalEv.start.slice(0,10));
+    const ts=(!gcalEv.allDay&&gcalEv.start.includes("T"))?fT(gcalEv.start):null;
+    const te=(!gcalEv.allDay&&gcalEv.end&&gcalEv.end.includes("T"))?fT(gcalEv.end):null;
+    showSync("Mise à jour GCal…");
+    updateGcalEv(t.id,t.title,t.desc,date,ts,te).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
+  } else {
+    renderTasks();
+  }
+  toast("✓ Tâche modifiée");
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 </script>
