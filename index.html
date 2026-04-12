@@ -689,7 +689,7 @@ async function fetchGcal(){
 
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
-    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500',eventTypes:'default'});
+    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
 
     /* Fetcher chaque calendrier sélectionné */
     var calIds=(_selectedCalIds&&_selectedCalIds.length)?_selectedCalIds:['primary'];
@@ -707,10 +707,7 @@ async function fetchGcal(){
     allItems=allItems.filter(function(e){return e.eventType!=='birthday';});
     gcal=allItems.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
 
-    var gcalIds=new Set(gcal.map(function(e){return e.id;}));
-    var before=S.tasks.length;
-    S.tasks=S.tasks.filter(function(t){return!gcalIds.has(t.id)||(t.archived||t.done);});
-    if(S.tasks.length!==before)lsSave();
+    /* Ne pas purger S.tasks — les tâches saisies dans l'app sont conservées */
 
     hideSync();
   }catch(e){hideSync();}
