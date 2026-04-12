@@ -261,7 +261,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
   <span style="font-size:20px">&#128203;</span>
   <h1>Planify</h1>
   <span id="gs">Non connect&#233;</span>
-  <button id="mic-btn" onclick="startVoice()" title="Dicter une t&#226;che" style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 13px;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;" aria-label="Microphone">&#127908; <span style="font-size:11px">Dicter</span></button>
+  <button id="mic-btn" title="Maintenir pour dicter" style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 13px;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;user-select:none;-webkit-user-select:none;" aria-label="Microphone">&#127908; <span style="font-size:11px">Dicter</span></button>
   <button id="bg" onclick="handleAuth()">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
     Connexion Google
@@ -569,6 +569,8 @@ function authGoogle(){
     if(result.credential&&result.credential.accessToken){
       token=result.credential.accessToken;
       localStorage.setItem('gcal_token',token);
+      /* Charger le calendrier immédiatement après connexion */
+      fetchGcal().then(function(){renderTasks();renderAg();updateCalendarBtn();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();retryPendingTasks();toast('✅ Agenda Google chargé !');});
     }
   }).catch(function(e){setAuthLoading(false);showAuthError(e.message);});
 }
@@ -1565,24 +1567,68 @@ function scheduleAllNotifs(){
 }
 
 
-/* ══ DICTÉE VOCALE ══ */
-function startVoice(){
+/* ══ DICTÉE VOCALE — bouton maintenu ══ */
+(function(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){toast("❌ Dictée non supportée sur ce navigateur");return;}
-  const r=new SR();
-  r.lang="fr-FR";r.continuous=false;r.interimResults=false;
   const btn=document.getElementById("mic-btn");
-  btn.textContent="🔴";btn.style.background="rgba(217,48,37,.5)";
-  r.onresult=e=>{
-    btn.textContent="🎙";btn.style.background="";
-    const txt=e.results[0][0].transcript.trim();
-    toast("🎙 \""+txt+"\"");
-    parseVoiceTask(txt);
-  };
-  r.onerror=()=>{btn.textContent="🎙";btn.style.background="";toast("❌ Dictée échouée");};
-  r.onend=()=>{btn.textContent="🎙";btn.style.background="";};
-  r.start();
-}
+  if(!btn)return;
+  if(!SR){btn.addEventListener("click",()=>toast("❌ Dictée non supportée sur ce navigateur"));return;}
+
+  let rec=null;
+  let _active=false;
+  let _pendingTranscript=null;
+
+  function startRec(){
+    if(_active)return;
+    _active=true;
+    _pendingTranscript=null;
+    rec=new SR();
+    rec.lang="fr-FR";
+    rec.continuous=true;      // continue tant qu'on maintient
+    rec.interimResults=false;
+    btn.innerHTML='🔴 <span style="font-size:11px">Parlez…</span>';
+    btn.style.background="rgba(217,48,37,.55)";
+    btn.style.borderColor="rgba(217,48,37,.8)";
+    rec.onresult=e=>{
+      // Concaténer tous les résultats finaux
+      let full="";
+      for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)full+=e.results[i][0].transcript+" ";}
+      _pendingTranscript=full.trim()||null;
+    };
+    rec.onerror=err=>{
+      if(err.error==="no-speech"||err.error==="aborted")return; // normal à l'arrêt
+      toast("❌ Dictée : "+err.error);
+    };
+    rec.onend=()=>{
+      // Déclenché quand on a relâché et stopRec() a appelé rec.stop()
+      if(_pendingTranscript){
+        toast('🎙 "'+_pendingTranscript+'"');
+        parseVoiceTask(_pendingTranscript);
+      }
+    };
+    try{rec.start();}catch(e){}
+  }
+
+  function stopRec(){
+    if(!_active)return;
+    _active=false;
+    btn.innerHTML='🎙 <span style="font-size:11px">Dicter</span>';
+    btn.style.background="rgba(255,255,255,.18)";
+    btn.style.borderColor="rgba(255,255,255,.35)";
+    if(rec){try{rec.stop();}catch(e){}rec=null;}
+  }
+
+  /* Desktop : mousedown / mouseup */
+  btn.addEventListener("mousedown",e=>{e.preventDefault();startRec();});
+  document.addEventListener("mouseup",()=>{if(_active)stopRec();});
+
+  /* Mobile : touchstart / touchend */
+  btn.addEventListener("touchstart",e=>{e.preventDefault();startRec();},{passive:false});
+  btn.addEventListener("touchend",e=>{e.preventDefault();stopRec();},{passive:false});
+  btn.addEventListener("touchcancel",()=>{if(_active)stopRec();});
+})();
+
+function startVoice(){} // kept for compatibility, no-op
 
 async function parseVoiceTask(txt){
   const raw=txt.toLowerCase().replace(/[\u2018\u2019']/g,"'").replace(/\u00a0/g," ").trim();
@@ -1752,7 +1798,6 @@ async function parseVoiceTask(txt){
       if(timeStr)msg+=" à "+timeStr;
       toast(msg);
       selDay=dateStr;cDay=dateStr;
-      if(curTab!=="agenda"){goTab("agenda");}else{renderAg();}
       renderTasks();return;
     }
     /* Echec GCal → fallback local avec pending */
