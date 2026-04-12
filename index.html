@@ -279,6 +279,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <div class="ar">
       <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
       <input type="date" id="tdat">
+      <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure (optionnel)">
       <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
@@ -1229,27 +1230,28 @@ async function retryPendingTasks(){
 async function addTask(){
   const title=document.getElementById("ti").value.trim();if(!title)return;
   const due=document.getElementById("tdat").value||null;
+  const tim=document.getElementById("ttim").value||null;
   const remind=parseInt(document.getElementById("default-remind").value)||0;
-  document.getElementById("ti").value="";document.getElementById("tdat").value="";
+  document.getElementById("ti").value="";document.getElementById("tdat").value="";document.getElementById("ttim").value="";
+  /* Calculer heure de fin (+1h) si heure saisie */
+  const timeEnd=tim?addOneHour(tim):null;
   if(token){
-    /* Toujours envoyer dans Google Calendar si connecté */
     showSync("Ajout dans Google Agenda…");
-    const ev=await createGcalEv(title,"",due||ds(new Date()),null,null,remind);
+    const ev=await createGcalEv(title,"",due||ds(new Date()),tim,timeEnd,remind);
     hideSync();
     if(ev&&ev.id){
       S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,_createdHere:true});
       lsSave();await fetchGcal();renderTasks();renderAg();
       let msg='📌 "'+title.slice(0,20)+'"';
-      msg+=due?' → GCal le '+fD(due):' → GCal (aujourd\'hui)';
+      if(due)msg+=' → '+fD(due);else msg+=' (aujourd\'hui)';
+      if(tim)msg+=' à '+tim;
       toast(msg);return;
     }
-    /* Echec GCal → fallback local */
     S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
     lsSave();renderTasks();
     toast('⚠️ Erreur GCal — tâche sauvegardée localement');
     return;
   }
-  /* Pas de token : création locale uniquement */
   S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
   lsSave();renderTasks();
   toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
@@ -1395,8 +1397,10 @@ function buildTask(t){
     arch.style="font-size:11px;padding:4px 10px;margin-top:7px;";
     arch.innerHTML="🗄 Archiver";
     arch.onclick=()=>{
-      t.archived=true;lsSave();renderTasks();toast("🗄 Archivé");
-      /* Ouvrir les archives automatiquement pour montrer la tâche */
+      /* Retrouver l'entrée réelle dans S.tasks (t est une copie enrichie) */
+      const real=S.tasks.find(x=>x.id===t.id);
+      if(real){real.archived=true;}
+      lsSave();renderTasks();toast("🗄 Archivé");
       if(!_archivesOpen)toggleArchives();
     };
     item.appendChild(arch);
