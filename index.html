@@ -1143,12 +1143,19 @@ function setupTouch(item,tid2){
 /* ══ MODAL PLANIFIER ══ */
 function addOneHour(t){const[h,m]=t.split(":").map(Number);const tot=h*60+m+60;return z(Math.min(Math.floor(tot/60),23))+":"+z(tot%60);}
 function openModal(tid,date,tS,tE){
-  const t=S.tasks.find(t=>t.id===tid);if(!t)return;
+  /* Chercher d'abord dans S.tasks, sinon dans le cache gcal */
+  let t=S.tasks.find(t=>t.id===tid);
+  const gcalEv=gcal.find(e=>e.id===tid);
+  if(!t&&gcalEv){
+    /* Créer une entrée meta temporaire pour pouvoir planifier */
+    t={id:tid,title:gcalEv.title,desc:"",done:false,archived:false,remind:0,_createdHere:true};
+    S.tasks.push(t);lsSave();
+  }
+  if(!t)return;
   pending={tid,date};
   document.getElementById("mo-title").value=t.title;
   document.getElementById("mo-date").value=date;
   /* Priorité : heure passée en argument > heure GCal existante > heure pending > 09:00 */
-  const gcalEv=gcal.find(e=>e.id===t.id);
   let start=tS;
   if(!start&&gcalEv&&!gcalEv.allDay&&gcalEv.start.includes("T"))start=fT(gcalEv.start);
   if(!start&&t._pendingTS)start=t._pendingTS;
@@ -1197,7 +1204,7 @@ async function planTask(tid,date,tS,tE){
   hideSync();
   if(ev&&ev.id){
     S.tasks=S.tasks.filter(x=>x.id!==tid);
-    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0});
+    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0,_createdHere:true});
     lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();
     toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:"")+" · "+fD(date));
   } else if(ev===null){
@@ -1222,22 +1229,28 @@ async function addTask(){
   const due=document.getElementById("tdat").value||null;
   const remind=parseInt(document.getElementById("default-remind").value)||0;
   document.getElementById("ti").value="";document.getElementById("tdat").value="";
-  if(token&&due){
-    /* Envoi direct dans Google Calendar (journée entière) */
+  if(token){
+    /* Toujours envoyer dans Google Calendar si connecté */
     showSync("Ajout dans Google Agenda…");
-    const ev=await createGcalEv(title,"",due,null,null,remind);
+    const ev=await createGcalEv(title,"",due||ds(new Date()),null,null,remind);
     hideSync();
     if(ev&&ev.id){
-      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind});
+      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,_createdHere:true});
       lsSave();await fetchGcal();renderTasks();renderAg();
-      toast('📌 "'+title.slice(0,20)+'" → GCal le '+fD(due));return;
+      let msg='📌 "'+title.slice(0,20)+'"';
+      msg+=due?' → GCal le '+fD(due):' → GCal (aujourd\'hui)';
+      toast(msg);return;
     }
     /* Echec GCal → fallback local */
+    S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
+    lsSave();renderTasks();
+    toast('⚠️ Erreur GCal — tâche sauvegardée localement');
+    return;
   }
-  /* Pas de token ou pas de date : création locale uniquement */
-  S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind});
+  /* Pas de token : création locale uniquement */
+  S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
   lsSave();renderTasks();
-  if(!token&&due)toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
+  toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
 }
 
 /* ══ RENDER TASKS ══ */
