@@ -368,7 +368,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <label>Heure de d&#233;but</label><input type="time" id="mo-start" value="09:00">
     <label>Heure de fin</label><input type="time" id="mo-end" value="10:00">
     <div class="mo-btns">
-      <button class="btn btn-gh" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-gh" onclick="closeModal(false)">Annuler</button>
       <button class="btn btn-bl" onclick="confirmPlan(true)">Avec heure &#10003;</button>
     </div>
     <div class="mo-skip" onclick="confirmPlan(false)">Journ&#233;e enti&#232;re (sans heure)</div>
@@ -1346,8 +1346,8 @@ function openModal(tid,date,tS,tE){
   document.getElementById("mo-end").value=end;
   document.getElementById("overlay").classList.add("open");
 }
-function closeModal(){
-  if(pending){
+function closeModal(confirmed){
+  if(pending&&!confirmed){
     /* Supprimer la tâche temporaire créée pour un nouvel événement depuis le calendrier */
     const t=S.tasks.find(x=>x.id===pending.tid);
     if(t&&t._newFromCal){S.tasks=S.tasks.filter(x=>x.id!==pending.tid);lsSave();}
@@ -1375,13 +1375,15 @@ async function confirmPlan(withTime){
   const te=withTime?document.getElementById("mo-end").value:null;
   const newTitle=document.getElementById("mo-title").value.trim();
   const tid=pending.tid;
-  /* Mettre à jour le titre si modifié */
   const t=S.tasks.find(t=>t.id===tid);
-  if(t&&newTitle&&newTitle!==t.title){t.title=newTitle;lsSave();}
-  closeModal();
+  /* Si pas de titre saisi → annuler */
+  if(!newTitle){toast("❌ Veuillez saisir un titre");return;}
+  /* Mettre à jour le titre et la date sur la tâche */
+  if(t){t.title=newTitle;t.due=date;if(ts)t._pendingTS=ts;if(te)t._pendingTE=te;lsSave();}
+  closeModal(true); // true = confirmation, ne pas supprimer la tâche
   await planTask(tid,date,ts,te);
 }
-document.getElementById("overlay").addEventListener("click",e=>{if(e.target===document.getElementById("overlay"))closeModal();});
+document.getElementById("overlay").addEventListener("click",e=>{if(e.target===document.getElementById("overlay"))closeModal(false);});
 document.getElementById("mo-start").addEventListener("change",()=>{document.getElementById("mo-end").value=addOneHour(document.getElementById("mo-start").value);});
 document.getElementById("ev-tstart").addEventListener("change",()=>{const tend=document.getElementById("ev-tend");if(!tend.value)tend.value=addOneHour(document.getElementById("ev-tstart").value);});
 document.getElementById("ev-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("ev-overlay"))closeEvModal();});
@@ -1390,8 +1392,10 @@ document.getElementById("ev-overlay").addEventListener("click",e=>{if(e.target==
 async function planTask(tid,date,tS,tE){
   const t=S.tasks.find(t=>t.id===tid);if(!t)return;
   if(!token){
-    t._pendingDate=date;t._pendingTS=tS||null;t._pendingTE=tE||null;lsSave();
-    toast('🔒 Session expirée — appuyez sur votre avatar pour reconnecter');
+    t.due=date;t._pendingDate=date;t._pendingTS=tS||null;t._pendingTE=tE||null;
+    delete t._newFromCal;
+    lsSave();renderTasks();renderAg();
+    toast('🔒 Session expirée — reconnectez-vous pour envoyer dans Google Agenda');
     return;
   }
   /* Supprimer l'event GCal existant si la tâche y est déjà (via gcalId ou id direct) */
