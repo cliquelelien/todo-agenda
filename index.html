@@ -158,6 +158,11 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .day-ev-td{background:var(--rd);}.day-ev-dn{background:var(--gr);}.day-ev-gc{background:var(--bl);}.day-ev-arc{background:var(--tx3);text-decoration:line-through;}
 .now-line{position:absolute;left:44px;right:0;height:2px;background:var(--rd);z-index:5;pointer-events:none;}
 .now-dot{position:absolute;left:-5px;top:-4px;width:10px;height:10px;background:var(--rd);border-radius:50%;}
+/* Planning preview — plage horaire sélectionnée dans la modale */
+.plan-preview-bar{position:absolute;left:2px;right:2px;border-radius:7px;background:rgba(245,166,35,.30);border:2px solid var(--or);pointer-events:none;z-index:4;display:flex;align-items:flex-start;padding:3px 6px;}
+.plan-preview-label{font-size:9px;font-weight:800;color:#b37800;white-space:nowrap;overflow:hidden;}
+.wsl.plan-preview{background:rgba(245,166,35,.10)!important;}
+.day-sl.plan-preview{background:rgba(245,166,35,.10)!important;}
 /* Detail */
 .det{background:#fff;border:1.5px solid var(--blb);border-radius:var(--rad);padding:14px;margin-top:12px;box-shadow:var(--sh);}
 .det-t{font-weight:800;font-size:14px;color:var(--bld);margin-bottom:10px;}
@@ -516,9 +521,9 @@ function eventsOn(d){
     return d>=eStart&&d<=eEndAdj;
   });
   const allGcalIds=new Set(gcal.map(e=>e.id));
-  /* Tâches locales à afficher : non archivées, échéance = d */
+  /* Tâches locales à afficher : échéance = d (archivées incluses, respectent la logique couleur) */
   const localEvs=S.tasks
-    .filter(t=>!t.archived&&t.due===d&&!allGcalIds.has(t.id))
+    .filter(t=>t.due===d&&!allGcalIds.has(t.id))
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true}));
   return [...gcalEvs,...localEvs];
 }
@@ -526,12 +531,11 @@ function metaOf(id){return S.tasks.find(t=>t.id===id)||null;}
 function isDone(id){return metaOf(id)?.done||false;}
 function isArchived(id){return metaOf(id)?.archived||false;}
 /* Retourne la classe couleur d'un événement :
-   - arc (gris)  si archivé
-   - dn  (vert)  si terminé
-   - gc  (bleu)  si événement GCal (pas local)
-   - td  (rouge) si tâche locale non planifiée */
+   - dn  (vert)  si terminé (ou archivé+terminé)
+   - gc  (bleu)  si événement GCal non local
+   - td  (rouge) si tâche à faire
+   Les tâches archivées suivent la même logique de couleur (pas de gris) */
 function evCls(e,prefix){
-  if(isArchived(e.id))return prefix+"-arc";
   if(isDone(e.id))return prefix+"-dn";
   if(!e._local)return prefix+"-gc";
   return prefix+"-td";
@@ -907,7 +911,7 @@ function renderMonth(){
     div.innerHTML=`<div class="mn">${c.d}</div><div class="mds"></div>`;
     const mds=div.querySelector(".mds");
     let n=0;
-    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+evCls(e,"dot"));dot.textContent=e.title;dot.style.opacity=isArchived(e.id)?"0.45":"1";mds.appendChild(dot);n++;});
+    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+evCls(e,"dot"));dot.textContent=e.title;mds.appendChild(dot);n++;});
     if(evs.length>2){const m=mk("div","dot dot-mo");m.textContent="+"+(evs.length-2)+" autre"+(evs.length-2>1?"s":"");mds.appendChild(m);}
     div.addEventListener("click",()=>{selDay=date;cDay=date;setView("day");});
     div.addEventListener("dragenter",e=>{e.preventDefault();div.classList.add("drag-ov");});
@@ -960,7 +964,7 @@ function renderWeek(){
   const al=mk("div","wal");al.textContent="Jour";ar.appendChild(al);
   days.forEach(day=>{
     const cell=mk("div","wac");cell.dataset.date=day.date;
-    eventsOn(day.date).filter(e=>e.allDay).slice(0,3).forEach(e=>{const c=mk("div","wch "+evCls(e,"wch"));c.textContent=e.title;c.style.opacity=isArchived(e.id)?"0.4":"1";if(!e._local)c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
+    eventsOn(day.date).filter(e=>e.allDay).slice(0,3).forEach(e=>{const c=mk("div","wch "+evCls(e,"wch"));c.textContent=e.title;if(!e._local)c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
     bindDrop(cell,day.date,false);ar.appendChild(cell);
   });
 
@@ -975,7 +979,7 @@ function renderWeek(){
       const slot=mk("div","wsl");slot.dataset.date=day.date;slot.dataset.hour=h;
       bindDrop(slot,day.date,true,h);
       eventsOn(day.date).filter(e=>!e.allDay&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
-        const ev=mk("div","wev "+evCls(e,"wev"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
+        const ev=mk("div","wev "+evCls(e,"wev"));
         ev.textContent=fT(e.start)+" "+e.title;ev.style.top=(i*22+3)+"px";
         /* Hauteur proportionnelle à la durée */
         if(e.end&&e.end.includes("T")){
@@ -1029,7 +1033,7 @@ function renderDay(){
     slot.dataset.date=cDay;slot.dataset.hour=h;
     bindDrop(slot,cDay,true,h);
     eventsOn(cDay).filter(e=>!e.allDay&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
-      const ev=mk("div","day-ev "+evCls(e,"day-ev"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
+      const ev=mk("div","day-ev "+evCls(e,"day-ev"));
       ev.textContent=fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):"")+" "+e.title;
       ev.style.top=(i*28+3)+"px";
       /* Hauteur proportionnelle à la durée */
@@ -1145,8 +1149,7 @@ async function saveEvEdit(){
 }
 async function evToggleDone(){if(!evPending)return;toggleEvDone(evPending);closeEvModal();renderAg();renderTasks();}
 async function evDelete(){if(!evPending)return;showSync("Suppression…");await delGcalEv(evPending);removeMeta(evPending);hideSync();closeEvModal();await fetchGcal();renderAg();renderTasks();toast("🗑 Supprimé");}
-function evArchive(){if(!evPending)return;ensureMeta(evPending,"");const meta=metaOf(evPending);if(meta)meta.archived=true;lsSave();closeEvModal();renderAg();renderTasks();toast("🗄 Archivé");
-if(!_archivesOpen)toggleArchives();}
+function evArchive(){if(!evPending)return;ensureMeta(evPending,"");const meta=metaOf(evPending);if(meta)meta.archived=true;lsSave();closeEvModal();renderAg();renderTasks();toast("🗄 Archivé");}
 
 /* ══ META ══ */
 function ensureMeta(gcalId,title){if(!S.tasks.find(t=>t.id===gcalId))S.tasks.push({id:gcalId,title:title||"",desc:"",done:false,archived:false});}
@@ -1246,7 +1249,40 @@ function setupTouch(item,tid2){
 }
 
 /* ══ MODAL PLANIFIER ══ */
+let _planPreview=null; // {date, hStart, hEnd} — plage horaire à surbriller dans l'agenda
 function addOneHour(t){const[h,m]=t.split(":").map(Number);const tot=h*60+m+60;return z(Math.min(Math.floor(tot/60),23))+":"+z(tot%60);}
+
+function _applyPlanPreview(){
+  /* Colorier les slots de la plage dans week/day */
+  document.querySelectorAll(".wsl.plan-preview,.day-sl.plan-preview").forEach(el=>el.classList.remove("plan-preview"));
+  document.querySelectorAll(".plan-preview-bar").forEach(el=>el.remove());
+  if(!_planPreview)return;
+  const{date,hStart,hEnd}=_planPreview;
+  /* Vue semaine */
+  for(let h=hStart;h<hEnd;h++){
+    const slot=document.querySelector(`.wsl[data-date="${date}"][data-hour="${h}"]`);
+    if(slot){
+      slot.classList.add("plan-preview");
+      if(h===hStart){
+        const bar=mk("div","plan-preview-bar");
+        bar.style.top="2px";bar.style.bottom="2px";
+        const lbl=mk("span","plan-preview-label");lbl.textContent=z(hStart)+":00 – "+z(hEnd)+":00";
+        bar.appendChild(lbl);slot.appendChild(bar);
+      }
+    }
+    const daySlot=document.querySelector(`.day-sl[data-date="${date}"][data-hour="${h}"]`);
+    if(daySlot){
+      daySlot.classList.add("plan-preview");
+      if(h===hStart){
+        const bar=mk("div","plan-preview-bar");
+        bar.style.top="2px";bar.style.bottom="2px";
+        const lbl=mk("span","plan-preview-label");lbl.textContent=z(hStart)+":00 – "+z(hEnd)+":00";
+        bar.appendChild(lbl);daySlot.appendChild(bar);
+      }
+    }
+  }
+}
+
 function openModal(tid,date,tS,tE){
   /* Chercher d'abord dans S.tasks, sinon dans le cache gcal */
   let t=S.tasks.find(t=>t.id===tid);
@@ -1271,9 +1307,18 @@ function openModal(tid,date,tS,tE){
   if(!end)end=addOneHour(start);
   document.getElementById("mo-start").value=start;
   document.getElementById("mo-end").value=end;
+  /* Preview plage dans l'agenda */
+  const hS=parseInt(start.split(":")[0]);
+  const hE=parseInt(end.split(":")[0])+(parseInt(end.split(":")[1])>0?1:0);
+  _planPreview={date,hStart:hS,hEnd:Math.max(hE,hS+1)};
+  /* Naviguer vers le bon jour dans l'agenda si besoin */
+  if(view==="day"){cDay=date;}
+  else if(view==="week"){cWeek=monday(new Date(date+"T00:00:00"));}
+  renderAg();
+  setTimeout(_applyPlanPreview,50);
   document.getElementById("overlay").classList.add("open");
 }
-function closeModal(){document.getElementById("overlay").classList.remove("open");pending=null;}
+function closeModal(){_planPreview=null;_applyPlanPreview();document.getElementById("overlay").classList.remove("open");pending=null;}
 async function confirmPlan(withTime){
   if(!pending)return;
   const date=document.getElementById("mo-date").value;
@@ -1288,7 +1333,27 @@ async function confirmPlan(withTime){
   await planTask(tid,date,ts,te);
 }
 document.getElementById("overlay").addEventListener("click",e=>{if(e.target===document.getElementById("overlay"))closeModal();});
-document.getElementById("mo-start").addEventListener("change",()=>{document.getElementById("mo-end").value=addOneHour(document.getElementById("mo-start").value);});
+document.getElementById("mo-start").addEventListener("change",()=>{
+  document.getElementById("mo-end").value=addOneHour(document.getElementById("mo-start").value);
+  if(_planPreview){
+    const start=document.getElementById("mo-start").value;
+    const end=document.getElementById("mo-end").value;
+    const hS=parseInt(start.split(":")[0]);
+    const hE=parseInt(end.split(":")[0])+(parseInt(end.split(":")[1])>0?1:0);
+    _planPreview.hStart=hS;_planPreview.hEnd=Math.max(hE,hS+1);
+    _applyPlanPreview();
+  }
+});
+document.getElementById("mo-end").addEventListener("change",()=>{
+  if(_planPreview){
+    const start=document.getElementById("mo-start").value;
+    const end=document.getElementById("mo-end").value;
+    const hS=parseInt(start.split(":")[0]);
+    const hE=parseInt(end.split(":")[0])+(parseInt(end.split(":")[1])>0?1:0);
+    _planPreview.hStart=hS;_planPreview.hEnd=Math.max(hE,hS+1);
+    _applyPlanPreview();
+  }
+});
 document.getElementById("ev-tstart").addEventListener("change",()=>{const tend=document.getElementById("ev-tend");if(!tend.value)tend.value=addOneHour(document.getElementById("ev-tstart").value);});
 document.getElementById("ev-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("ev-overlay"))closeEvModal();});
 
@@ -1503,7 +1568,7 @@ function buildTask(t){
       const real=S.tasks.find(x=>x.id===t.id);
       if(real){real.archived=true;}
       lsSave();renderTasks();toast("🗄 Archivé");
-      if(!_archivesOpen)toggleArchives();
+      /* NE PAS ouvrir automatiquement les archives */
     };
     item.appendChild(arch);
   }
