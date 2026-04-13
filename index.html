@@ -287,7 +287,8 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <div class="ar">
       <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
       <input type="date" id="tdat">
-      <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure (optionnel)">
+      <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure début (optionnel)" oninput="onTtimInput()">
+      <input type="time" id="ttim-end" style="display:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure de fin">
       <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
@@ -986,6 +987,10 @@ function renderWeek(){
     days.forEach(day=>{
       const slot=mk("div","wsl");slot.dataset.date=day.date;slot.dataset.hour=h;
       bindDrop(slot,day.date,true,h);
+      slot.addEventListener("click",e=>{
+        if(e.target!==slot)return; // ignorer si clic sur un événement
+        openNewEvModal(day.date,z(h)+":00",z(Math.min(h+1,23))+":00");
+      });
       tr.appendChild(slot);
     });
   }
@@ -1073,6 +1078,10 @@ function renderDay(){
     const slot=mk("div","day-sl"+(h===0?" first":""));
     slot.dataset.date=cDay;slot.dataset.hour=h;
     bindDrop(slot,cDay,true,h);
+    slot.addEventListener("click",e=>{
+      if(e.target!==slot)return;
+      openNewEvModal(cDay,z(h)+":00",z(Math.min(h+1,23))+":00");
+    });
     grid.appendChild(slot);
   }
 
@@ -1337,7 +1346,28 @@ function openModal(tid,date,tS,tE){
   document.getElementById("mo-end").value=end;
   document.getElementById("overlay").classList.add("open");
 }
-function closeModal(){document.getElementById("overlay").classList.remove("open");pending=null;}
+function closeModal(){
+  if(pending){
+    /* Supprimer la tâche temporaire créée pour un nouvel événement depuis le calendrier */
+    const t=S.tasks.find(x=>x.id===pending.tid);
+    if(t&&t._newFromCal){S.tasks=S.tasks.filter(x=>x.id!==pending.tid);lsSave();}
+  }
+  document.getElementById("overlay").classList.remove("open");pending=null;
+}
+/* Ouvre la modale de planification pour un NOUVEL événement depuis le calendrier */
+function openNewEvModal(date,tS,tE){
+  const tmpId=uid();
+  const tmpTask={id:tmpId,title:"",desc:"",due:date,done:false,archived:false,gcalId:null,plannedDate:null,remind:parseInt(document.getElementById("default-remind").value)||0,_createdHere:true,_newFromCal:true};
+  S.tasks.unshift(tmpTask);
+  pending={tid:tmpId,date};
+  document.getElementById("mo-title").value="";
+  document.getElementById("mo-date").value=date;
+  document.getElementById("mo-start").value=tS||"09:00";
+  document.getElementById("mo-end").value=tE||addOneHour(tS||"09:00");
+  document.getElementById("overlay").classList.add("open");
+  /* Focus sur le titre */
+  setTimeout(()=>document.getElementById("mo-title").focus(),120);
+}
 async function confirmPlan(withTime){
   if(!pending)return;
   const date=document.getElementById("mo-date").value;
@@ -1393,14 +1423,27 @@ async function retryPendingTasks(){
 }
 
 /* ══ CRUD TASKS ══ */
+function onTtimInput(){
+  const ttim=document.getElementById("ttim");
+  const ttimEnd=document.getElementById("ttim-end");
+  if(ttim.value){
+    ttimEnd.style.display="";
+    if(!ttimEnd.value)ttimEnd.value=addOneHour(ttim.value);
+  }else{
+    ttimEnd.style.display="none";
+    ttimEnd.value="";
+  }
+}
 async function addTask(){
   const title=document.getElementById("ti").value.trim();if(!title)return;
   const due=document.getElementById("tdat").value||null;
   const tim=document.getElementById("ttim").value||null;
+  const timEnd=document.getElementById("ttim-end").value||null;
   const remind=parseInt(document.getElementById("default-remind").value)||0;
-  document.getElementById("ti").value="";document.getElementById("tdat").value="";document.getElementById("ttim").value="";
-  /* Calculer heure de fin (+1h) si heure saisie */
-  const timeEnd=tim?addOneHour(tim):null;
+  document.getElementById("ti").value="";document.getElementById("tdat").value="";
+  document.getElementById("ttim").value="";document.getElementById("ttim-end").value="";document.getElementById("ttim-end").style.display="none";
+  /* Heure de fin : champ saisi > +1h auto */
+  const timeEnd=timEnd||( tim?addOneHour(tim):null );
   if(token){
     showSync("Ajout dans Google Agenda…");
     const ev=await createGcalEv(title,"",due||ds(new Date()),tim,timeEnd,remind);
