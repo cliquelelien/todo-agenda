@@ -505,10 +505,18 @@ function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t
 function showSync(m){const b=document.getElementById("sync-bar");b.className="sync show";document.getElementById("sync-msg").textContent=m;}
 function hideSync(){document.getElementById("sync-bar").className="sync";}
 function eventsOn(d){
-  const gcalEvs=gcal.filter(e=>e.start.slice(0,10)===d);
+  /* Événements GCal qui commencent ce jour OU qui s'étendent sur ce jour (multi-jours) */
+  const gcalEvs=gcal.filter(e=>{
+    const eStart=e.start.slice(0,10);
+    const eEnd=e.end?e.end.slice(0,10):eStart;
+    /* Pour les événements allDay GCal, la date de fin est exclusive (lendemain) */
+    const eEndAdj=e.allDay&&eEnd>eStart?(new Date(eEnd+"T00:00:00").setDate(new Date(eEnd+"T00:00:00").getDate()-1),
+      (() => { const x=new Date(eEnd+"T00:00:00"); x.setDate(x.getDate()-1); return ds(x); })()
+    ):eEnd;
+    return d>=eStart&&d<=eEndAdj;
+  });
   const allGcalIds=new Set(gcal.map(e=>e.id));
-  /* Tâches locales à afficher : non archivées, échéance = d,
-     ET dont l'id n'est pas déjà dans gcal (évite les doublons) */
+  /* Tâches locales à afficher : non archivées, échéance = d */
   const localEvs=S.tasks
     .filter(t=>!t.archived&&t.due===d&&!allGcalIds.has(t.id))
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true}));
@@ -517,6 +525,17 @@ function eventsOn(d){
 function metaOf(id){return S.tasks.find(t=>t.id===id)||null;}
 function isDone(id){return metaOf(id)?.done||false;}
 function isArchived(id){return metaOf(id)?.archived||false;}
+/* Retourne la classe couleur d'un événement :
+   - arc (gris)  si archivé
+   - dn  (vert)  si terminé
+   - gc  (bleu)  si événement GCal (pas local)
+   - td  (rouge) si tâche locale non planifiée */
+function evCls(e,prefix){
+  if(isArchived(e.id))return prefix+"-arc";
+  if(isDone(e.id))return prefix+"-dn";
+  if(!e._local)return prefix+"-gc";
+  return prefix+"-td";
+}
 
 /* Hidden selects kept for compatibility */
 (function(){const hs=document.getElementById("h-start"),he=document.getElementById("h-end");for(let h=0;h<24;h++){[hs,he].forEach(s=>{const o=document.createElement("option");o.value=h;o.textContent=h+"h00";s.appendChild(o);});}hs.value=0;he.value=24;})();
@@ -888,7 +907,7 @@ function renderMonth(){
     div.innerHTML=`<div class="mn">${c.d}</div><div class="mds"></div>`;
     const mds=div.querySelector(".mds");
     let n=0;
-    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+(isArchived(e.id)?"dot-arc":isDone(e.id)?"dot-dn":"dot-td"));dot.textContent=e.title;dot.style.opacity=isArchived(e.id)?"0.45":"1";mds.appendChild(dot);n++;});
+    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+evCls(e,"dot"));dot.textContent=e.title;dot.style.opacity=isArchived(e.id)?"0.45":"1";mds.appendChild(dot);n++;});
     if(evs.length>2){const m=mk("div","dot dot-mo");m.textContent="+"+(evs.length-2)+" autre"+(evs.length-2>1?"s":"");mds.appendChild(m);}
     div.addEventListener("click",()=>{selDay=date;cDay=date;setView("day");});
     div.addEventListener("dragenter",e=>{e.preventDefault();div.classList.add("drag-ov");});
@@ -941,7 +960,7 @@ function renderWeek(){
   const al=mk("div","wal");al.textContent="Jour";ar.appendChild(al);
   days.forEach(day=>{
     const cell=mk("div","wac");cell.dataset.date=day.date;
-    eventsOn(day.date).filter(e=>e.allDay).slice(0,3).forEach(e=>{const c=mk("div","wch "+(isArchived(e.id)?"wch-arc":isDone(e.id)?"wch-dn":"wch-td"));c.textContent=e.title;c.style.opacity=isArchived(e.id)?"0.4":"1";if(!e._local)c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
+    eventsOn(day.date).filter(e=>e.allDay).slice(0,3).forEach(e=>{const c=mk("div","wch "+evCls(e,"wch"));c.textContent=e.title;c.style.opacity=isArchived(e.id)?"0.4":"1";if(!e._local)c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
     bindDrop(cell,day.date,false);ar.appendChild(cell);
   });
 
@@ -956,8 +975,17 @@ function renderWeek(){
       const slot=mk("div","wsl");slot.dataset.date=day.date;slot.dataset.hour=h;
       bindDrop(slot,day.date,true,h);
       eventsOn(day.date).filter(e=>!e.allDay&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
-        const ev=mk("div","wev "+(isArchived(e.id)?"wev-arc":isDone(e.id)?"wev-dn":"wev-td"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
+        const ev=mk("div","wev "+evCls(e,"wev"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
         ev.textContent=fT(e.start)+" "+e.title;ev.style.top=(i*22+3)+"px";
+        /* Hauteur proportionnelle à la durée */
+        if(e.end&&e.end.includes("T")){
+          const minStart=new Date(e.start).getHours()*60+new Date(e.start).getMinutes();
+          const minEnd=new Date(e.end).getHours()*60+new Date(e.end).getMinutes();
+          const dur=Math.max(minEnd-minStart,30);
+          ev.style.height=Math.round(dur/60*48-4)+"px";
+          ev.style.overflow="hidden";
+          ev.style.whiteSpace="normal";ev.style.lineHeight="1.2";
+        }
         ev.onclick=()=>openEvModal(e.id);slot.appendChild(ev);
       });
       tr.appendChild(slot);
@@ -1001,9 +1029,19 @@ function renderDay(){
     slot.dataset.date=cDay;slot.dataset.hour=h;
     bindDrop(slot,cDay,true,h);
     eventsOn(cDay).filter(e=>!e.allDay&&e.start.includes("T")&&parseInt(e.start.split("T")[1].split(":")[0])===h).forEach((e,i)=>{
-      const ev=mk("div","day-ev "+(isArchived(e.id)?"day-ev-arc":isDone(e.id)?"day-ev-dn":"day-ev-td"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
+      const ev=mk("div","day-ev "+evCls(e,"day-ev"));ev.style.opacity=isArchived(e.id)?"0.4":"1";
       ev.textContent=fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):"")+" "+e.title;
-      ev.style.top=(i*28+3)+"px";ev.onclick=()=>openEvModal(e.id);slot.appendChild(ev);
+      ev.style.top=(i*28+3)+"px";
+      /* Hauteur proportionnelle à la durée */
+      if(e.end&&e.end.includes("T")){
+        const minStart=new Date(e.start).getHours()*60+new Date(e.start).getMinutes();
+        const minEnd=new Date(e.end).getHours()*60+new Date(e.end).getMinutes();
+        const dur=Math.max(minEnd-minStart,30);
+        ev.style.height=Math.round(dur/60*50-4)+"px";
+        ev.style.overflow="hidden";
+        ev.style.whiteSpace="normal";ev.style.lineHeight="1.3";
+      }
+      ev.onclick=()=>openEvModal(e.id);slot.appendChild(ev);
     });
     grid.appendChild(slot);
   }
