@@ -1219,7 +1219,7 @@ async function saveEvEdit(){
 async function evToggleDone(){if(!evPending)return;toggleEvDone(evPending);closeEvModal();renderAg();renderTasks();}
 async function evDelete(){if(!evPending)return;showSync("Suppression…");await delGcalEv(evPending);removeMeta(evPending);hideSync();closeEvModal();await fetchGcal();renderAg();renderTasks();toast("🗑 Supprimé");}
 function evArchive(){if(!evPending)return;ensureMeta(evPending,"");const meta=metaOf(evPending);if(meta)meta.archived=true;lsSave();closeEvModal();renderAg();renderTasks();toast("🗄 Archivé");
-if(!_archivesOpen)toggleArchives();}
+}
 
 /* ══ META ══ */
 function ensureMeta(gcalId,title){if(!S.tasks.find(t=>t.id===gcalId))S.tasks.push({id:gcalId,title:title||"",desc:"",done:false,archived:false});}
@@ -1614,7 +1614,6 @@ function buildTask(t){
       const real=S.tasks.find(x=>x.id===t.id);
       if(real){real.archived=true;}
       lsSave();renderTasks();toast("🗄 Archivé");
-      if(!_archivesOpen)toggleArchives();
     };
     item.appendChild(arch);
   }
