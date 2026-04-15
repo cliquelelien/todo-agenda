@@ -70,6 +70,24 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .tg-g{background:var(--grbg);color:var(--gr);border:1px solid var(--grb);}
 .td-btn{background:none;border:none;cursor:pointer;color:var(--tx3);font-size:18px;line-height:1;padding:2px 4px;flex-shrink:0;border-radius:6px;transition:color .15s,background .15s;}
 .td-btn:hover{color:var(--rd);background:#fdecea;}
+/* Task action buttons row */
+.task-actions{display:flex;align-items:center;gap:3px;flex-shrink:0;}
+.ta-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:none;background:none;cursor:pointer;font-size:15px;transition:background .15s,color .15s;color:var(--tx3);flex-shrink:0;}
+.ta-btn:hover{background:var(--blbg);}
+.ta-btn.remind:hover{background:#fff8e6;color:var(--or);}
+.ta-btn.remind.active{background:var(--orbg);color:var(--or);border:1.5px solid rgba(245,166,35,.35);}
+.ta-btn.plan:hover{background:var(--bll);color:var(--bl);}
+.ta-btn.drag-handle{cursor:grab;touch-action:none;}
+.ta-btn.drag-handle:hover{background:var(--blbg);color:var(--bl);}
+.ta-btn.drag-handle:active{cursor:grabbing;}
+.ta-btn.del:hover{background:#fdecea;color:var(--rd);}
+/* Remind popup */
+.remind-popup{position:absolute;right:0;top:36px;background:#fff;border:1.5px solid var(--blb);border-radius:12px;box-shadow:0 6px 24px rgba(26,86,160,.14);padding:6px;z-index:400;min-width:130px;display:none;}
+.remind-popup.open{display:block;}
+.remind-opt{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:700;color:var(--tx2);cursor:pointer;transition:background .12s,color .12s;white-space:nowrap;}
+.remind-opt:hover{background:var(--blbg);color:var(--bl);}
+.remind-opt.selected{background:var(--orbg);color:var(--or);}
+.ti-top{position:relative;}
 .td-desc{width:100%;font-family:inherit;font-size:12px;font-weight:600;color:var(--tx2);background:var(--blbg);border:1.5px solid var(--blb);border-radius:9px;padding:7px 11px;outline:none;resize:none;min-height:46px;margin-top:8px;transition:border-color .15s;}
 .td-desc:focus{border-color:var(--bl);}
 .dh{text-align:center;font-size:12px;font-weight:700;color:var(--tx3);padding:10px 0 2px;}
@@ -1669,14 +1687,44 @@ function buildTask(t){
   const tags=mk("div","tgs");
   if(t.due&&!gcalEv){const tg=mk("div","tg tg-d"+(overdue?" ov":""));tg.textContent="📅 Échéance : "+fD(t.due);tags.appendChild(tg);}
   if(gcalEv){
-    /* Tag date/heure planifiée */
     const tg=mk("div","tg tg-p");let label="📌 ";
     if(!gcalEv.allDay&&gcalEv.start.includes("T"))label+=fT(gcalEv.start)+(gcalEv.end&&gcalEv.end.includes("T")?" – "+fT(gcalEv.end):"")+" ";
     label+=fD(gcalEv.start.slice(0,10));tg.textContent=label;tags.appendChild(tg);
-    /* Badge "✓ Google Agenda" supprimé intentionnellement */
   }
   body.append(name,tags);
-  const plan=mk("button","td-btn");plan.title="Planifier / modifier";plan.innerHTML="📅";
+
+  /* ── 4 boutons d'action ── */
+  const actions=mk("div","task-actions");
+
+  /* 1. Rappel 🔔 */
+  const remWrap=mk("div");remWrap.style="position:relative;";
+  const remBtn=mk("button","ta-btn remind");
+  const remVal=t.remind||0;
+  remBtn.title="Rappel avant la tâche";
+  remBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+  if(remVal>0)remBtn.classList.add("active");
+  const remPop=mk("div","remind-popup");
+  const REMIND_OPTS=[["0","Au moment",""],["5","5 min avant",""],["10","10 min avant",""],["15","15 min avant",""],["30","30 min avant",""],["60","1 h avant",""]];
+  REMIND_OPTS.forEach(([v,lbl])=>{
+    const opt=mk("div","remind-opt"+(String(remVal)===v?" selected":""));
+    opt.innerHTML=(String(remVal)===v?'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="var(--or)" stroke-width="2" stroke-linecap="round"/></svg>':'<span style="width:12px;display:inline-block"></span>')+' '+lbl;
+    opt.onclick=(e)=>{
+      e.stopPropagation();
+      t.remind=parseInt(v);lsSave();
+      remBtn.classList.toggle("active",t.remind>0);
+      remPop.classList.remove("open");
+      renderTasks();
+    };
+    remPop.appendChild(opt);
+  });
+  remBtn.onclick=(e)=>{e.stopPropagation();remPop.classList.toggle("open");};
+  document.addEventListener("click",()=>remPop.classList.remove("open"),{capture:false});
+  remWrap.append(remBtn,remPop);
+
+  /* 2. Planifier / modifier 📅 */
+  const plan=mk("button","ta-btn plan");
+  plan.title="Planifier / modifier dans le calendrier";
+  plan.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
   plan.onclick=()=>{
     const gcalEv=gcal.find(e=>e.id===t.id);
     const d=gcalEv?gcalEv.start.slice(0,10):(t._pendingDate||t.due||t.plannedDate||ds(NOW));
@@ -1684,14 +1732,20 @@ function buildTask(t){
     const tE=gcalEv&&!gcalEv.allDay&&gcalEv.end&&gcalEv.end.includes("T")?fT(gcalEv.end):(t._pendingTE||null);
     openModal(t.id,d,tS,tE);
   };
-  const remSel=mk("select");remSel.title="Rappel";
-  remSel.style="font-family:inherit;font-size:11px;font-weight:700;color:var(--tx2);background:var(--blbg);border:1.5px solid var(--blb);border-radius:7px;padding:2px 5px;outline:none;cursor:pointer;";
-  [["0","🔔 0min"],["5","🔔 5min"],["10","🔔 10min"],["15","🔔 15min"],["30","🔔 30min"],["60","🔔 1h"]].forEach(([v,lbl])=>{const o=document.createElement("option");o.value=v;o.textContent=lbl;remSel.appendChild(o);});
-  remSel.value=String(t.remind||0);
-  remSel.onchange=()=>{t.remind=parseInt(remSel.value);lsSave();};
-  const del=mk("button","td-btn");del.innerHTML="×";
+
+  /* 3. Drag handle ⠿ */
+  const drag=mk("button","ta-btn drag-handle");
+  drag.title="Glisser vers le calendrier";
+  drag.innerHTML='<svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor"><circle cx="3" cy="2" r="1.3"/><circle cx="9" cy="2" r="1.3"/><circle cx="3" cy="7" r="1.3"/><circle cx="9" cy="7" r="1.3"/><circle cx="3" cy="12" r="1.3"/><circle cx="9" cy="12" r="1.3"/></svg>';
+
+  /* 4. Supprimer × */
+  const del=mk("button","ta-btn del");
+  del.title="Supprimer la tâche";
+  del.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   del.onclick=async()=>{if(gcalEv){showSync("Suppression…");await delGcalEv(t.id);hideSync();}S.tasks=S.tasks.filter(x=>x.id!==t.id);lsSave();if(gcalEv)await fetchGcal();renderTasks();if(curTab==="agenda")renderAg();};
-  top.append(chk,body,remSel,plan,del);item.appendChild(top);
+
+  actions.append(remWrap,plan,drag,del);
+  top.append(chk,body,actions);item.appendChild(top);
   if(t.done){
     const arch=mk("button","btn btn-gh");
     arch.style="font-size:11px;padding:4px 10px;margin-top:7px;";
