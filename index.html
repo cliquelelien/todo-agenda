@@ -157,7 +157,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .day-grid-wrap{position:relative;}
 .day-grid{display:grid;grid-template-columns:44px 1fr 54px;}
 .day-lbl{font-size:12px;font-weight:800;color:var(--tx2);text-align:right;padding-right:6px;height:50px;display:flex;align-items:flex-start;justify-content:flex-end;padding-top:4px;flex-shrink:0;}
-.day-lbl-weather{font-size:11px;font-weight:700;color:var(--tx2);white-space:nowrap;height:50px;display:flex;align-items:flex-start;padding-top:4px;padding-left:4px;flex-shrink:0;}
+.day-lbl-weather{font-size:15px;font-weight:700;color:var(--tx2);white-space:nowrap;height:50px;display:flex;align-items:flex-start;padding-top:3px;padding-left:5px;flex-shrink:0;line-height:1.2;}
 .day-sl{height:50px;background:#fff;border:1px solid var(--blb);border-top:none;position:relative;transition:background .10s;}
 .day-sl.first{border-top:1px solid var(--blb);}
 .day-sl.drag-ov{background:var(--orbg)!important;border-color:var(--or)!important;box-shadow:inset 0 0 0 2px rgba(245,166,35,.25);}
@@ -1125,7 +1125,12 @@ function renderDay(){
     for(let h=0;h<24;h++){
       const key=cDay+"T"+z(h)+":00";
       const el=document.getElementById("dw-"+cDay+"-"+h);
-      if(el&&wd.hours[key]){el.textContent=wd.hours[key].icon+" "+wd.hours[key].temp+"°";}
+      if(el&&wd.hours[key]){
+        const w=wd.hours[key];
+        el.innerHTML=`<span style="font-size:17px;line-height:1;">${w.icon}</span><span style="font-size:10px;font-weight:800;color:var(--tx2);line-height:1;">${w.temp}°</span>`;
+        el.style.flexDirection="column";
+        el.style.gap="1px";
+      }
     }
   });
 
@@ -1312,11 +1317,28 @@ document.addEventListener("drop",e=>{
 const ghost=document.getElementById("ghost");
 function setupTouch(item,tid2){
   let sx,sy;
-  item.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+  let _holdTimer=null;
+  let _dragReady=false; // drag activé seulement après long-press
+  item.addEventListener("touchstart",e=>{
+    sx=e.touches[0].clientX;sy=e.touches[0].clientY;
+    _dragReady=false;
+    _holdTimer=setTimeout(()=>{
+      _dragReady=true;
+      /* Feedback visuel court pour signaler que le drag est prêt */
+      item.style.transform="scale(0.97)";
+      item.style.transition="transform .1s";
+    },350);
+  },{passive:true});
   item.addEventListener("touchmove",e=>{
     const cx=e.touches[0].clientX,cy=e.touches[0].clientY;
-    if(Math.abs(cx-sx)>8||Math.abs(cy-sy)>8){
-      if(!touchDragId){touchDragId=tid2;const t=S.tasks.find(t=>t.id===tid2);ghost.textContent=t?t.title:"";ghost.style.display="block";item.classList.add("dragging");document.body.classList.add("dragging-task");goTab("agenda");}
+    const moved=Math.abs(cx-sx)>12||Math.abs(cy-sy)>12;
+    if(moved&&!_dragReady){
+      /* Mouvement avant long-press → c'est un scroll, annuler */
+      clearTimeout(_holdTimer);_holdTimer=null;
+      return;
+    }
+    if(_dragReady&&(Math.abs(cx-sx)>6||Math.abs(cy-sy)>6)){
+      if(!touchDragId){touchDragId=tid2;const t=S.tasks.find(t=>t.id===tid2);ghost.textContent=t?t.title:"";ghost.style.display="block";item.classList.add("dragging");item.style.transform="";document.body.classList.add("dragging-task");goTab("agenda");}
       e.preventDefault();
       ghost.style.left=(cx-70)+"px";ghost.style.top=(cy-20)+"px";
       document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
@@ -1368,6 +1390,8 @@ function setupTouch(item,tid2){
     }
   },{passive:false});
   item.addEventListener("touchend",e=>{
+    clearTimeout(_holdTimer);_holdTimer=null;
+    item.style.transform="";
     clearTimeout(tEdgeTimer);tEdgeSide=null;
     clearTimeout(_vScrollTimer);_vScrollSide=null;
     hideCalEdges();
@@ -1974,13 +1998,13 @@ async function parseVoiceTask(txt){
   let timeStr=null,timeEnd=null;
   let tm=null;
   /* 1) "18h30" ou "8h05" dans le texte normalisé */
-  if(!tm)tm=n.match(/(?:^|[\s,àa])(\d{1,2})h(\d{2})(?:\s|$|[^\d])/);
+  if(!tm)tm=n.match(/(?:^|[\s,àapour])(\d{1,2})h(\d{2})(?:\s|$|[^\d])/);
   /* 2) heure ronde "18h" sans minutes */
-  if(!tm)tm=n.match(/(?:^|[\s,àa])(\d{1,2})h(?!\d)/);
+  if(!tm)tm=n.match(/(?:^|[\s,àapour])(\d{1,2})h(?!\d)/);
   /* 3) format HH:MM */
   if(!tm)tm=n.match(/(\d{1,2}):(\d{2})/);
-  /* 4) "à 18 30" (chiffres séparés après normalisation incomplète) */
-  if(!tm)tm=n.match(/à\s+(\d{1,2})\s+(\d{2})(?:\s|$)/);
+  /* 4) "à 18 30" ou "pour 18 30" (chiffres séparés après normalisation incomplète) */
+  if(!tm)tm=n.match(/(?:à|pour)\s+(\d{1,2})\s+(\d{2})(?:\s|$)/);
   /* 5) Fallback direct sur le texte brut : "18 heures 30" en chiffres */
   if(!tm){const r2=raw.match(/(?:^|[\s,à])(\d{1,2})\s*h(?:eures?)?\s*(\d{2})(?:\s|$)/i);if(r2)tm=r2;}
   if(!tm){const r2=raw.match(/(?:^|[\s,à])(\d{1,2})\s*heures?(?:\s+(\d{1,2})(?:\s|$))?/i);if(r2)tm=r2;}
@@ -2051,11 +2075,22 @@ async function parseVoiceTask(txt){
     /* 7. verbes parasites */
     .replace(/rappel(?:le)?[\s-]*moi/gi,"")
     .replace(/ajoute(?:r|z)?|cr[eé]e(?:r|z)?|note(?:r|z)?|pense(?:r|z)?\s+à|n'oublie\s+pas/gi,"")
+    /* 7b. formules de politesse / introductions vocales */
+    .replace(/s'il[\s-]*(?:te|vous)[\s-]*pla[iî]t/gi,"")
+    .replace(/(?:je\s+(?:voudrais?|dois?|veux?|souhaite?|aimerais?)\s+(?:te\s+)?)?(?:me\s+)?rappeler?(?:\s+que)?/gi,"")
+    .replace(/(?:mets?|met(?:tre)?|planifie(?:r)?|programme(?:r)?|inscris?|inscri(?:re)?)\s+(?:un[e]?\s+)?/gi,"")
+    .replace(/\breunion\b|\bréunion\b/gi,m=>m) // garder "réunion" si c'est le titre
+    .replace(/(?:^|\s)(?:une?|des?|du|les?|la|les)\s+(?=\s)/gi," ")
     /* 8. chiffres isolés résiduels */
     .replace(/\b\d{1,2}\b/g,"")
     /* 9. prépositions/articles orphelins en fin ou début */
     .replace(/\s+à\s*$/gi,"").replace(/^\s*à\s+/gi,"")
     .replace(/\s+le\s*$/gi,"").replace(/^\s*le\s+/gi,"")
+    .replace(/\s+de\s*$/gi,"").replace(/^\s*de\s+/gi,"")
+    .replace(/\s+du\s*$/gi,"").replace(/^\s*du\s+/gi,"")
+    .replace(/\s+pour\s*$/gi,"").replace(/^\s*pour\s+/gi,"")
+    .replace(/\s+sur\s*$/gi,"").replace(/^\s*sur\s+/gi,"")
+    .replace(/\s+avec\s*$/gi,"").replace(/^\s*avec\s+/gi,"")
     .replace(/\s{2,}/g," ").trim();
 
   if(!title){toast("❌ Titre introuvable — réessayez");return;}
