@@ -155,13 +155,15 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .day-scroll::-webkit-scrollbar-thumb{background:var(--blb);border-radius:3px;}
 /* day-grid-wrap : conteneur relatif pour l'overlay */
 .day-grid-wrap{position:relative;}
-.day-grid{display:grid;grid-template-columns:44px 1fr;}
-.day-lbl{font-size:10px;font-weight:700;color:var(--tx3);text-align:right;padding-right:6px;height:50px;display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;padding-top:3px;flex-shrink:0;gap:1px;}
+.day-grid{display:grid;grid-template-columns:58px 1fr;}
+.day-lbl{font-size:10px;font-weight:700;color:var(--tx3);text-align:right;padding-right:6px;height:50px;display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;padding-top:3px;flex-shrink:0;gap:3px;}
+.day-lbl-time{font-size:10px;font-weight:700;color:var(--tx3);}
+.day-lbl-weather{font-size:12px;line-height:1;color:var(--tx2);white-space:nowrap;}
 .day-sl{height:50px;background:#fff;border:1px solid var(--blb);border-top:none;position:relative;transition:background .10s;}
 .day-sl.first{border-top:1px solid var(--blb);}
 .day-sl.drag-ov{background:var(--orbg)!important;border-color:var(--or)!important;box-shadow:inset 0 0 0 2px rgba(245,166,35,.25);}
 /* Overlay événements jour */
-.day-ev-overlay{position:absolute;top:0;left:44px;right:0;bottom:0;pointer-events:none;z-index:3;}
+.day-ev-overlay{position:absolute;top:0;left:58px;right:0;bottom:0;pointer-events:none;z-index:3;}
 .day-ev{position:absolute;left:4px;right:4px;border-radius:7px;font-size:11px;font-weight:700;color:#fff;padding:3px 9px;overflow:hidden;cursor:pointer;pointer-events:all;box-shadow:0 2px 6px rgba(0,0,0,.13);line-height:1.3;word-break:break-word;}
 .day-ev-td{background:var(--or);}.day-ev-dn{background:var(--bl);}.day-ev-gc{background:var(--or);}
 .now-line{position:absolute;left:0;right:0;height:2px;background:var(--rd);z-index:5;pointer-events:none;}
@@ -1103,7 +1105,7 @@ function renderDay(){
   /* Grille de fond */
   for(let h=0;h<24;h++){
     const lbl2=mk("div","day-lbl");
-    lbl2.innerHTML=`<span>${h}h</span><span id="dw-${cDay}-${h}" style="font-size:14px;line-height:1;display:block;"></span>`;
+    lbl2.innerHTML=`<span class="day-lbl-time">${h}h</span><span class="day-lbl-weather" id="dw-${cDay}-${h}"></span>`;
     grid.appendChild(lbl2);
     const slot=mk("div","day-sl"+(h===0?" first":""));
     slot.dataset.date=cDay;slot.dataset.hour=h;
