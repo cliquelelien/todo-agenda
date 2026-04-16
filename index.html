@@ -509,15 +509,17 @@ async function fetchWeather(){
       // iso = "2026-04-14T08:00"
       const wc=d.hourly.weathercode[i];
       const temp=Math.round(d.hourly.temperature_2m[i]);
-      hours[iso]={icon:wcIcon(wc),temp};
+      const hh=parseInt(iso.slice(11,13),10);
+      hours[iso]={icon:wcIcon(wc,hh),temp};
     });
     _weatherCache={fetched:Date.now(),days,hours};
     return _weatherCache;
   }catch(e){return null;}
 }
-function wcIcon(wc){
-  if(wc===0)return"☀️";
-  if(wc<=2)return"🌤️";
+function wcIcon(wc,h){
+  const night=h!==undefined&&(h<6||h>=21);
+  if(wc===0)return night?"🌙":"☀️";
+  if(wc<=2)return night?"🌙":"🌤️";
   if(wc<=3)return"☁️";
   if(wc<=48)return"🌫️";
   if(wc<=57)return"🌧️";
