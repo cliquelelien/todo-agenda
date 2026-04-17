@@ -55,6 +55,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .ti{background:#fff;border:1.5px solid var(--blb);border-radius:12px;padding:11px 13px;transition:border-color .15s,box-shadow .15s;}
 .ti:hover{border-color:var(--bl);box-shadow:0 2px 10px rgba(42,125,225,.10);}
 .ti.done{background:#f8fbff;border-color:#e0eaf5;}
+.ti.overdue{border:2px solid var(--or)!important;background:var(--orbg)!important;box-shadow:0 0 0 2px rgba(245,166,35,.15),var(--sh)!important;}
 .ti-top{display:flex;align-items:center;gap:10px;}
 .ck{width:22px;height:22px;flex-shrink:0;border:2px solid var(--blb);border-radius:7px;cursor:pointer;background:#fff;display:flex;align-items:center;justify-content:center;transition:all .2s;}
 .ck.on{background:var(--bl);border-color:var(--bl);box-shadow:0 2px 6px rgba(42,125,225,.30);}
@@ -442,6 +443,13 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
       <option value="30">30 min avant</option>
       <option value="60">1h avant</option>
     </select>
+    <label>&#128257; R&#233;currence</label>
+    <select id="te-recur" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;margin-bottom:4px;">
+      <option value="">Aucune r&#233;currence</option>
+      <option value="WEEKLY">Chaque semaine</option>
+      <option value="MONTHLY">Chaque mois</option>
+      <option value="YEARLY">Chaque ann&#233;e</option>
+    </select>
     <div class="mo-btns" style="margin-top:12px">
       <button class="btn btn-gh" onclick="closeTaskEdit()">Annuler</button>
       <button class="btn btn-bl" onclick="saveTaskEdit()">&#10003; Enregistrer</button>
@@ -773,6 +781,15 @@ async function updateGcalEv(gcalId,title,desc,date,tS,tE){
   tS=tS||null; tE=tE||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date}});
+}
+async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence){
+  if(!token||!gcalId)return;
+  tS=tS||null; tE=tE||null;
+  var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  var body={summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date}};
+  if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
+  else{body.recurrence=[];}
+  await calFetch('PATCH','/calendars/primary/events/'+gcalId,body);
 }
 async function delGcalEv(gcalId){
   if(!token||!gcalId)return;
@@ -1679,6 +1696,7 @@ function buildTask(t){
   const item=mk("div","ti"+(t.done?" done":""));item.dataset.id=t.id;
   const gcalEv=t._gcalEv||gcal.find(e=>e.id===t.id);
   const today=ds(NOW);const overdue=t.due&&t.due<today&&!t.done;
+  if(overdue)item.classList.add("overdue");
   const top=mk("div","ti-top");
   const chk=mk("div","ck"+(t.done?" on":""));
   chk.innerHTML='<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
@@ -1692,6 +1710,11 @@ function buildTask(t){
     const tg=mk("div","tg tg-p");let label="📌 ";
     if(!gcalEv.allDay&&gcalEv.start.includes("T"))label+=fT(gcalEv.start)+(gcalEv.end&&gcalEv.end.includes("T")?" – "+fT(gcalEv.end):"")+" ";
     label+=fD(gcalEv.start.slice(0,10));tg.textContent=label;tags.appendChild(tg);
+  }
+  if(t.recurrence){
+    const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
+    const tgR=mk("div","tg");tgR.style="background:#e8f0fe;color:#3b5fce;border:1px solid #a8bff5;";
+    tgR.textContent=recLbl[t.recurrence]||"↻ Récurrent";tags.appendChild(tgR);
   }
   body.append(name,tags);
 
@@ -2216,6 +2239,7 @@ function openTaskEdit(tid){
   document.getElementById("te-due").value=t.due||"";
   document.getElementById("te-desc").value=t.desc||"";
   document.getElementById("te-remind").value=String(t.remind||0);
+  document.getElementById("te-recur").value=t.recurrence||"";
   document.getElementById("task-edit-overlay").classList.add("open");
 }
 function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;}
@@ -2226,6 +2250,7 @@ function saveTaskEdit(){
   t.due=document.getElementById("te-due").value||null;
   t.desc=document.getElementById("te-desc").value;
   t.remind=parseInt(document.getElementById("te-remind").value)||0;
+  t.recurrence=document.getElementById("te-recur").value||null;
   lsSave();closeTaskEdit();
   /* Synchroniser dans GCal si l'événement existe */
   const gcalEv=gcal.find(e=>e.id===t.id);
@@ -2234,7 +2259,7 @@ function saveTaskEdit(){
     const ts=(!gcalEv.allDay&&gcalEv.start.includes("T"))?fT(gcalEv.start):null;
     const te=(!gcalEv.allDay&&gcalEv.end&&gcalEv.end.includes("T"))?fT(gcalEv.end):null;
     showSync("Mise à jour GCal…");
-    updateGcalEv(t.id,t.title,t.desc,date,ts,te).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
+    updateGcalEvWithRecur(t.id,t.title,t.desc,date,ts,te,t.recurrence).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
   } else {
     renderTasks();
   }
