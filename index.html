@@ -1767,7 +1767,10 @@ function buildTask(t){
   chk.onclick=()=>{if(gcalEv)toggleEvDone(t.id);else{t.done=!t.done;lsSave();renderTasks();}};
   const body=mk("div","tb");
   const name=mk("div","tn");name.textContent=t.title;
-  if(!gcalEv){name.onclick=()=>openTaskEdit(t.id);name.style.textDecoration="underline dotted";name.style.cursor="pointer";}
+  /* Le clic sur le titre ouvre toujours l'édition locale (récurrence, rappel, etc.)
+     Pour les tâches GCal on ouvre aussi openTaskEdit qui synchronise ensuite */
+  name.onclick=()=>openTaskEdit(t.id);
+  name.style.textDecoration="underline dotted";name.style.cursor="pointer";
   const tags=mk("div","tgs");
   if(t.due&&!gcalEv){const tg=mk("div","tg tg-d"+(overdue?" ov":""));tg.textContent="📅 Échéance : "+fD(t.due);tags.appendChild(tg);}
   if(gcalEv){
@@ -2297,10 +2300,20 @@ async function parseVoiceTask(txt){
 /* ══ ÉDITION TÂCHE LOCALE ══ */
 let _editTaskId=null;
 function openTaskEdit(tid){
-  const t=S.tasks.find(x=>x.id===tid);if(!t)return;
+  let t=S.tasks.find(x=>x.id===tid);
+  /* Si la tâche vient de GCal et n'a pas encore de méta locale, en créer une */
+  if(!t){
+    const gcalEv=gcal.find(e=>e.id===tid);
+    if(gcalEv){
+      t={id:tid,title:gcalEv.title,desc:"",done:false,archived:false,remind:0,recurrence:null,_createdHere:true};
+      S.tasks.push(t);lsSave();
+    }else{return;}
+  }
   _editTaskId=tid;
   document.getElementById("te-title").value=t.title||"";
-  document.getElementById("te-due").value=t.due||"";
+  /* Date : priorité méta locale, sinon GCal */
+  const gcalEv=gcal.find(e=>e.id===tid);
+  document.getElementById("te-due").value=t.due||(gcalEv?gcalEv.start.slice(0,10):"")||"";
   document.getElementById("te-desc").value=t.desc||"";
   document.getElementById("te-remind").value=String(t.remind||0);
   document.getElementById("te-recur").value=t.recurrence||"";
@@ -2327,7 +2340,9 @@ function saveTaskEdit(){
   } else {
     renderTasks();
   }
-  toast("✓ Tâche modifiée");
+  const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
+  const recurMsg=t.recurrence?(" · "+(recLbl[t.recurrence]||"↻ Récurrent")):"";
+  toast("✓ Tâche modifiée"+recurMsg);
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 </script>
