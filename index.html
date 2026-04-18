@@ -573,10 +573,7 @@ function eventsOn(d){
   const gcalEvs=gcal.filter(e=>{
     const eStart=e.start.slice(0,10);
     const eEnd=e.end?e.end.slice(0,10):eStart;
-    /* Pour les événements allDay GCal, la date de fin est exclusive (lendemain) */
-    const eEndAdj=e.allDay&&eEnd>eStart?(new Date(eEnd+"T00:00:00").setDate(new Date(eEnd+"T00:00:00").getDate()-1),
-      (() => { const x=new Date(eEnd+"T00:00:00"); x.setDate(x.getDate()-1); return ds(x); })()
-    ):eEnd;
+    const eEndAdj=e.allDay&&eEnd>eStart?(()=>{const x=new Date(eEnd+"T00:00:00");x.setDate(x.getDate()-1);return ds(x);})():eEnd;
     return d>=eStart&&d<=eEndAdj;
   });
   const allGcalIds=new Set(gcal.map(e=>e.id));
@@ -584,19 +581,31 @@ function eventsOn(d){
   const localEvs=S.tasks
     .filter(t=>!t.archived&&t.due===d&&!allGcalIds.has(t.id))
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_recurrence:t.recurrence||null}));
-  /* Tâches archivées à afficher aussi dans le calendrier (même couleur, sans opacité) */
+  /* Tâches archivées */
   const archivedEvs=S.tasks
     .filter(t=>t.archived&&t.due===d&&!allGcalIds.has(t.id))
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_archived:true}));
-  /* Occurrences récurrentes des tâches locales */
+
+  /* ── Occurrences récurrentes virtuelles ──
+     Sources : tâches locales (t.due) ET tâches GCal (gcalEv.start) ayant une méta avec recurrence */
   const recurEvs=[];
-  S.tasks.filter(t=>!t.archived&&t.recurrence&&t.due&&t.due!==d&&!allGcalIds.has(t.id)).forEach(t=>{
-    if(matchesRecurrence(t.due,d,t.recurrence)){
-      /* Ne pas dupliquer si t.due===d (déjà dans localEvs) */
+  const gcalDatesOnD=new Set(gcalEvs.map(e=>e.id)); // éviter doublon si GCal gère déjà la récurrence
+
+  S.tasks.filter(t=>!t.archived&&t.recurrence).forEach(t=>{
+    /* Date de base : t.due pour locales, ou start GCal pour tâches synchronisées */
+    let baseDate=t.due||null;
+    if(!baseDate){
+      const gcalEv=gcal.find(e=>e.id===t.id);
+      if(gcalEv)baseDate=gcalEv.start.slice(0,10);
+    }
+    if(!baseDate||baseDate===d)return; // la date d'origine est gérée par localEvs ou gcalEvs
+    if(gcalDatesOnD.has(t.id))return;  // GCal a déjà retourné une occurrence ce jour
+    if(matchesRecurrence(baseDate,d,t.recurrence)){
       const virtId=t.id+"__recur__"+d;
       recurEvs.push({id:virtId,_baseId:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_virtual:true,_recurrence:t.recurrence});
     }
   });
+
   return [...gcalEvs,...localEvs,...archivedEvs,...recurEvs];
 }
 
@@ -1399,7 +1408,60 @@ function evArchive(){if(!evPending)return;ensureMeta(evPending,"");const meta=me
 /* ══ META ══ */
 function ensureMeta(gcalId,title){if(!S.tasks.find(t=>t.id===gcalId))S.tasks.push({id:gcalId,title:title||"",desc:"",done:false,archived:false});}
 function removeMeta(gcalId){S.tasks=S.tasks.filter(t=>t.id!==gcalId);lsSave();}
-function toggleEvDone(gcalId){ensureMeta(gcalId,"");const meta=metaOf(gcalId);meta.done=!meta.done;if(!meta.done)meta.archived=false;lsSave();renderAg();renderTasks();}
+
+/* Calcule la prochaine occurrence après baseDate selon la fréquence */
+function nextOccurrence(baseDate,freq){
+  if(!baseDate||!freq)return null;
+  const d=new Date(baseDate+"T00:00:00");
+  if(freq==="WEEKLY")d.setDate(d.getDate()+7);
+  else if(freq==="MONTHLY")d.setMonth(d.getMonth()+1);
+  else if(freq==="YEARLY")d.setFullYear(d.getFullYear()+1);
+  else return null;
+  return ds(d);
+}
+
+/* Date à laquelle la tâche doit réapparaître dans la todo (1 semaine avant l'échéance) */
+function appearDate(dueDate){
+  if(!dueDate)return dueDate;
+  const d=new Date(dueDate+"T00:00:00");
+  d.setDate(d.getDate()-7);
+  return ds(d);
+}
+
+function toggleEvDone(gcalId){
+  ensureMeta(gcalId,"");
+  const meta=metaOf(gcalId);
+  const wasDone=meta.done;
+  meta.done=!meta.done;
+  if(!meta.done)meta.archived=false;
+
+  /* Si on vient de cocher (done) une tâche récurrente → créer la prochaine occurrence */
+  if(meta.done&&meta.recurrence){
+    const gcalEv=gcal.find(e=>e.id===gcalId);
+    const baseDate=meta.due||(gcalEv?gcalEv.start.slice(0,10):null);
+    if(baseDate){
+      const nextDue=nextOccurrence(baseDate,meta.recurrence);
+      if(nextDue){
+        /* Vérifier qu'une occurrence n'existe pas déjà pour cette date */
+        const alreadyExists=S.tasks.some(t=>t._baseRecurId===gcalId&&t.due===nextDue);
+        if(!alreadyExists){
+          const appear=appearDate(nextDue);
+          const newTask={
+            id:uid(),title:meta.title,desc:meta.desc||"",
+            due:nextDue,_showFrom:appear,
+            done:false,archived:false,
+            recurrence:meta.recurrence,_baseRecurId:gcalId,
+            remind:meta.remind||0,_createdHere:true
+          };
+          S.tasks.push(newTask);
+          const recLbl={"WEEKLY":"semaine","MONTHLY":"mois","YEARLY":"an"};
+          toast("✓ Terminée · ↻ Prochaine occurrence le "+fD(nextDue));
+        }
+      }
+    }
+  }
+  lsSave();renderAg();renderTasks();
+}
 
 /* ══ DRAG & DROP ══ */
 function bindDrop(el,date,withHour,hour){
@@ -1683,7 +1745,9 @@ function renderTasks(){
   const gcalIds=new Set(gcal.map(e=>e.id));
 
   /* Tâches créées dans l'app : soit locales (pas encore dans gcal), soit créées ici et synchronisées (_createdHere) */
-  const appTasks=S.tasks.filter(t=>!t.archived&&t._createdHere);
+  /* Les occurrences récurrentes futures (_showFrom) ne sont visibles que si aujourd'hui >= _showFrom */
+  const today=ds(NOW);
+  const appTasks=S.tasks.filter(t=>!t.archived&&t._createdHere&&(!t._showFrom||today>=t._showFrom));
 
   /* Enrichir avec les données GCal si disponibles */
   const enriched=appTasks.map(t=>{
@@ -1778,7 +1842,27 @@ function buildTask(t){
   const top=mk("div","ti-top");
   const chk=mk("div","ck"+(t.done?" on":""));
   chk.innerHTML='<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
-  chk.onclick=()=>{if(gcalEv)toggleEvDone(t.id);else{t.done=!t.done;lsSave();renderTasks();}};
+  chk.onclick=()=>{
+    if(gcalEv){
+      toggleEvDone(t.id);
+    } else {
+      const wasDone=t.done;
+      t.done=!t.done;
+      /* Si on coche une tâche locale récurrente → créer la prochaine occurrence */
+      if(t.done&&t.recurrence&&t.due){
+        const nextDue=nextOccurrence(t.due,t.recurrence);
+        if(nextDue){
+          const alreadyExists=S.tasks.some(x=>x._baseRecurId===t.id&&x.due===nextDue);
+          if(!alreadyExists){
+            const appear=appearDate(nextDue);
+            S.tasks.push({id:uid(),title:t.title,desc:t.desc||"",due:nextDue,_showFrom:appear,done:false,archived:false,recurrence:t.recurrence,_baseRecurId:t.id,remind:t.remind||0,_createdHere:true});
+            toast("✓ Terminée · ↻ Prochaine le "+fD(nextDue));
+          }
+        }
+      }
+      lsSave();renderTasks();
+    }
+  };
   const body=mk("div","tb");
   const name=mk("div","tn");name.textContent=t.title;
   /* Le clic sur le titre ouvre toujours l'édition locale (récurrence, rappel, etc.)
