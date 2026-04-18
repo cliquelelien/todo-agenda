@@ -391,6 +391,13 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     <label>Date</label><input type="date" id="mo-date">
     <label>Heure de d&#233;but</label><input type="time" id="mo-start" value="09:00">
     <label>Heure de fin</label><input type="time" id="mo-end" value="10:00">
+    <label>&#128257; R&#233;currence</label>
+    <select id="mo-recur" class="recur-select">
+      <option value="">Aucune r&#233;currence</option>
+      <option value="WEEKLY">Chaque semaine</option>
+      <option value="MONTHLY">Chaque mois</option>
+      <option value="YEARLY">Chaque ann&#233;e</option>
+    </select>
     <div class="mo-btns">
       <button class="btn btn-gh" onclick="closeModal(false)">Annuler</button>
       <button class="btn btn-bl" onclick="confirmPlan(true)">Avec heure &#10003;</button>
@@ -1531,6 +1538,7 @@ function openModal(tid,date,tS,tE){
   if(!end)end=addOneHour(start);
   document.getElementById("mo-start").value=start;
   document.getElementById("mo-end").value=end;
+  document.getElementById("mo-recur").value=t.recurrence||"";
   document.getElementById("overlay").classList.add("open");
 }
 function closeModal(confirmed){
@@ -1551,6 +1559,7 @@ function openNewEvModal(date,tS,tE){
   document.getElementById("mo-date").value=date;
   document.getElementById("mo-start").value=tS||"09:00";
   document.getElementById("mo-end").value=tE||addOneHour(tS||"09:00");
+  document.getElementById("mo-recur").value="";
   document.getElementById("overlay").classList.add("open");
   /* Focus sur le titre */
   setTimeout(()=>document.getElementById("mo-title").focus(),120);
@@ -1561,12 +1570,13 @@ async function confirmPlan(withTime){
   const ts=withTime?document.getElementById("mo-start").value:null;
   const te=withTime?document.getElementById("mo-end").value:null;
   const newTitle=document.getElementById("mo-title").value.trim();
+  const recur=document.getElementById("mo-recur").value||null;
   const tid=pending.tid;
   const t=S.tasks.find(t=>t.id===tid);
   /* Si pas de titre saisi → annuler */
   if(!newTitle){toast("❌ Veuillez saisir un titre");return;}
-  /* Mettre à jour le titre et la date sur la tâche */
-  if(t){t.title=newTitle;t.due=date;if(ts)t._pendingTS=ts;if(te)t._pendingTE=te;lsSave();}
+  /* Mettre à jour le titre, la date et la récurrence sur la tâche */
+  if(t){t.title=newTitle;t.due=date;t.recurrence=recur;if(ts)t._pendingTS=ts;if(te)t._pendingTE=te;lsSave();}
   closeModal(true); // true = confirmation, ne pas supprimer la tâche
   await planTask(tid,date,ts,te);
 }
@@ -1593,10 +1603,14 @@ async function planTask(tid,date,tS,tE){
   const ev=await createGcalEv(t.title,t.desc,date,tS,tE,t.remind||0);
   hideSync();
   if(ev&&ev.id){
+    const recur=t.recurrence||null;
+    /* Appliquer la récurrence si définie */
+    if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==tid);
-    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0,_createdHere:true});
+    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0,recurrence:recur,_createdHere:true});
     lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();
-    toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:"")+" · "+fD(date));
+    const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
+    toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:"")+" · "+fD(date)+(recur?" · "+(recLbl[recur]||"↻"):""));
   } else if(ev===null){
     t._pendingDate=date;t._pendingTS=tS||null;t._pendingTE=tE||null;lsSave();
   }
