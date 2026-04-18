@@ -215,6 +215,10 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .mo-btns button{flex:1;min-width:80px;}
 .mo-skip{font-size:12px;font-weight:700;color:var(--tx3);text-align:center;margin-top:10px;cursor:pointer;text-decoration:underline;}
 .mo-skip:hover{color:var(--bl);}
+/* Recurrence select */
+.recur-select{width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 12px;outline:none;margin-bottom:2px;transition:border-color .15s;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238aaac8' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.recur-select:focus{border-color:var(--bl);box-shadow:0 0 0 3px rgba(42,125,225,.10);}
+.recur-badge{display:inline-flex;align-items:center;gap:4px;background:#e8f0fe;color:#3b5fce;border:1px solid #a8bff5;border-radius:6px;font-size:10px;font-weight:800;padding:2px 7px;}
 .ep-row{font-size:13px;color:var(--tx2);margin-bottom:6px;font-weight:600;}
 .ep-desc{font-size:12px;color:var(--tx3);font-style:italic;margin-bottom:8px;white-space:pre-wrap;min-height:16px;}
 .ep-sep{border:none;border-top:1px solid var(--blb);margin:11px 0;}
@@ -409,6 +413,13 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
       <label>Heure fin</label><input type="time" id="ev-tend">
       <label>Descriptif</label>
       <textarea id="ev-descfield" rows="3" placeholder="Descriptif optionnel&#8230;"></textarea>
+      <label>&#128257; R&#233;currence</label>
+      <select id="ev-recur" class="recur-select">
+        <option value="">Aucune r&#233;currence</option>
+        <option value="WEEKLY">Chaque semaine</option>
+        <option value="MONTHLY">Chaque mois</option>
+        <option value="YEARLY">Chaque ann&#233;e</option>
+      </select>
     </div>
     <div class="mo-btns" style="margin-top:12px">
       <button class="btn btn-gh" onclick="closeEvModal()">Fermer</button>
@@ -565,12 +576,45 @@ function eventsOn(d){
   /* Tâches locales actives à afficher : non archivées, échéance = d */
   const localEvs=S.tasks
     .filter(t=>!t.archived&&t.due===d&&!allGcalIds.has(t.id))
-    .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true}));
+    .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_recurrence:t.recurrence||null}));
   /* Tâches archivées à afficher aussi dans le calendrier (même couleur, sans opacité) */
   const archivedEvs=S.tasks
     .filter(t=>t.archived&&t.due===d&&!allGcalIds.has(t.id))
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_archived:true}));
-  return [...gcalEvs,...localEvs,...archivedEvs];
+  /* Occurrences récurrentes des tâches locales */
+  const recurEvs=[];
+  S.tasks.filter(t=>!t.archived&&t.recurrence&&t.due&&t.due!==d&&!allGcalIds.has(t.id)).forEach(t=>{
+    if(matchesRecurrence(t.due,d,t.recurrence)){
+      /* Ne pas dupliquer si t.due===d (déjà dans localEvs) */
+      const virtId=t.id+"__recur__"+d;
+      recurEvs.push({id:virtId,_baseId:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_virtual:true,_recurrence:t.recurrence});
+    }
+  });
+  return [...gcalEvs,...localEvs,...archivedEvs,...recurEvs];
+}
+
+/* Vérifie si la date cible correspond à une occurrence récurrente depuis la date de base */
+function matchesRecurrence(baseDate,targetDate,freq){
+  if(!baseDate||!targetDate||!freq)return false;
+  const base=new Date(baseDate+"T00:00:00");
+  const tgt=new Date(targetDate+"T00:00:00");
+  if(tgt<=base)return false;
+  if(freq==="WEEKLY"){
+    /* Même jour de la semaine */
+    if(base.getDay()!==tgt.getDay())return false;
+    const diffMs=tgt-base;
+    const diffWeeks=Math.round(diffMs/(7*24*3600*1000));
+    return diffWeeks>=1&&Math.abs((tgt-base)-(diffWeeks*7*24*3600*1000))<60000;
+  }
+  if(freq==="MONTHLY"){
+    if(base.getDate()!==tgt.getDate())return false;
+    const diffM=(tgt.getFullYear()-base.getFullYear())*12+(tgt.getMonth()-base.getMonth());
+    return diffM>=1;
+  }
+  if(freq==="YEARLY"){
+    return base.getDate()===tgt.getDate()&&base.getMonth()===tgt.getMonth()&&tgt.getFullYear()>base.getFullYear();
+  }
+  return false;
 }
 function metaOf(id){return S.tasks.find(t=>t.id===id)||null;}
 function isDone(id){return metaOf(id)?.done||false;}
@@ -978,7 +1022,7 @@ function renderMonth(){
     div.innerHTML=`<div class="mn">${c.d}</div><div class="mds"></div>`;
     const mds=div.querySelector(".mds");
     let n=0;
-    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+evCls(e,"dot",date));dot.textContent=e.title;mds.appendChild(dot);n++;});
+    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+evCls(e,"dot",date));dot.textContent=(e._recurrence?"↻ ":"")+e.title;mds.appendChild(dot);n++;});
     if(evs.length>2){const m=mk("div","dot dot-mo");m.textContent="+"+(evs.length-2)+" autre"+(evs.length-2>1?"s":"");mds.appendChild(m);}
     div.addEventListener("click",()=>{selDay=date;cDay=date;setView("day");});
     div.addEventListener("dragenter",e=>{e.preventDefault();div.classList.add("drag-ov");});
@@ -1256,12 +1300,28 @@ function buildDetRow(e,forDate){
     else{toggleEvDone(e.id);}
   };
   const name=mk("div","det-n");name.textContent=e.title;
-  if(!isLocal)name.onclick=()=>openEvModal(e.id);
+  if(e._virtual){
+    /* Occurrence récurrente virtuelle → ouvrir la tâche de base */
+    name.onclick=()=>openTaskEdit(e._baseId);
+    name.style.cursor="pointer";name.style.textDecorationStyle="dotted";
+  } else if(!isLocal){name.onclick=()=>openEvModal(e.id);}
+  /* Badge récurrence */
+  if(e._recurrence){
+    const lbl={WEEKLY:"↻ sem.",MONTHLY:"↻ mois",YEARLY:"↻ an"}[e._recurrence]||"↻";
+    const badge=mk("span","recur-badge");badge.textContent=lbl;
+    name.appendChild(document.createTextNode(" "));name.appendChild(badge);
+  }
   const time=mk("div","det-time");
   time.textContent=e.allDay?"Journée":(fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):""));
   const del=mk("button","det-del");del.textContent="×";del.title="Supprimer";
   del.onclick=async()=>{
-    if(isLocal){S.tasks=S.tasks.filter(x=>x.id!==e.id);lsSave();renderAg();renderTasks();}
+    if(e._virtual){
+      /* Occurrence virtuelle récurrente → proposer de supprimer la récurrence */
+      if(confirm("Supprimer la récurrence de \""+e.title+"\" ?")){
+        const base=S.tasks.find(x=>x.id===e._baseId);
+        if(base){base.recurrence=null;lsSave();renderAg();renderTasks();toast("↻ Récurrence supprimée");}
+      }
+    } else if(isLocal){S.tasks=S.tasks.filter(x=>x.id!==e.id);lsSave();renderAg();renderTasks();}
     else{await delGcalEv(e.id);removeMeta(e.id);await fetchGcal();renderAg();renderTasks();}
   };
   row.append(chk,name,time,del);return row;
@@ -1289,6 +1349,9 @@ function openEvModal(gcalId){
   document.getElementById("ev-tstart").value=e.allDay?"":(fT(e.start));
   document.getElementById("ev-tend").value=e.allDay||!e.end?"":fT(e.end);
   document.getElementById("ev-descfield").value=meta?.desc||"";
+  /* Récurrence — depuis méta locale ou depuis GCal (recurrenceRule) */
+  const recurVal=meta?.recurrence||e._recurrence||"";
+  document.getElementById("ev-recur").value=recurVal;
   document.getElementById("ev-overlay").classList.add("open");
 }
 function closeEvModal(){document.getElementById("ev-overlay").classList.remove("open");evPending=null;}
@@ -1306,19 +1369,20 @@ async function saveEvEdit(){
   const te=document.getElementById("ev-tend").value||null;
   const newTitle=document.getElementById("ev-titlefield").value.trim()||e.title;
   const desc=document.getElementById("ev-descfield").value;
+  const recur=document.getElementById("ev-recur").value||null;
   showSync("Mise à jour…");
-  await updateGcalEv(evPending,newTitle,desc,date,ts,te);
+  await updateGcalEvWithRecur(evPending,newTitle,desc,date,ts,te,recur);
   /* Mettre à jour localement : méta + cache gcal */
   ensureMeta(evPending,newTitle);
   const meta=metaOf(evPending);
-  if(meta){meta.title=newTitle;meta.desc=desc;}
-  e.title=newTitle;
+  if(meta){meta.title=newTitle;meta.desc=desc;meta.recurrence=recur||null;}
+  e.title=newTitle;e._recurrence=recur||null;
   /* Afficher le nouveau titre dans le h3 */
   document.getElementById("ev-title").textContent=newTitle;
   lsSave();
   await fetchGcal();
   hideSync();closeEvModal();renderAg();renderTasks();
-  toast("✓ Mis à jour");
+  toast("✓ Mis à jour"+(recur?" · ↻ "+{WEEKLY:"Chaque semaine",MONTHLY:"Chaque mois",YEARLY:"Chaque année"}[recur]:""));
 }
 async function evToggleDone(){if(!evPending)return;toggleEvDone(evPending);closeEvModal();renderAg();renderTasks();}
 async function evDelete(){if(!evPending)return;showSync("Suppression…");await delGcalEv(evPending);removeMeta(evPending);hideSync();closeEvModal();await fetchGcal();renderAg();renderTasks();toast("🗑 Supprimé");}
