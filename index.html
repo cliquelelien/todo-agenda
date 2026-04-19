@@ -569,7 +569,6 @@ function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t
 function showSync(m){const b=document.getElementById("sync-bar");b.className="sync show";document.getElementById("sync-msg").textContent=m;}
 function hideSync(){document.getElementById("sync-bar").className="sync";}
 function eventsOn(d){
-  /* Événements GCal qui commencent ce jour OU qui s'étendent sur ce jour (multi-jours) */
   const gcalEvs=gcal.filter(e=>{
     const eStart=e.start.slice(0,10);
     const eEnd=e.end?e.end.slice(0,10):eStart;
@@ -577,60 +576,70 @@ function eventsOn(d){
     return d>=eStart&&d<=eEndAdj;
   });
   const allGcalIds=new Set(gcal.map(e=>e.id));
-  /* Tâches locales actives à afficher : non archivées, échéance = d */
   const localEvs=S.tasks
     .filter(t=>!t.archived&&t.due===d&&!allGcalIds.has(t.id))
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_recurrence:t.recurrence||null}));
-  /* Tâches archivées */
   const archivedEvs=S.tasks
     .filter(t=>t.archived&&t.due===d&&!allGcalIds.has(t.id))
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_archived:true}));
-
-  /* ── Occurrences récurrentes virtuelles ──
-     Sources : tâches locales (t.due) ET tâches GCal (gcalEv.start) ayant une méta avec recurrence */
+  const gcalDatesOnD=new Set(gcalEvs.map(e=>e.id));
   const recurEvs=[];
-  const gcalDatesOnD=new Set(gcalEvs.map(e=>e.id)); // éviter doublon si GCal gère déjà la récurrence
-
-  S.tasks.filter(t=>!t.archived&&t.recurrence).forEach(t=>{
-    /* Date de base : t.due pour locales, ou start GCal pour tâches synchronisées */
-    let baseDate=t.due||null;
-    if(!baseDate){
-      const gcalEv=gcal.find(e=>e.id===t.id);
-      if(gcalEv)baseDate=gcalEv.start.slice(0,10);
-    }
-    if(!baseDate||baseDate===d)return; // la date d'origine est gérée par localEvs ou gcalEvs
-    if(gcalDatesOnD.has(t.id))return;  // GCal a déjà retourné une occurrence ce jour
-    if(matchesRecurrence(baseDate,d,t.recurrence)){
+  S.tasks.filter(t=>!t.archived&&t.recurrence&&t.due&&!allGcalIds.has(t.id)).forEach(t=>{
+    if(t.due===d)return;
+    if(gcalDatesOnD.has(t.id))return;
+    if(matchesRecurrence(t.due,d,t.recurrence)){
       const virtId=t.id+"__recur__"+d;
       recurEvs.push({id:virtId,_baseId:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_virtual:true,_recurrence:t.recurrence});
     }
   });
-
   return [...gcalEvs,...localEvs,...archivedEvs,...recurEvs];
 }
 
-/* Vérifie si la date cible correspond à une occurrence récurrente depuis la date de base */
+/* Vérifie si targetDate est une occurrence récurrente de baseDate */
 function matchesRecurrence(baseDate,targetDate,freq){
   if(!baseDate||!targetDate||!freq)return false;
   const base=new Date(baseDate+"T00:00:00");
   const tgt=new Date(targetDate+"T00:00:00");
   if(tgt<=base)return false;
   if(freq==="WEEKLY"){
-    /* Même jour de la semaine */
     if(base.getDay()!==tgt.getDay())return false;
-    const diffMs=tgt-base;
-    const diffWeeks=Math.round(diffMs/(7*24*3600*1000));
-    return diffWeeks>=1&&Math.abs((tgt-base)-(diffWeeks*7*24*3600*1000))<60000;
+    const diffDays=Math.round((tgt-base)/(24*3600*1000));
+    return diffDays%7===0;
   }
   if(freq==="MONTHLY"){
     if(base.getDate()!==tgt.getDate())return false;
-    const diffM=(tgt.getFullYear()-base.getFullYear())*12+(tgt.getMonth()-base.getMonth());
-    return diffM>=1;
+    return (tgt.getFullYear()-base.getFullYear())*12+(tgt.getMonth()-base.getMonth())>=1;
   }
   if(freq==="YEARLY"){
     return base.getDate()===tgt.getDate()&&base.getMonth()===tgt.getMonth()&&tgt.getFullYear()>base.getFullYear();
   }
   return false;
+}
+
+/* Prochaine occurrence strictement après baseDate */
+function nextOccurrence(baseDate,freq){
+  if(!baseDate||!freq)return null;
+  const d=new Date(baseDate+"T00:00:00");
+  if(freq==="WEEKLY")d.setDate(d.getDate()+7);
+  else if(freq==="MONTHLY")d.setMonth(d.getMonth()+1);
+  else if(freq==="YEARLY")d.setFullYear(d.getFullYear()+1);
+  else return null;
+  return ds(d);
+}
+
+/* Prochaine échéance à venir (>= aujourd'hui) pour une tâche récurrente */
+function nextDueFromToday(baseDate,freq){
+  if(!baseDate||!freq)return baseDate;
+  const today=new Date(ds(NOW)+"T00:00:00");
+  let cur=new Date(baseDate+"T00:00:00");
+  let safety=0;
+  while(cur<today&&safety<1000){
+    if(freq==="WEEKLY")cur.setDate(cur.getDate()+7);
+    else if(freq==="MONTHLY")cur.setMonth(cur.getMonth()+1);
+    else if(freq==="YEARLY")cur.setFullYear(cur.getFullYear()+1);
+    safety++;
+  }
+  return ds(cur);
 }
 function metaOf(id){return S.tasks.find(t=>t.id===id)||null;}
 function isDone(id){return metaOf(id)?.done||false;}
@@ -1289,39 +1298,60 @@ function showDet(date){
   evs.forEach(e=>panel.appendChild(buildDetRow(e,date)));
 }
 function buildDetRow(e,forDate){
-  /* forDate = date du panneau de détail (pour les événements multi-jours) */
   const displayDate=forDate||e.start.slice(0,10);
   const isLocal=e._local===true;
-  /* Clé unique pour le cochage par jour d'un événement multi-jours */
-  const isMultiDay=!e.allDay===false&&e.start.slice(0,10)!==( e.end?(e.end.slice(0,10)):"");
-  const dayDoneKey=e.id+"__"+displayDate;
-  const isDayDone=()=>S.tasks.find(x=>x.id===dayDoneKey)?.done||false;
-  const checkDone=isMultiDay&&e.allDay ? isDayDone() : isDone(e.id);
+  const isVirtual=e._virtual===true; // occurrence récurrente calculée
+
+  /* État coché :
+     - virtuel (récurrent) : clé id_base__done__date
+     - local récurrent (date exacte) : clé id__done__date  
+     - multi-jours allDay : clé id__date
+     - sinon : meta.done */
+  let doneKey=null;
+  let checkDone=false;
+  if(isVirtual){
+    doneKey=e._baseId+"__done__"+displayDate;
+    checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
+  } else {
+    const baseTask=isLocal?S.tasks.find(x=>x.id===e.id):null;
+    if(baseTask&&baseTask.recurrence&&baseTask.due===displayDate){
+      doneKey=e.id+"__done__"+displayDate;
+      checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
+    } else {
+      const isMultiDay=e.allDay&&e.start.slice(0,10)!==(e.end?e.end.slice(0,10):"");
+      if(isMultiDay){
+        doneKey=e.id+"__"+displayDate;
+        checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
+      } else {
+        checkDone=isDone(e.id);
+      }
+    }
+  }
 
   const row=mk("div","det-row"+(checkDone?" done":""));
   const chk=mk("div","ck"+(checkDone?" on":""));
   chk.innerHTML='<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
   chk.onclick=()=>{
-    if(isMultiDay&&e.allDay){
-      /* Cochage par jour pour événements multi-jours */
-      let meta=S.tasks.find(x=>x.id===dayDoneKey);
-      if(!meta){meta={id:dayDoneKey,title:e.title,done:false,archived:false};S.tasks.push(meta);}
+    if(doneKey){
+      /* Cochage indépendant par occurrence/date */
+      let meta=S.tasks.find(x=>x.id===doneKey);
+      if(!meta){meta={id:doneKey,title:e.title,done:false,archived:false};S.tasks.push(meta);}
       meta.done=!meta.done;
-      lsSave();
-      row.classList.toggle("done",meta.done);
-      chk.classList.toggle("on",meta.done);
+      lsSave();row.classList.toggle("done",meta.done);chk.classList.toggle("on",meta.done);
+      renderTasks();
     } else if(isLocal){
       const t=S.tasks.find(x=>x.id===e.id);if(t){t.done=!t.done;lsSave();renderAg();renderTasks();}
+    } else {
+      toggleEvDone(e.id);
     }
-    else{toggleEvDone(e.id);}
   };
   const name=mk("div","det-n");name.textContent=e.title;
-  if(e._virtual){
-    /* Occurrence récurrente virtuelle → ouvrir la tâche de base */
-    name.onclick=()=>openTaskEdit(e._baseId);
-    name.style.cursor="pointer";name.style.textDecorationStyle="dotted";
-  } else if(!isLocal){name.onclick=()=>openEvModal(e.id);}
-  /* Badge récurrence */
+  if(isVirtual||isLocal){
+    name.onclick=()=>openTaskEdit(isVirtual?e._baseId:e.id);
+    name.style.cursor="pointer";
+  } else {
+    name.onclick=()=>openEvModal(e.id);
+  }
   if(e._recurrence){
     const lbl={WEEKLY:"↻ sem.",MONTHLY:"↻ mois",YEARLY:"↻ an"}[e._recurrence]||"↻";
     const badge=mk("span","recur-badge");badge.textContent=lbl;
@@ -1331,8 +1361,7 @@ function buildDetRow(e,forDate){
   time.textContent=e.allDay?"Journée":(fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):""));
   const del=mk("button","det-del");del.textContent="×";del.title="Supprimer";
   del.onclick=async()=>{
-    if(e._virtual){
-      /* Occurrence virtuelle récurrente → proposer de supprimer la récurrence */
+    if(isVirtual){
       if(confirm("Supprimer la récurrence de \""+e.title+"\" ?")){
         const base=S.tasks.find(x=>x.id===e._baseId);
         if(base){base.recurrence=null;lsSave();renderAg();renderTasks();toast("↻ Récurrence supprimée");}
@@ -1420,46 +1449,11 @@ function nextOccurrence(baseDate,freq){
   return ds(d);
 }
 
-/* Date à laquelle la tâche doit réapparaître dans la todo (1 semaine avant l'échéance) */
-function appearDate(dueDate){
-  if(!dueDate)return dueDate;
-  const d=new Date(dueDate+"T00:00:00");
-  d.setDate(d.getDate()-7);
-  return ds(d);
-}
-
 function toggleEvDone(gcalId){
   ensureMeta(gcalId,"");
   const meta=metaOf(gcalId);
-  const wasDone=meta.done;
   meta.done=!meta.done;
   if(!meta.done)meta.archived=false;
-
-  /* Si on vient de cocher (done) une tâche récurrente → créer la prochaine occurrence */
-  if(meta.done&&meta.recurrence){
-    const gcalEv=gcal.find(e=>e.id===gcalId);
-    const baseDate=meta.due||(gcalEv?gcalEv.start.slice(0,10):null);
-    if(baseDate){
-      const nextDue=nextOccurrence(baseDate,meta.recurrence);
-      if(nextDue){
-        /* Vérifier qu'une occurrence n'existe pas déjà pour cette date */
-        const alreadyExists=S.tasks.some(t=>t._baseRecurId===gcalId&&t.due===nextDue);
-        if(!alreadyExists){
-          const appear=appearDate(nextDue);
-          const newTask={
-            id:uid(),title:meta.title,desc:meta.desc||"",
-            due:nextDue,_showFrom:appear,
-            done:false,archived:false,
-            recurrence:meta.recurrence,_baseRecurId:gcalId,
-            remind:meta.remind||0,_createdHere:true
-          };
-          S.tasks.push(newTask);
-          const recLbl={"WEEKLY":"semaine","MONTHLY":"mois","YEARLY":"an"};
-          toast("✓ Terminée · ↻ Prochaine occurrence le "+fD(nextDue));
-        }
-      }
-    }
-  }
   lsSave();renderAg();renderTasks();
 }
 
@@ -1744,18 +1738,28 @@ function renderTasks(){
      Les événements GCal préexistants n'apparaissent PAS ici, uniquement dans le calendrier */
   const gcalIds=new Set(gcal.map(e=>e.id));
 
-  /* Tâches créées dans l'app : soit locales (pas encore dans gcal), soit créées ici et synchronisées (_createdHere) */
-  /* Les occurrences récurrentes futures (_showFrom) ne sont visibles que si aujourd'hui >= _showFrom */
+  /* Tâches créées dans l'app (_createdHere).
+     Pour les tâches récurrentes : on affiche si la prochaine échéance est dans les 15 jours. */
   const today=ds(NOW);
-  const appTasks=S.tasks.filter(t=>!t.archived&&t._createdHere&&(!t._showFrom||today>=t._showFrom));
+  const in15=new Date(NOW);in15.setDate(in15.getDate()+15);const in15s=ds(in15);
 
-  /* Enrichir avec les données GCal si disponibles */
+  const appTasks=S.tasks.filter(t=>{
+    if(t.archived||!t._createdHere)return false;
+    if(!t.recurrence)return true; // tâche normale : toujours affichée
+    /* Tâche récurrente : calculer la prochaine échéance */
+    const nextDue=t.due?nextDueFromToday(t.due,t.recurrence):null;
+    if(!nextDue)return false;
+    /* Visible si l'échéance est dans les 15 prochains jours */
+    return nextDue<=in15s;
+  });
+
+  /* Enrichir avec les données GCal si disponibles.
+     Pour les récurrentes, remplacer t.due par la prochaine échéance calculée. */
   const enriched=appTasks.map(t=>{
     const gcalEv=gcal.find(e=>e.id===t.id);
-    return{...t,
-      _gcalEv:gcalEv||null,
-      due:gcalEv?gcalEv.start.slice(0,10):(t.due||null)
-    };
+    let due=gcalEv?gcalEv.start.slice(0,10):(t.due||null);
+    if(t.recurrence&&t.due&&!gcalEv)due=nextDueFromToday(t.due,t.recurrence);
+    return{...t,_gcalEv:gcalEv||null,due};
   });
 
   const todo=enriched.filter(t=>!t.done).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
@@ -1835,31 +1839,42 @@ function buildArchivedTask(t){
   return item;
 }
 function buildTask(t){
-  const item=mk("div","ti"+(t.done?" done":""));item.dataset.id=t.id;
+  const item=mk("div","ti");item.dataset.id=t.id;
   const gcalEv=t._gcalEv||gcal.find(e=>e.id===t.id);
-  const today=ds(NOW);const overdue=t.due&&t.due<today&&!t.done;
+  const today=ds(NOW);
+
+  /* Pour les récurrentes locales : état coché = occurrence courante (t.due) */
+  let isDoneNow=t.done;
+  if(t.recurrence&&t.due&&!gcalEv){
+    const occKey=t.id+"__done__"+t.due;
+    const occMeta=S.tasks.find(x=>x.id===occKey);
+    isDoneNow=occMeta?.done||false;
+  }
+  if(isDoneNow)item.classList.add("done");
+
+  const overdue=t.due&&t.due<today&&!isDoneNow;
   if(overdue)item.classList.add("overdue");
   const top=mk("div","ti-top");
-  const chk=mk("div","ck"+(t.done?" on":""));
+  const chk=mk("div","ck"+(isDoneNow?" on":""));
   chk.innerHTML='<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
   chk.onclick=()=>{
     if(gcalEv){
       toggleEvDone(t.id);
-    } else {
-      const wasDone=t.done;
-      t.done=!t.done;
-      /* Si on coche une tâche locale récurrente → créer la prochaine occurrence */
-      if(t.done&&t.recurrence&&t.due){
-        const nextDue=nextOccurrence(t.due,t.recurrence);
-        if(nextDue){
-          const alreadyExists=S.tasks.some(x=>x._baseRecurId===t.id&&x.due===nextDue);
-          if(!alreadyExists){
-            const appear=appearDate(nextDue);
-            S.tasks.push({id:uid(),title:t.title,desc:t.desc||"",due:nextDue,_showFrom:appear,done:false,archived:false,recurrence:t.recurrence,_baseRecurId:t.id,remind:t.remind||0,_createdHere:true});
-            toast("✓ Terminée · ↻ Prochaine le "+fD(nextDue));
-          }
-        }
+    } else if(t.recurrence&&t.due){
+      /* Tâche récurrente locale : cochage indépendant par occurrence (clé = id__date) */
+      const occKey=t.id+"__done__"+t.due;
+      let occMeta=S.tasks.find(x=>x.id===occKey);
+      if(!occMeta){
+        occMeta={id:occKey,_occOf:t.id,_occDate:t.due,done:false,archived:false};
+        S.tasks.push(occMeta);
       }
+      occMeta.done=!occMeta.done;
+      if(occMeta.done){
+        toast("✓ Occurrence du "+fD(t.due)+" cochée · ↻ Prochaine le "+fD(nextOccurrence(t.due,t.recurrence)));
+      }
+      lsSave();renderTasks();renderAg();
+    } else {
+      t.done=!t.done;
       lsSave();renderTasks();
     }
   };
@@ -1870,7 +1885,13 @@ function buildTask(t){
   name.onclick=()=>openTaskEdit(t.id);
   name.style.textDecoration="underline dotted";name.style.cursor="pointer";
   const tags=mk("div","tgs");
-  if(t.due&&!gcalEv){const tg=mk("div","tg tg-d"+(overdue?" ov":""));tg.textContent="📅 Échéance : "+fD(t.due);tags.appendChild(tg);}
+  /* Échéance : toujours affichée pour les tâches locales (récurrentes ou non) */
+  if(t.due&&!gcalEv){
+    const overdueLbl=overdue?" ov":"";
+    const tg=mk("div","tg tg-d"+overdueLbl);
+    tg.textContent="📅 "+(t.recurrence?"Prochaine : ":"Échéance : ")+fD(t.due);
+    tags.appendChild(tg);
+  }
   if(gcalEv){
     const tg=mk("div","tg tg-p");let label="📌 ";
     if(!gcalEv.allDay&&gcalEv.start.includes("T"))label+=fT(gcalEv.start)+(gcalEv.end&&gcalEv.end.includes("T")?" – "+fT(gcalEv.end):"")+" ";
