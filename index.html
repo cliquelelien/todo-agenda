@@ -230,10 +230,19 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .sync.show{display:flex;}
 .spinner{width:14px;height:14px;border:2px solid #ccc;border-top-color:var(--gr);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0;}
 @keyframes spin{to{transform:rotate(360deg);}}
-/* Mini calendar */
-.mini-cal-wrap{display:none;margin-top:12px;}
-.mini-cal-wrap.drag-active{display:block;}
-.mini-cal-card{background:#fff;border:2px solid var(--or);border-radius:var(--rad);padding:13px;box-shadow:0 4px 20px rgba(245,166,35,.18);}
+/* Mini calendar — flottant pendant le drag */
+.mini-cal-wrap{display:none;}
+.mini-cal-wrap.drag-active{
+  display:block;
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  width:min(360px,95vw);
+  z-index:800;
+  pointer-events:all;
+}
+.mini-cal-card{background:#fff;border:2px solid var(--or);border-radius:var(--rad);padding:13px;box-shadow:0 8px 32px rgba(245,166,35,.35);}
 .mini-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
 .mini-cal-title{font-size:13px;font-weight:800;color:var(--bld);}
 .mini-cal-nav button{background:var(--blbg);border:1.5px solid var(--blb);border-radius:7px;color:var(--bl);width:27px;height:27px;cursor:pointer;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;}
@@ -243,7 +252,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .mini-md:hover{border-color:var(--bl);background:var(--blbg);}
 .mini-md.tdy{border-color:var(--bl);background:var(--bll);color:var(--bl);}
 .mini-md.oth{opacity:.2;pointer-events:none;}
-.mini-md.drag-ov{border-color:var(--or)!important;background:var(--orbg)!important;}
+.mini-md.drag-ov{border-color:var(--or)!important;background:var(--orbg)!important;transform:scale(1.08);}
 .mini-cal-wrap.drag-active .mini-md{touch-action:none;}
 
 /* ══ AUTH OVERLAY ══ */
@@ -349,18 +358,19 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
     </div>
     <div class="tl" id="list-archives"></div>
   </div>
-  <div class="mini-cal-wrap" id="mini-cal-wrap">
-    <div class="mini-cal-card">
-      <div class="mini-cal-head">
-        <div style="display:flex;align-items:center;gap:5px">
-          <button class="mini-cal-nav" onclick="miniNavPrev()">&#8249;</button>
-          <div class="mini-cal-title" id="mini-cal-title"></div>
-          <button class="mini-cal-nav" onclick="miniNavNext()">&#8250;</button>
-        </div>
-        <div style="font-size:11px;font-weight:700;color:var(--or)" id="mini-cal-hint">&#128205; Glissez sur une date</div>
+</div>
+
+<div class="mini-cal-wrap" id="mini-cal-wrap">
+  <div class="mini-cal-card">
+    <div class="mini-cal-head">
+      <div style="display:flex;align-items:center;gap:5px">
+        <button class="mini-cal-nav" onclick="miniNavPrev()">&#8249;</button>
+        <div class="mini-cal-title" id="mini-cal-title"></div>
+        <button class="mini-cal-nav" onclick="miniNavNext()">&#8250;</button>
       </div>
-      <div class="mini-mg" id="mini-mg"></div>
+      <div style="font-size:11px;font-weight:700;color:var(--or)" id="mini-cal-hint">&#128205; Glissez sur une date</div>
     </div>
+    <div class="mini-mg" id="mini-mg"></div>
   </div>
 </div>
 
@@ -1500,7 +1510,6 @@ function setupTouch(item, dragHandle, tid2){
     const mcw=document.getElementById("mini-cal-wrap");
     if(mcw){
       mcw.classList.add("drag-active");
-      setTimeout(()=>mcw.scrollIntoView({behavior:"smooth",block:"nearest"}),60);
     }
   }
 
