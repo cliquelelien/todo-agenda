@@ -1492,6 +1492,7 @@ function setupTouch(item, dragHandle, tid2){
     clearTimeout(_hold); _hold=null;
     _ready=false; _active=false;
     dragHandle.style.opacity="";
+    dragHandle.removeEventListener("touchmove",onHoldMove);
     ghost.style.display="none";
     document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
     item.classList.remove("dragging");
@@ -1508,6 +1509,7 @@ function setupTouch(item, dragHandle, tid2){
   function onMove(e){
     if(!_ready) return;
     e.preventDefault();
+    e.stopPropagation();
     const cx=e.touches[0].clientX, cy=e.touches[0].clientY;
 
     if(!_active){
@@ -1518,8 +1520,9 @@ function setupTouch(item, dragHandle, tid2){
       ghost.style.display="block";
       item.classList.add("dragging");
       document.body.classList.add("dragging-task");
+      /* Basculer vers l'agenda EN PREMIER, puis rendre le calendrier une fois visible */
+      goTab("agenda",true);
       renderAg();
-      setTimeout(()=>goTab("agenda",true), 0);
     }
 
     ghost.style.left=(cx-70)+"px";
@@ -1567,13 +1570,30 @@ function setupTouch(item, dragHandle, tid2){
     cleanup();
   }
 
+  /* Listener touchmove pendant le hold (avant _ready) : bloque le scroll pour ne pas annuler le long-press */
+  function onHoldMove(e){
+    if(_ready||_active) return; // déjà géré par le listener global
+    const dx=Math.abs(e.touches[0].clientX-sx);
+    const dy=Math.abs(e.touches[0].clientY-sy);
+    if(dx>10||dy>10){
+      /* Le doigt a bougé trop tôt → annuler le hold */
+      clearTimeout(_hold);_hold=null;
+      dragHandle.style.opacity="";
+      dragHandle.removeEventListener("touchmove",onHoldMove);
+    } else {
+      e.preventDefault(); // bloque le scroll pendant le hold
+    }
+  }
+
   dragHandle.addEventListener("touchstart", e=>{
     e.preventDefault();   // bloque scroll ET context-menu sur le handle
     e.stopPropagation();
     sx=e.touches[0].clientX; sy=e.touches[0].clientY;
     _ready=false; _active=false;
     dragHandle.style.opacity="0.5";
+    dragHandle.addEventListener("touchmove",onHoldMove,{passive:false});
     _hold=setTimeout(()=>{
+      dragHandle.removeEventListener("touchmove",onHoldMove);
       _ready=true;
       dragHandle.style.opacity="";
       if(navigator.vibrate) navigator.vibrate(40);
