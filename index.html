@@ -1477,128 +1477,123 @@ document.addEventListener("drop",e=>{
   else openModal(tid,date,"09:00","10:00");
 });
 
-/* ══ TOUCH DRAG ══ */
+/* ══ TOUCH DRAG ══
+   Attaché UNIQUEMENT sur l'icône drag-handle.
+   touchstart non-passif → peut bloquer le scroll.
+   Après 400ms sans mouvement → _ready=true + listeners globaux pour capturer
+   les touchmove/touchend même hors du handle.
+*/
 const ghost=document.getElementById("ghost");
-function setupTouch(item,dragHandle,tid2){
-  let sx,sy;
-  let _holdTimer=null;
-  let _dragActive=false; // drag en cours (après long-press + mouvement)
-  let _longPressed=false; // long-press confirmé
 
-  dragHandle.addEventListener("touchstart",e=>{
-    sx=e.touches[0].clientX;sy=e.touches[0].clientY;
-    _longPressed=false;
-    _dragActive=false;
-    _holdTimer=setTimeout(()=>{
-      _longPressed=true;
-      /* Feedback visuel : légère vibration + scale */
-      if(navigator.vibrate)navigator.vibrate(30);
-      dragHandle.style.transform="scale(1.3)";
-      dragHandle.style.transition="transform .1s";
-    },400);
-  },{passive:true});
+function setupTouch(item, dragHandle, tid2){
+  let sx, sy, _hold=null, _ready=false, _active=false;
 
-  dragHandle.addEventListener("touchmove",e=>{
-    const cx=e.touches[0].clientX,cy=e.touches[0].clientY;
-    const dx=Math.abs(cx-sx),dy=Math.abs(cy-sy);
+  function cleanup(){
+    clearTimeout(_hold); _hold=null;
+    _ready=false; _active=false;
+    dragHandle.style.opacity="";
+    ghost.style.display="none";
+    document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
+    item.classList.remove("dragging");
+    document.body.classList.remove("dragging-task");
+    touchDragId=null;
+    hideCalEdges(); hideScrollEdges();
+    clearTimeout(tEdgeTimer); tEdgeSide=null;
+    clearTimeout(_vScrollTimer); _vScrollSide=null;
+    document.removeEventListener("touchmove", onMove, {capture:true});
+    document.removeEventListener("touchend",  onEnd,  {capture:true});
+    document.removeEventListener("touchcancel",onEnd, {capture:true});
+  }
 
-    if(!_longPressed){
-      /* Mouvement avant long-press → annuler */
-      if(dx>8||dy>8){clearTimeout(_holdTimer);_holdTimer=null;}
-      return;
-    }
-
-    /* Long-press confirmé → démarrer le drag au premier mouvement significatif */
+  function onMove(e){
+    if(!_ready) return;
     e.preventDefault();
-    if(!_dragActive&&(dx>5||dy>5)){
-      _dragActive=true;
+    const cx=e.touches[0].clientX, cy=e.touches[0].clientY;
+
+    if(!_active){
+      _active=true;
       touchDragId=tid2;
-      const t=S.tasks.find(t=>t.id===tid2);
-      ghost.textContent=t?t.title:"";
+      const task=S.tasks.find(x=>x.id===tid2);
+      ghost.textContent=task?task.title:"";
       ghost.style.display="block";
       item.classList.add("dragging");
-      dragHandle.style.transform="";
       document.body.classList.add("dragging-task");
       renderAg();
-      setTimeout(()=>goTab("agenda",true),0);
+      setTimeout(()=>goTab("agenda",true), 0);
     }
 
-    if(_dragActive){
-      ghost.style.left=(cx-70)+"px";ghost.style.top=(cy-20)+"px";
-      document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
-      const under=document.elementFromPoint(cx,cy);
-      const tgt=under?.closest("[data-date]");
-      if(tgt)tgt.classList.add("drag-ov");
-      /* Edge nav via touch */
-      const r=calEdgeRect();
-      if(r){
-        const HIT=72;
-        const inY=cy>=r.T&&cy<=r.B;
-        const onL=inY&&cx>=r.L&&cx<r.L+HIT;
-        const onR=inY&&cx>r.R-HIT&&cx<=r.R;
-        if(onL)showCalEdge("left");else if(onR)showCalEdge("right");else hideCalEdges();
-        const side=onL?"left":onR?"right":null;
-        if(side&&side!==tEdgeSide){
-          clearTimeout(tEdgeTimer);tEdgeSide=side;
-          tEdgeTimer=setTimeout(()=>{tEdgeSide=null;if(side==="left")navPrev();else navNext();setTimeout(hideCalEdges,400);},1000);
-        }else if(!side){clearTimeout(tEdgeTimer);tEdgeSide=null;}
-        /* Défilement vertical touch */
-        const tsb=getActiveScrollBox();
-        if(tsb){
-          const sr=tsb.rect;const HIT_V=100;
-          const inX=cx>=sr.left&&cx<=sr.right;
-          const onTop=inX&&cy>=sr.top&&cy<sr.top+HIT_V;
-          const onBot=inX&&cy>sr.bottom-HIT_V&&cy<=sr.bottom;
-          if(onTop)showScrollEdge("top",sr);else if(onBot)showScrollEdge("bottom",sr);else hideScrollEdges();
-          const vside=onTop?"top":onBot?"bottom":null;
-          if(vside&&vside!==_vScrollSide){
-            clearTimeout(_vScrollTimer);_vScrollSide=vside;
-            _vScrollTimer=setTimeout(()=>{_vScrollSide=null;const step=vside==="top"?-120:120;tsb.el.scrollBy({top:step,behavior:"smooth"});setTimeout(hideScrollEdges,400);},1000);
-          }else if(!vside){clearTimeout(_vScrollTimer);_vScrollSide=null;}
-        }else hideScrollEdges();
-      }
-    }
-  },{passive:false});
+    ghost.style.left=(cx-70)+"px";
+    ghost.style.top=(cy-24)+"px";
 
-  dragHandle.addEventListener("touchend",e=>{
-    clearTimeout(_holdTimer);_holdTimer=null;
-    dragHandle.style.transform="";
-    clearTimeout(tEdgeTimer);tEdgeSide=null;
-    clearTimeout(_vScrollTimer);_vScrollSide=null;
-    hideCalEdges();
-    if(_dragActive&&touchDragId){
-      const under=document.elementFromPoint(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
-      const tgt=under?.closest("[data-date]");
+    document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
+    const el=document.elementFromPoint(cx,cy);
+    const tgt=el?.closest("[data-date]");
+    if(tgt) tgt.classList.add("drag-ov");
+
+    const r=calEdgeRect();
+    if(r){
+      const HIT=72, inY=cy>=r.T&&cy<=r.B;
+      const onL=inY&&cx>=r.L&&cx<r.L+HIT;
+      const onR=inY&&cx>r.R-HIT&&cx<=r.R;
+      if(onL) showCalEdge("left"); else if(onR) showCalEdge("right"); else hideCalEdges();
+      const side=onL?"left":onR?"right":null;
+      if(side&&side!==tEdgeSide){ clearTimeout(tEdgeTimer); tEdgeSide=side; tEdgeTimer=setTimeout(()=>{ tEdgeSide=null; side==="left"?navPrev():navNext(); setTimeout(hideCalEdges,400); },1000); }
+      else if(!side){ clearTimeout(tEdgeTimer); tEdgeSide=null; }
+    }
+    const sb=getActiveScrollBox();
+    if(sb){
+      const sr=sb.rect, HV=100, inX=cx>=sr.left&&cx<=sr.right;
+      const onT=inX&&cy>=sr.top&&cy<sr.top+HV;
+      const onB=inX&&cy>sr.bottom-HV&&cy<=sr.bottom;
+      if(onT) showScrollEdge("top",sr); else if(onB) showScrollEdge("bottom",sr); else hideScrollEdges();
+      const vs=onT?"top":onB?"bottom":null;
+      if(vs&&vs!==_vScrollSide){ clearTimeout(_vScrollTimer); _vScrollSide=vs; _vScrollTimer=setTimeout(()=>{ _vScrollSide=null; sb.el.scrollBy({top:vs==="top"?-120:120,behavior:"smooth"}); setTimeout(hideScrollEdges,400); },1000); }
+      else if(!vs){ clearTimeout(_vScrollTimer); _vScrollSide=null; }
+    } else hideScrollEdges();
+  }
+
+  function onEnd(e){
+    if(_active && touchDragId){
+      const ct=e.changedTouches[0];
+      const el=document.elementFromPoint(ct.clientX,ct.clientY);
+      const tgt=el?.closest("[data-date]");
       if(tgt?.dataset.date){
-        const date=tgt.dataset.date,hour=tgt.dataset.hour;
-        if(hour!==undefined)openModal(touchDragId,date,z(parseInt(hour))+":00",z(Math.min(parseInt(hour)+1,23))+":00");
+        const date=tgt.dataset.date, hour=tgt.dataset.hour;
+        if(hour!==undefined) openModal(touchDragId,date,z(parseInt(hour))+":00",z(Math.min(parseInt(hour)+1,23))+":00");
         else openModal(touchDragId,date,"09:00","10:00");
       }
-      ghost.style.display="none";
-      document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
-      item.classList.remove("dragging");
-      document.body.classList.remove("dragging-task");
-      touchDragId=null;
-      if(curTab==="agenda"){renderAg();if(token)fetchGcal().then(()=>renderAg());}
+      if(curTab==="agenda"){ renderAg(); if(token) fetchGcal().then(()=>renderAg()); }
     }
-    _dragActive=false;_longPressed=false;
-  });
+    cleanup();
+  }
 
-  dragHandle.addEventListener("touchcancel",()=>{
-    clearTimeout(_holdTimer);_holdTimer=null;
-    dragHandle.style.transform="";
-    _dragActive=false;_longPressed=false;
-    if(touchDragId){
-      ghost.style.display="none";
-      document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
-      item.classList.remove("dragging");
-      document.body.classList.remove("dragging-task");
-      touchDragId=null;
-    }
-    hideCalEdges();hideScrollEdges();
-    clearTimeout(tEdgeTimer);tEdgeSide=null;
-    clearTimeout(_vScrollTimer);_vScrollSide=null;
-  });
+  dragHandle.addEventListener("touchstart", e=>{
+    e.preventDefault();   // bloque scroll ET context-menu sur le handle
+    e.stopPropagation();
+    sx=e.touches[0].clientX; sy=e.touches[0].clientY;
+    _ready=false; _active=false;
+    dragHandle.style.opacity="0.5";
+    _hold=setTimeout(()=>{
+      _ready=true;
+      dragHandle.style.opacity="";
+      if(navigator.vibrate) navigator.vibrate(40);
+      dragHandle.style.transform="scale(1.35)";
+      dragHandle.style.transition="transform .12s";
+      setTimeout(()=>{ dragHandle.style.transform=""; dragHandle.style.transition=""; }, 180);
+      /* Attacher les listeners globaux en capture NON-passive pour bloquer le scroll */
+      document.addEventListener("touchmove",  onMove, {capture:true, passive:false});
+      document.addEventListener("touchend",   onEnd,  {capture:true});
+      document.addEventListener("touchcancel",onEnd,  {capture:true});
+    }, 400);
+  }, {passive:false});
+
+  dragHandle.addEventListener("touchend", e=>{
+    if(!_ready && !_active){ cleanup(); return; }
+    // si le doigt a levé avant tout mouvement (tap rapide après long-press sans bouger)
+    onEnd(e);
+  }, {passive:false});
+
+  dragHandle.addEventListener("touchcancel", ()=>cleanup(), {passive:true});
 }
 
 /* ══ MODAL PLANIFIER ══ */
@@ -2078,7 +2073,7 @@ function buildTask(t){
 
   /* 2. Drag handle ⠿ */
   const drag=mk("button","ta-btn drag-handle");
-  drag.title="Appui long pour glisser vers le calendrier";
+  drag.title="Appui long → glisser vers le calendrier";
   drag.style.touchAction="none";
   drag.innerHTML='<svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor"><circle cx="3" cy="2" r="1.3"/><circle cx="9" cy="2" r="1.3"/><circle cx="3" cy="7" r="1.3"/><circle cx="9" cy="7" r="1.3"/><circle cx="3" cy="12" r="1.3"/><circle cx="9" cy="12" r="1.3"/></svg>';
 
