@@ -244,6 +244,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .mini-md.tdy{border-color:var(--bl);background:var(--bll);color:var(--bl);}
 .mini-md.oth{opacity:.2;pointer-events:none;}
 .mini-md.drag-ov{border-color:var(--or)!important;background:var(--orbg)!important;}
+.mini-cal-wrap.drag-active .mini-md{touch-action:none;}
 
 /* ══ AUTH OVERLAY ══ */
 #auth-overlay{position:fixed;inset:0;background:var(--blbg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
@@ -356,7 +357,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
           <div class="mini-cal-title" id="mini-cal-title"></div>
           <button class="mini-cal-nav" onclick="miniNavNext()">&#8250;</button>
         </div>
-        <div style="font-size:11px;font-weight:700;color:var(--or)">&#128205; D&#233;posez une date</div>
+        <div style="font-size:11px;font-weight:700;color:var(--or)" id="mini-cal-hint">&#128205; Glissez sur une date</div>
       </div>
       <div class="mini-mg" id="mini-mg"></div>
     </div>
@@ -1478,129 +1479,111 @@ document.addEventListener("drop",e=>{
 });
 
 /* ══ TOUCH DRAG ══
-   Attaché UNIQUEMENT sur l'icône drag-handle.
-   touchstart non-passif → peut bloquer le scroll.
-   Après 400ms sans mouvement → _ready=true + listeners globaux pour capturer
-   les touchmove/touchend même hors du handle.
+   Stratégie : on reste dans l'onglet Tâches et on utilise le mini-calendrier
+   (déjà présent dans le DOM) comme zone de drop touch.
+   Changer d'onglet pendant un touch drag est impossible : masquer le panneau
+   parent coupe le contexte tactile et détruit les éléments en cours de drag.
+
+   Fonctionnement :
+   1. Appui long (400 ms) sur l'icône ⠿ → vibration + ghost + mini-cal visible
+   2. Glisser le doigt → ghost suit le doigt, la case sous le doigt se surligne
+   3. Relâcher sur une case → openModal avec la date choisie
 */
 const ghost=document.getElementById("ghost");
 
 function setupTouch(item, dragHandle, tid2){
-  let sx, sy, _hold=null, _ready=false, _active=false;
+  let _hold=null, _ready=false, _active=false;
+
+  function showMiniCalForTouch(){
+    miniY=NOW.getFullYear(); miniM=NOW.getMonth();
+    renderMiniCal();
+    const mcw=document.getElementById("mini-cal-wrap");
+    if(mcw){
+      mcw.classList.add("drag-active");
+      setTimeout(()=>mcw.scrollIntoView({behavior:"smooth",block:"nearest"}),60);
+    }
+  }
+
+  function hideMiniCalForTouch(){
+    const mcw=document.getElementById("mini-cal-wrap");
+    if(mcw) mcw.classList.remove("drag-active");
+  }
 
   function cleanup(){
     clearTimeout(_hold); _hold=null;
     _ready=false; _active=false;
     dragHandle.style.opacity="";
-    dragHandle.removeEventListener("touchmove",onHoldMove);
     ghost.style.display="none";
+    ghost.style.visibility="";
     document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
     item.classList.remove("dragging");
     document.body.classList.remove("dragging-task");
     touchDragId=null;
-    hideCalEdges(); hideScrollEdges();
-    clearTimeout(tEdgeTimer); tEdgeSide=null;
-    clearTimeout(_vScrollTimer); _vScrollSide=null;
+    hideMiniCalForTouch();
     document.removeEventListener("touchmove", onMove, {capture:true});
     document.removeEventListener("touchend",  onEnd,  {capture:true});
     document.removeEventListener("touchcancel",onEnd, {capture:true});
+  }
+
+  function getTargetUnderTouch(cx, cy){
+    /* Masquer le ghost pour que elementFromPoint trouve ce qui est dessous */
+    ghost.style.visibility="hidden";
+    const el=document.elementFromPoint(cx,cy);
+    ghost.style.visibility="";
+    return el?.closest("[data-date]")||null;
   }
 
   function onMove(e){
     if(!_ready) return;
     e.preventDefault();
     e.stopPropagation();
-    const cx=e.touches[0].clientX, cy=e.touches[0].clientY;
+    const t=e.touches[0];
+    const cx=t.clientX, cy=t.clientY;
 
     if(!_active){
       _active=true;
       touchDragId=tid2;
       const task=S.tasks.find(x=>x.id===tid2);
-      ghost.textContent=task?task.title:"";
+      ghost.textContent=(task?task.title:"")+" 📅";
       ghost.style.display="block";
       item.classList.add("dragging");
       document.body.classList.add("dragging-task");
-      /* Basculer vers l'agenda EN PREMIER, puis rendre le calendrier une fois visible */
-      goTab("agenda",true);
-      renderAg();
+      showMiniCalForTouch();
     }
 
     ghost.style.left=(cx-70)+"px";
     ghost.style.top=(cy-24)+"px";
 
     document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
-    const el=document.elementFromPoint(cx,cy);
-    const tgt=el?.closest("[data-date]");
+    const tgt=getTargetUnderTouch(cx,cy);
     if(tgt) tgt.classList.add("drag-ov");
-
-    const r=calEdgeRect();
-    if(r){
-      const HIT=72, inY=cy>=r.T&&cy<=r.B;
-      const onL=inY&&cx>=r.L&&cx<r.L+HIT;
-      const onR=inY&&cx>r.R-HIT&&cx<=r.R;
-      if(onL) showCalEdge("left"); else if(onR) showCalEdge("right"); else hideCalEdges();
-      const side=onL?"left":onR?"right":null;
-      if(side&&side!==tEdgeSide){ clearTimeout(tEdgeTimer); tEdgeSide=side; tEdgeTimer=setTimeout(()=>{ tEdgeSide=null; side==="left"?navPrev():navNext(); setTimeout(hideCalEdges,400); },1000); }
-      else if(!side){ clearTimeout(tEdgeTimer); tEdgeSide=null; }
-    }
-    const sb=getActiveScrollBox();
-    if(sb){
-      const sr=sb.rect, HV=100, inX=cx>=sr.left&&cx<=sr.right;
-      const onT=inX&&cy>=sr.top&&cy<sr.top+HV;
-      const onB=inX&&cy>sr.bottom-HV&&cy<=sr.bottom;
-      if(onT) showScrollEdge("top",sr); else if(onB) showScrollEdge("bottom",sr); else hideScrollEdges();
-      const vs=onT?"top":onB?"bottom":null;
-      if(vs&&vs!==_vScrollSide){ clearTimeout(_vScrollTimer); _vScrollSide=vs; _vScrollTimer=setTimeout(()=>{ _vScrollSide=null; sb.el.scrollBy({top:vs==="top"?-120:120,behavior:"smooth"}); setTimeout(hideScrollEdges,400); },1000); }
-      else if(!vs){ clearTimeout(_vScrollTimer); _vScrollSide=null; }
-    } else hideScrollEdges();
   }
 
   function onEnd(e){
     if(_active && touchDragId){
       const ct=e.changedTouches[0];
-      const el=document.elementFromPoint(ct.clientX,ct.clientY);
-      const tgt=el?.closest("[data-date]");
+      const tgt=getTargetUnderTouch(ct.clientX,ct.clientY);
       if(tgt?.dataset.date){
         const date=tgt.dataset.date, hour=tgt.dataset.hour;
         if(hour!==undefined) openModal(touchDragId,date,z(parseInt(hour))+":00",z(Math.min(parseInt(hour)+1,23))+":00");
         else openModal(touchDragId,date,"09:00","10:00");
       }
-      if(curTab==="agenda"){ renderAg(); if(token) fetchGcal().then(()=>renderAg()); }
     }
     cleanup();
   }
 
-  /* Listener touchmove pendant le hold (avant _ready) : bloque le scroll pour ne pas annuler le long-press */
-  function onHoldMove(e){
-    if(_ready||_active) return; // déjà géré par le listener global
-    const dx=Math.abs(e.touches[0].clientX-sx);
-    const dy=Math.abs(e.touches[0].clientY-sy);
-    if(dx>10||dy>10){
-      /* Le doigt a bougé trop tôt → annuler le hold */
-      clearTimeout(_hold);_hold=null;
-      dragHandle.style.opacity="";
-      dragHandle.removeEventListener("touchmove",onHoldMove);
-    } else {
-      e.preventDefault(); // bloque le scroll pendant le hold
-    }
-  }
-
   dragHandle.addEventListener("touchstart", e=>{
-    e.preventDefault();   // bloque scroll ET context-menu sur le handle
+    e.preventDefault();
     e.stopPropagation();
-    sx=e.touches[0].clientX; sy=e.touches[0].clientY;
     _ready=false; _active=false;
     dragHandle.style.opacity="0.5";
-    dragHandle.addEventListener("touchmove",onHoldMove,{passive:false});
     _hold=setTimeout(()=>{
-      dragHandle.removeEventListener("touchmove",onHoldMove);
       _ready=true;
       dragHandle.style.opacity="";
       if(navigator.vibrate) navigator.vibrate(40);
       dragHandle.style.transform="scale(1.35)";
       dragHandle.style.transition="transform .12s";
-      setTimeout(()=>{ dragHandle.style.transform=""; dragHandle.style.transition=""; }, 180);
-      /* Attacher les listeners globaux en capture NON-passive pour bloquer le scroll */
+      setTimeout(()=>{ dragHandle.style.transform=""; dragHandle.style.transition=""; },180);
       document.addEventListener("touchmove",  onMove, {capture:true, passive:false});
       document.addEventListener("touchend",   onEnd,  {capture:true});
       document.addEventListener("touchcancel",onEnd,  {capture:true});
@@ -1609,7 +1592,6 @@ function setupTouch(item, dragHandle, tid2){
 
   dragHandle.addEventListener("touchend", e=>{
     if(!_ready && !_active){ cleanup(); return; }
-    // si le doigt a levé avant tout mouvement (tap rapide après long-press sans bouger)
     onEnd(e);
   }, {passive:false});
 
