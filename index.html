@@ -1509,6 +1509,23 @@ function setupTouch(handle,item,tid2){
       const under=document.elementFromPoint(cx,cy);
       const tgt=under?.closest("[data-date]");
       if(tgt)tgt.classList.add("drag-ov");
+      /* Survol de l'onglet Agenda → basculer après 600ms */
+      const hovTab=under?.closest(".tab");
+      const hovTabTarget=hovTab&&hovTab.textContent.includes("Agenda")?"agenda":null;
+      if(hovTabTarget&&hovTabTarget!==_tabHoverTarget){
+        clearTimeout(_tabHoverTimer);_tabHoverTarget=hovTabTarget;
+        hovTab.style.outline="2px solid var(--or)";
+        _tabHoverTimer=setTimeout(()=>{
+          if(_tabHoverTarget===hovTabTarget){
+            goTab(hovTabTarget);
+            _tabHoverTarget=null;
+            document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
+          }
+        },600);
+      } else if(!hovTabTarget&&_tabHoverTarget){
+        clearTimeout(_tabHoverTimer);_tabHoverTarget=null;
+        document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
+      }
       /* Edge nav via touch — même logique que desktop */
       const r=calEdgeRect();
       if(r){
@@ -1558,6 +1575,8 @@ function setupTouch(handle,item,tid2){
     item.style.transform="";
     clearTimeout(tEdgeTimer);tEdgeSide=null;
     clearTimeout(_vScrollTimer);_vScrollSide=null;
+    clearTimeout(_tabHoverTimer);_tabHoverTarget=null;
+    document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
     hideCalEdges();
     if(touchDragId){
       const under=document.elementFromPoint(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
@@ -2120,6 +2139,35 @@ function showMiniCal(){miniY=NOW.getFullYear();miniM=NOW.getMonth();renderMiniCa
 function hideMiniCal(){document.getElementById("mini-cal-wrap").classList.remove("drag-active");}
 document.addEventListener("dragstart",e=>{if(e.target.closest(".ti"))showMiniCal();});
 document.addEventListener("dragend",()=>hideMiniCal());
+
+/* ══ DRAG OVER NAV TABS — basculer vers Agenda en survolant l'onglet ══ */
+let _tabHoverTimer=null,_tabHoverTarget=null;
+document.addEventListener("dragover",e=>{
+  const tab=e.target.closest(".tab");
+  if(tab){
+    const targetTab=tab.textContent.includes("Agenda")?"agenda":tab.textContent.includes("ches")?"todo":null;
+    if(targetTab&&targetTab!==_tabHoverTarget){
+      clearTimeout(_tabHoverTimer);_tabHoverTarget=targetTab;
+      tab.style.outline="2px solid var(--or)";
+      _tabHoverTimer=setTimeout(()=>{
+        if(_tabHoverTarget===targetTab){
+          goTab(targetTab);
+          _tabHoverTarget=null;
+          document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
+        }
+      },600);
+    }
+  } else {
+    if(_tabHoverTarget){
+      clearTimeout(_tabHoverTimer);_tabHoverTarget=null;
+      document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
+    }
+  }
+});
+document.addEventListener("dragend",()=>{
+  clearTimeout(_tabHoverTimer);_tabHoverTarget=null;
+  document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
+});
 
 /* ══ DRAG OVER VIEW BUTTONS ══ */
 let viewHoverTimer=null,viewHoverTarget=null;
