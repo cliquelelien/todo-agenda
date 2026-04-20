@@ -867,7 +867,7 @@ async function delGcalEv(gcalId){
 }
 
 /* ══ TABS ══ */
-function goTab(t){curTab=t;document.querySelectorAll(".tab").forEach((el,i)=>el.classList.toggle("active",(i===0&&t==="todo")||(i===1&&t==="agenda")));document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));document.getElementById("panel-"+t).classList.add("active");if(t==="agenda"){renderAg();if(token)fetchGcal().then(()=>renderAg());}}
+function goTab(t,skipRender){curTab=t;document.querySelectorAll(".tab").forEach((el,i)=>el.classList.toggle("active",(i===0&&t==="todo")||(i===1&&t==="agenda")));document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));document.getElementById("panel-"+t).classList.add("active");if(t==="agenda"&&!skipRender){renderAg();if(token)fetchGcal().then(()=>renderAg());}}
 
 /* ══ VIEW ══ */
 function setView(v){view=v;["month","week","day"].forEach(x=>document.getElementById("vb-"+x).classList.toggle("active",x===v));renderAg();}
@@ -2137,36 +2137,51 @@ function renderMiniCal(){
 }
 function showMiniCal(){miniY=NOW.getFullYear();miniM=NOW.getMonth();renderMiniCal();document.getElementById("mini-cal-wrap").classList.add("drag-active");}
 function hideMiniCal(){document.getElementById("mini-cal-wrap").classList.remove("drag-active");}
-document.addEventListener("dragstart",e=>{if(e.target.closest(".ti"))showMiniCal();});
+document.addEventListener("dragstart",e=>{
+  if(e.target.closest(".ti")){
+    showMiniCal();
+    /* Pré-rendre l'agenda en arrière-plan pour que ses cellules soient dans le DOM pendant le drag */
+    renderAg();
+  }
+});
 document.addEventListener("dragend",()=>hideMiniCal());
 
 /* ══ DRAG OVER NAV TABS — basculer vers Agenda en survolant l'onglet ══ */
 let _tabHoverTimer=null,_tabHoverTarget=null;
+
 document.addEventListener("dragover",e=>{
   const tab=e.target.closest(".tab");
-  if(tab){
+  if(tab&&_dragging){
     const targetTab=tab.textContent.includes("Agenda")?"agenda":tab.textContent.includes("ches")?"todo":null;
     if(targetTab&&targetTab!==_tabHoverTarget){
       clearTimeout(_tabHoverTimer);_tabHoverTarget=targetTab;
       tab.style.outline="2px solid var(--or)";
       _tabHoverTimer=setTimeout(()=>{
         if(_tabHoverTarget===targetTab){
-          goTab(targetTab);
+          /* Changer l'onglet visuellement SANS re-rendre le DOM */
+          goTab(targetTab,true);
           _tabHoverTarget=null;
           document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
         }
       },600);
     }
-  } else {
-    if(_tabHoverTarget){
-      clearTimeout(_tabHoverTimer);_tabHoverTarget=null;
-      document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
-    }
+  } else if(!tab&&_tabHoverTarget){
+    clearTimeout(_tabHoverTimer);_tabHoverTarget=null;
+    document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
+  }
+  /* Highlight cellule sous le curseur pendant le drag sur l'agenda */
+  if(_dragging){
+    const cell=e.target.closest("[data-date]");
+    document.querySelectorAll(".drag-ov").forEach(x=>{if(x!==cell)x.classList.remove("drag-ov");});
+    if(cell)cell.classList.add("drag-ov");
   }
 });
+
 document.addEventListener("dragend",()=>{
   clearTimeout(_tabHoverTimer);_tabHoverTarget=null;
   document.querySelectorAll(".tab").forEach(b=>b.style.outline="");
+  document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
+  if(curTab==="agenda"){renderAg();if(token)fetchGcal().then(()=>renderAg());}
 });
 
 /* ══ DRAG OVER VIEW BUTTONS ══ */
