@@ -1502,7 +1502,7 @@ function setupTouch(handle,item,tid2){
       return;
     }
     if(_dragReady&&(Math.abs(cx-sx)>6||Math.abs(cy-sy)>6)){
-      if(!touchDragId){touchDragId=tid2;const t=S.tasks.find(t=>t.id===tid2);ghost.textContent=t?t.title:"";ghost.style.display="block";item.classList.add("dragging");item.style.transform="";document.body.classList.add("dragging-task");goTab("agenda");}
+      if(!touchDragId){touchDragId=tid2;const t=S.tasks.find(t=>t.id===tid2);ghost.textContent=t?t.title:"";ghost.style.display="block";item.classList.add("dragging");item.style.transform="";document.body.classList.add("dragging-task");}
       e.preventDefault();
       ghost.style.left=(cx-70)+"px";ghost.style.top=(cy-20)+"px";
       document.querySelectorAll(".drag-ov").forEach(x=>x.classList.remove("drag-ov"));
@@ -2055,7 +2055,6 @@ function buildTask(t){
     item.classList.add("dragging");
     _dragging=true;
     clearTimeout(edgeTimer);edgeSide=null;
-    if(curTab!=="agenda")goTab("agenda");
   });
   drag.addEventListener("dragend",()=>{
     item.classList.remove("dragging");
