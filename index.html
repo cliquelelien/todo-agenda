@@ -2073,7 +2073,30 @@ function buildTask(t){
   document.addEventListener("click",()=>remPop.classList.remove("open"),{capture:false});
   remWrap.append(remBtn,remPop);
 
-  /* 2. Supprimer × */
+  /* 2. Drag handle ⠿ — à gauche de la croix */
+  const dragBtn=mk("button","ta-btn drag-handle");
+  dragBtn.title="Glisser vers le calendrier";
+  dragBtn.setAttribute("aria-label","Déplacer vers le calendrier");
+  dragBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
+  /* Rendre l'item draggable uniquement quand on appuie sur le handle */
+  item.setAttribute("draggable","false");
+  dragBtn.addEventListener("mousedown",()=>{ item.setAttribute("draggable","true"); });
+  item.addEventListener("dragstart",e=>{
+    if(item.getAttribute("draggable")==="false"){e.preventDefault();return;}
+    e.dataTransfer.setData("tid",t.id);
+    e.dataTransfer.effectAllowed="move";
+    item.classList.add("dragging");
+    showMiniCal();
+  });
+  item.addEventListener("dragend",()=>{
+    item.setAttribute("draggable","false");
+    item.classList.remove("dragging");
+    hideMiniCal();
+  });
+  /* Touch drag — déléguer au mécanisme setupTouch existant */
+  setupTouch(item, dragBtn, t.id);
+
+  /* 3. Supprimer × */
   const del=mk("button","ta-btn del");
   del.title="Supprimer la tâche";
   del.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
@@ -2083,7 +2106,7 @@ function buildTask(t){
     S.tasks=S.tasks.filter(x=>x.id!==t.id);lsSave();if(gcalEv)await fetchGcal();renderTasks();if(curTab==="agenda")renderAg();
   };
 
-  actions.append(remWrap,del);
+  actions.append(remWrap,dragBtn,del);
   top.append(chk,body,actions);item.appendChild(top);
 
   if(isDoneNow){
