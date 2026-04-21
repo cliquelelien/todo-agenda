@@ -868,7 +868,7 @@ async function delGcalEv(gcalId){
 }
 
 /* ══ TABS ══ */
-function goTab(t,skipFetch){curTab=t;document.querySelectorAll(".tab").forEach((el,i)=>el.classList.toggle("active",(i===0&&t==="todo")||(i===1&&t==="agenda")));document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));document.getElementById("panel-"+t).classList.add("active");if(t==="agenda"){renderAg();if(!skipFetch&&token)fetchGcal().then(()=>renderAg());}}
+function goTab(t,skipRender){curTab=t;document.querySelectorAll(".tab").forEach((el,i)=>el.classList.toggle("active",(i===0&&t==="todo")||(i===1&&t==="agenda")));document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));document.getElementById("panel-"+t).classList.add("active");if(t==="agenda"&&!skipRender){renderAg();if(token)fetchGcal().then(()=>renderAg());}}
 
 /* ══ VIEW ══ */
 function setView(v){view=v;["month","week","day"].forEach(x=>document.getElementById("vb-"+x).classList.toggle("active",x===v));renderAg();}
@@ -2073,19 +2073,17 @@ function buildTask(t){
   document.addEventListener("click",()=>remPop.classList.remove("open"),{capture:false});
   remWrap.append(remBtn,remPop);
 
-  /* 2. Drag handle ⠿ */
-  const drag=mk("button","ta-btn drag-handle");
-  drag.title="Appui long → glisser vers le calendrier";
-  drag.style.touchAction="none";
-  drag.innerHTML='<svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor"><circle cx="3" cy="2" r="1.3"/><circle cx="9" cy="2" r="1.3"/><circle cx="3" cy="7" r="1.3"/><circle cx="9" cy="7" r="1.3"/><circle cx="3" cy="12" r="1.3"/><circle cx="9" cy="12" r="1.3"/></svg>';
-
-  /* 3. Supprimer × */
+  /* 2. Supprimer × */
   const del=mk("button","ta-btn del");
   del.title="Supprimer la tâche";
   del.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-  del.onclick=async()=>{if(gcalEv){showSync("Suppression…");await delGcalEv(t.id);hideSync();}S.tasks=S.tasks.filter(x=>x.id!==t.id);lsSave();if(gcalEv)await fetchGcal();renderTasks();if(curTab==="agenda")renderAg();};
+  del.onclick=async()=>{
+    if(!confirm('Supprimer "'+t.title+'" ?'))return;
+    if(gcalEv){showSync("Suppression…");await delGcalEv(t.id);hideSync();}
+    S.tasks=S.tasks.filter(x=>x.id!==t.id);lsSave();if(gcalEv)await fetchGcal();renderTasks();if(curTab==="agenda")renderAg();
+  };
 
-  actions.append(remWrap,drag,del);
+  actions.append(remWrap,del);
   top.append(chk,body,actions);item.appendChild(top);
 
   if(isDoneNow){
@@ -2105,24 +2103,6 @@ function buildTask(t){
     item.appendChild(arch);
   }
   if(!gcalEv){const desc=mk("textarea","td-desc");desc.placeholder="Ajouter un descriptif…";desc.value=t.desc||"";desc.style.display="none";desc.oninput=()=>{t.desc=desc.value;lsSave();};item.appendChild(desc);}
-  if(!gcalEv){
-    item.draggable=true;
-    item.addEventListener("dragstart",e=>{
-      e.dataTransfer.setData("tid",t.id);
-      e.dataTransfer.effectAllowed="move";
-      item.classList.add("dragging");
-      _dragging=true;
-      clearTimeout(edgeTimer);edgeSide=null;
-      if(curTab!=="agenda"){
-        setTimeout(()=>goTab("agenda",true),0);
-      }
-    });
-    item.addEventListener("dragend",()=>{
-      item.classList.remove("dragging");
-      if(curTab==="agenda"){renderAg();if(token)fetchGcal().then(()=>renderAg());}
-    });
-    setupTouch(item,drag,t.id);
-  }
   return item;
 }
 
