@@ -224,6 +224,18 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .ep-sep{border:none;border-top:1px solid var(--blb);margin:11px 0;}
 /* Ghost + toast + sync */
 .ghost{position:fixed;z-index:999;pointer-events:none;background:var(--orbg);border:2px solid var(--or);border-radius:11px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--tx);box-shadow:0 8px 24px rgba(245,166,35,.38);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:none;transform:rotate(-2deg);font-family:inherit;}
+/* ── Bandeau mode planification ── */
+#plan-banner{display:none;position:fixed;bottom:0;left:0;right:0;z-index:800;background:linear-gradient(135deg,#f5a623,#e8920f);color:#fff;padding:13px 18px;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;box-shadow:0 -4px 20px rgba(245,166,35,.45);align-items:center;gap:10px;animation:slideUp .25s cubic-bezier(.34,1.56,.64,1);}
+#plan-banner.show{display:flex;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+#plan-banner-text{flex:1;display:flex;align-items:center;gap:8px;}
+#plan-banner .pb-icon{font-size:20px;flex-shrink:0;}
+#plan-banner-title{font-size:11px;font-weight:700;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
+#plan-banner-cancel{background:rgba(255,255,255,.25);border:1.5px solid rgba(255,255,255,.5);border-radius:9px;color:#fff;font-family:inherit;font-weight:800;font-size:13px;padding:7px 15px;cursor:pointer;white-space:nowrap;transition:background .15s;}
+#plan-banner-cancel:hover{background:rgba(255,255,255,.40);}
+body.plan-mode [data-date]{cursor:crosshair!important;}
+body.plan-mode .md:not(.oth),body.plan-mode .wac,body.plan-mode .wsl,body.plan-mode .day-sl,body.plan-mode .day-dz{outline:2px dashed rgba(245,166,35,.55);outline-offset:-2px;}
+body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl:hover,body.plan-mode .day-sl:hover,body.plan-mode .day-dz:hover{background:var(--orbg)!important;border-color:var(--or)!important;}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--bld);color:#fff;border-radius:30px;padding:9px 20px;font-size:13px;font-weight:700;z-index:9999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap;box-shadow:0 4px 16px rgba(26,86,160,.28);}
 .toast.show{transform:translateX(-50%) translateY(0);}
 .sync{display:none;align-items:center;gap:8px;padding:8px 13px;background:var(--grbg);border:1.5px solid var(--grb);border-radius:11px;margin-bottom:10px;font-size:12px;font-weight:700;color:#1a6630;}
@@ -477,6 +489,17 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 </div>
 
 <div class="ghost" id="ghost"></div>
+<!-- Bandeau mode planification -->
+<div id="plan-banner">
+  <div id="plan-banner-text">
+    <span class="pb-icon">📅</span>
+    <div>
+      <div style="font-size:14px;font-weight:900;">Cliquez sur un jour du calendrier</div>
+      <div id="plan-banner-title"></div>
+    </div>
+  </div>
+  <button id="plan-banner-cancel" onclick="exitPlanMode()">✕ Annuler</button>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -2073,28 +2096,15 @@ function buildTask(t){
   document.addEventListener("click",()=>remPop.classList.remove("open"),{capture:false});
   remWrap.append(remBtn,remPop);
 
-  /* 2. Drag handle ⠿ — à gauche de la croix */
-  const dragBtn=mk("button","ta-btn drag-handle");
-  dragBtn.title="Glisser vers le calendrier";
-  dragBtn.setAttribute("aria-label","Déplacer vers le calendrier");
-  dragBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
-  /* Rendre l'item draggable uniquement quand on appuie sur le handle */
-  item.setAttribute("draggable","false");
-  dragBtn.addEventListener("mousedown",()=>{ item.setAttribute("draggable","true"); });
-  item.addEventListener("dragstart",e=>{
-    if(item.getAttribute("draggable")==="false"){e.preventDefault();return;}
-    e.dataTransfer.setData("tid",t.id);
-    e.dataTransfer.effectAllowed="move";
-    item.classList.add("dragging");
-    showMiniCal();
+  /* 2. Planifier 📅 — à gauche de la croix */
+  const dragBtn=mk("button","ta-btn plan");
+  dragBtn.title="Planifier dans le calendrier";
+  dragBtn.setAttribute("aria-label","Planifier dans le calendrier");
+  dragBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+  dragBtn.addEventListener("click",e=>{
+    e.stopPropagation();
+    enterPlanMode(t.id);
   });
-  item.addEventListener("dragend",()=>{
-    item.setAttribute("draggable","false");
-    item.classList.remove("dragging");
-    hideMiniCal();
-  });
-  /* Touch drag — déléguer au mécanisme setupTouch existant */
-  setupTouch(item, dragBtn, t.id);
 
   /* 3. Supprimer × */
   const del=mk("button","ta-btn del");
@@ -2155,6 +2165,43 @@ function renderMiniCal(){
 }
 function showMiniCal(){miniY=NOW.getFullYear();miniM=NOW.getMonth();renderMiniCal();document.getElementById("mini-cal-wrap").classList.add("drag-active");}
 function hideMiniCal(){document.getElementById("mini-cal-wrap").classList.remove("drag-active");}
+
+/* ══ MODE PLANIFICATION (clic icône → bandeau → clic calendrier) ══ */
+let _planTaskId=null;
+
+function enterPlanMode(tid){
+  _planTaskId=tid;
+  const t=S.tasks.find(x=>x.id===tid)||gcal.find(x=>x.id===tid);
+  const banner=document.getElementById('plan-banner');
+  document.getElementById('plan-banner-title').textContent=t?('"'+t.title.slice(0,30)+(t.title.length>30?'…':'')+'"'):'';
+  banner.classList.add('show');
+  document.body.classList.add('plan-mode');
+  /* Aller sur l'onglet Agenda si on n'y est pas */
+  goTab('agenda',true);
+}
+
+function exitPlanMode(){
+  _planTaskId=null;
+  document.getElementById('plan-banner').classList.remove('show');
+  document.body.classList.remove('plan-mode');
+}
+
+/* Intercepter les clics sur les cases [data-date] en mode plan */
+document.addEventListener('click',function(e){
+  if(!_planTaskId)return;
+  /* Ignorer le bouton Annuler */
+  if(e.target.closest('#plan-banner-cancel'))return;
+  const cell=e.target.closest('[data-date]');
+  if(!cell)return;
+  e.preventDefault();
+  e.stopPropagation();
+  const date=cell.dataset.date;
+  const hour=cell.dataset.hour;
+  const tid=_planTaskId;
+  exitPlanMode();
+  if(hour!==undefined) openModal(tid,date,z(parseInt(hour))+':00',z(Math.min(parseInt(hour)+1,23))+':00');
+  else openModal(tid,date,'09:00','10:00');
+},{capture:true});
 document.addEventListener("dragstart",e=>{if(e.target.closest(".ti"))showMiniCal();});
 document.addEventListener("dragend",()=>hideMiniCal());
 
