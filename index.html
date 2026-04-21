@@ -35,6 +35,9 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .tab{flex:1;padding:12px 0;font-family:inherit;font-weight:800;font-size:13px;border:none;background:transparent;color:var(--tx2);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;text-align:center;transition:color .15s;}
 .tab.active{color:var(--bl);border-bottom-color:var(--bl);}
 .panel{display:none;padding:14px;max-width:900px;margin:0 auto;}.panel.active{display:block;}
+@media(min-width:900px){
+  .panel{max-width:none;margin:0;}
+}
 .card{background:#fff;border:1.5px solid var(--blb);border-radius:var(--rad);padding:14px;margin-bottom:12px;box-shadow:var(--sh);}
 .ct{font-weight:800;font-size:11px;color:var(--bld);margin-bottom:12px;text-transform:uppercase;letter-spacing:.08em;}
 .ar{display:flex;gap:7px;flex-wrap:wrap;}
@@ -258,7 +261,60 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .mini-md.drag-ov{border-color:var(--or)!important;background:var(--orbg)!important;}
 .mini-cal-wrap.drag-active .mini-md{touch-action:none;}
 
-/* ══ AUTH OVERLAY ══ */
+/* ══ DESKTOP LAYOUT (≥900px) ══ */
+@media(min-width:900px){
+  /* Cacher la nav tabs sur desktop — on affiche les 2 panneaux côte à côte */
+  nav{display:none;}
+  #app-content{display:flex;flex-direction:column;height:100vh;}
+  header{flex-shrink:0;}
+  #desktop-body{
+    display:flex;
+    flex:1;
+    overflow:hidden;
+    gap:0;
+  }
+  /* Colonne gauche : tâches */
+  #panel-todo{
+    display:flex!important;
+    flex-direction:column;
+    width:360px;
+    min-width:300px;
+    flex-shrink:0;
+    overflow-y:auto;
+    padding:14px;
+    border-right:2px solid var(--blb);
+    background:var(--blbg);
+    height:100%;
+  }
+  /* Colonne droite : agenda */
+  #panel-agenda{
+    display:flex!important;
+    flex-direction:column;
+    flex:1;
+    overflow-y:auto;
+    padding:14px;
+    height:100%;
+  }
+  /* Agenda prend tout l'espace vertical dispo */
+  #panel-agenda .card{flex:1;display:flex;flex-direction:column;}
+  #ag-body{flex:1;min-height:0;}
+  /* Vue semaine : hauteur plus grande sur desktop */
+  #panel-agenda .w-scroll{height:calc(100vh - 230px)!important;}
+  #panel-agenda .day-scroll{height:calc(100vh - 230px)!important;}
+  /* Cellules plus hautes sur desktop pour plus de lisibilité */
+  .wsl{height:60px!important;}
+  .wtl{height:60px!important;}
+  .day-sl{height:60px!important;}
+  .day-lbl{height:60px!important;}
+  .day-lbl-weather{height:60px!important;}
+  /* Calendrier mensuel : cellules plus grandes */
+  .md{height:90px!important;}
+  /* Panel tâches sur desktop : mini-cal masqué (pas utile en sidebar) */
+  #panel-todo .mini-cal-wrap{display:none;}
+}
+@media(min-width:900px){
+  #desktop-body{background:#fff;}
+}
 #auth-overlay{position:fixed;inset:0;background:var(--blbg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
 #auth-overlay.hidden{display:none;}
 .auth-logo{font-size:56px;margin-bottom:8px;animation:float 3s ease-in-out infinite;}
@@ -316,6 +372,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <button class="tab active" onclick="goTab('todo')">&#9989; T&#226;ches</button>
   <button class="tab" onclick="goTab('agenda')">&#128197; Agenda</button>
 </nav>
+<div id="desktop-body">
 
 <!-- TACHES -->
 <div class="panel active" id="panel-todo">
@@ -394,6 +451,8 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   </div>
   <div class="det" id="detail" style="display:none"></div>
 </div>
+
+</div><!-- /desktop-body -->
 
 <!-- MODAL PLANIFIER -->
 <div class="ov" id="overlay">
@@ -679,6 +738,21 @@ function isDoneForDate(id,forDate){
   return isDone(id);
 }
 function evCls(e,prefix,forDate){
+  /* Occurrence virtuelle récurrente : vérifier baseId__done__date */
+  if(e._virtual&&e._baseId&&forDate){
+    const doneKey=e._baseId+"__done__"+forDate;
+    const done=S.tasks.find(x=>x.id===doneKey)?.done||false;
+    return done?(prefix+"-dn"):(prefix+"-gc");
+  }
+  /* Tâche locale récurrente sur sa date de base : vérifier id__done__date */
+  if(e._local&&forDate){
+    const baseTask=S.tasks.find(x=>x.id===e.id);
+    if(baseTask&&baseTask.recurrence){
+      const doneKey=e.id+"__done__"+forDate;
+      const done=S.tasks.find(x=>x.id===doneKey)?.done||false;
+      if(done)return prefix+"-dn";
+    }
+  }
   return isDoneForDate(e.id,forDate)?(prefix+"-dn"):(prefix+"-gc");
 }
 
@@ -1166,13 +1240,8 @@ function renderWeek(){
     const totalW=tr.offsetWidth;
     const colW=(totalW-labelW)/7;
 
-    /* Référence de position : top du slot h=0 par rapport au wtrWrap
-       Cela neutralise les gaps CSS qui s'accumulent et causent un décalage */
-    const wtrWrapRect=wtrWrap.getBoundingClientRect();
-    const slot0=tr.querySelectorAll(".wsl")[0];
-    const slot0Top=slot0?slot0.getBoundingClientRect().top-wtrWrapRect.top:0;
-
     days.forEach((day,colIdx)=>{
+      /* Regrouper les événements horaires par heure de début pour décalage horizontal si chevauchement */
       const timedEvs=eventsOn(day.date).filter(e=>!e.allDay&&e.start.includes("T"));
       timedEvs.forEach((e,i)=>{
         const parts=e.start.split("T")[1].split(":");
@@ -1183,8 +1252,11 @@ function renderWeek(){
           const hE=parseInt(pe[0]),mE=parseInt(pe[1]||"0");
           durMin=Math.max((hE*60+mE)-(hS*60+mS),15);
         }
-        /* topPx calculé depuis le haut réel du slot h=0 + décalage proportionnel */
-        const topPx=slot0Top+(hS+mS/60)*slotH+2;
+        /* topPx : calculé depuis le top réel du slot h=0 (neutralise les gaps CSS) */
+        const wtrRect=wtrWrap.getBoundingClientRect();
+        const refSlot=tr.querySelectorAll(".wsl")[hS*7];
+        const refTop=refSlot?refSlot.getBoundingClientRect().top-wtrRect.top:hS*slotH;
+        const topPx=refTop+(mS/60)*slotH+2;
         const heightPx=Math.max(durMin/60*slotH-3,14);
         const leftPx=labelW+colIdx*colW+3;
         const widthPx=colW-5;
@@ -1391,45 +1463,15 @@ function buildDetRow(e,forDate){
   time.textContent=e.allDay?"Journée":(fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):""));
   const del=mk("button","det-del");del.textContent="×";del.title="Supprimer";
   del.onclick=async()=>{
-    showDetDelConfirm(e,isVirtual,isLocal,forDate);
+    if(isVirtual){
+      if(confirm("Supprimer la récurrence de \""+e.title+"\" ?")){
+        const base=S.tasks.find(x=>x.id===e._baseId);
+        if(base){base.recurrence=null;lsSave();renderAg();renderTasks();toast("↻ Récurrence supprimée");}
+      }
+    } else if(isLocal){S.tasks=S.tasks.filter(x=>x.id!==e.id);lsSave();renderAg();renderTasks();}
+    else{await delGcalEv(e.id);removeMeta(e.id);await fetchGcal();renderAg();renderTasks();}
   };
   row.append(chk,name,time,del);return row;
-}
-
-/* ══ POPUP CONFIRMATION SUPPRESSION (calendrier) ══ */
-function showDetDelConfirm(e,isVirtual,isLocal,forDate){
-  const ov=mk("div","ov");ov.id="det-del-ov";ov.style.zIndex="600";
-  const mo=mk("div","mo");mo.style.cssText="max-width:340px;width:100%;";
-  const icon=mk("div");icon.style.cssText="font-size:28px;text-align:center;margin-bottom:8px;";
-  icon.textContent="🗑";
-  const h=mk("h3");h.style.textAlign="center";
-  h.textContent=isVirtual?"Supprimer la récurrence":"Supprimer l'événement";
-  const sub=mk("p");sub.style.cssText="font-size:13px;color:var(--tx2);margin:10px 0 18px;line-height:1.4;text-align:center;background:var(--blbg);border-radius:9px;padding:8px 11px;border-left:3px solid var(--rd);";
-  sub.textContent=isVirtual
-    ?'"'+e.title+'" — récurrence seulement'
-    :'"'+e.title+'"';
-  const btns=mk("div");btns.style.cssText="display:flex;gap:8px;";
-  const btnCancel=mk("button","btn btn-gh");btnCancel.style.cssText="flex:1;";
-  btnCancel.textContent="Annuler";
-  btnCancel.onclick=()=>document.body.removeChild(ov);
-  const btnConfirm=mk("button","btn btn-rd");btnConfirm.style.cssText="flex:1;";
-  btnConfirm.textContent="Supprimer";
-  btnConfirm.onclick=async()=>{
-    document.body.removeChild(ov);
-    if(isVirtual){
-      const base=S.tasks.find(x=>x.id===e._baseId);
-      if(base){base.recurrence=null;lsSave();renderAg();renderTasks();toast("↻ Récurrence supprimée");}
-    } else if(isLocal){
-      S.tasks=S.tasks.filter(x=>x.id!==e.id);lsSave();renderAg();renderTasks();toast("🗑 Supprimé");
-    } else {
-      showSync("Suppression…");await delGcalEv(e.id);removeMeta(e.id);hideSync();await fetchGcal();renderAg();renderTasks();toast("🗑 Supprimé");
-    }
-  };
-  btns.append(btnCancel,btnConfirm);
-  mo.append(icon,h,sub,btns);ov.appendChild(mo);
-  ov.classList.add("open");
-  ov.addEventListener("click",ev=>{if(ev.target===ov)document.body.removeChild(ov);});
-  document.body.appendChild(ov);
 }
 
 /* ══ EVENT POPUP ══ */
@@ -1969,9 +2011,8 @@ function renderTasks(){
   });
 
   /* Séparer todo / done.
-     Récurrentes locales :
-     - Si jamais cochée/archivée (aucune occurrence traitée) → toujours visible dans "À faire" (nouvelle tâche récurrente)
-     - Si prochaine occurrence non cochée dans les 14 jours ou dans le passé → visible dans "À faire"
+     Récurrentes locales : toujours visibles dans "À faire" si la prochaine occurrence
+     est dans les 14 jours (ou dans le passé non cochée), et non cochée/archivée.
      Une fois cochée, passe dans "Terminées". */
   const in14=new Date(NOW);in14.setDate(in14.getDate()+14);const in14s=ds(in14);
 
@@ -1980,11 +2021,7 @@ function renderTasks(){
     if(t._isDoneOcc)return false;
     if(t.recurrence&&!gcal.find(e=>e.id===t.id)){
       if(!t.due)return false;
-      /* Vérifier si au moins une occurrence a déjà été traitée (cochée ou archivée) */
-      const hasAnyProcessed=S.tasks.some(x=>(x._occOf===t.id||x.id.startsWith(t.id+"__done__")||x.id.startsWith(t.id+"__arch__"))&&(x.done||x.archived));
-      /* Nouvelle tâche récurrente : jamais traitée → toujours visible */
-      if(!hasAnyProcessed)return true;
-      /* Sinon visible uniquement si prochaine occurrence dans les 14 jours ou en retard */
+      /* Toujours visible si échéance passée (en retard) ou dans les 14 jours à venir */
       return t.due<=in14s;
     }
     return !t.done;
