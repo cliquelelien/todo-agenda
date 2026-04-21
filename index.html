@@ -1786,18 +1786,17 @@ function taskSortKeyDesc(t){const gcalEv=gcal.find(e=>e.id===t.id);if(gcalEv)ret
 
 /* ── Dialogue récurrence : cocher cette occurrence ou toutes ── */
 function showRecurCheckDialog(t,dueDate,cb){
-  /* Créer une modale légère */
   const ov=mk("div","ov");ov.id="recur-check-ov";ov.style.zIndex="600";
-  const mo=mk("div","mo");mo.style.maxWidth="320px";
-  const h=mk("h3");h.textContent="✓ Cocher la tâche récurrente";
-  const sub=mk("p");sub.style="font-size:13px;color:var(--tx2);margin-bottom:14px;";
+  const mo=mk("div","mo");mo.style.cssText="max-width:340px;width:100%;";
+  const h=mk("h3");h.textContent="✓ Tâche récurrente";
+  const sub=mk("p");sub.style.cssText="font-size:13px;color:var(--tx2);margin-bottom:16px;line-height:1.4;background:var(--blbg);border-radius:9px;padding:8px 11px;border-left:3px solid var(--bl);";
   sub.textContent='"'+t.title+'" — '+fD(dueDate);
-  const btns=mk("div","mo-btns");btns.style.flexDirection="column";
+  const btns=mk("div");btns.style.cssText="display:flex;flex-direction:column;gap:8px;margin-top:4px;";
 
-  const btnOcc=mk("button","btn btn-bl");btnOcc.textContent="✓ Cette occurrence seulement ("+fD(dueDate)+")";
-  btnOcc.style.marginBottom="8px";
+  const btnOcc=mk("button","btn btn-bl");
+  btnOcc.style.cssText="width:100%;white-space:normal;text-align:left;padding:10px 14px;line-height:1.4;";
+  btnOcc.innerHTML="<strong>Cette occurrence</strong><br><span style='font-size:11px;opacity:.85;font-weight:600;'>Cocher uniquement le "+fD(dueDate)+"</span>";
   btnOcc.onclick=()=>{
-    /* Cocher uniquement cette occurrence */
     const occKey=t.id+"__done__"+dueDate;
     let occ=S.tasks.find(x=>x.id===occKey);
     if(!occ){occ={id:occKey,_occOf:t.id,_occDate:dueDate,done:true,archived:false};S.tasks.push(occ);}
@@ -1807,9 +1806,10 @@ function showRecurCheckDialog(t,dueDate,cb){
     if(cb)cb();
   };
 
-  const btnAll=mk("button","btn btn-gh");btnAll.textContent="✓ Toutes les occurrences (supprimer la récurrence)";
+  const btnAll=mk("button","btn btn-gh");
+  btnAll.style.cssText="width:100%;white-space:normal;text-align:left;padding:10px 14px;line-height:1.4;";
+  btnAll.innerHTML="<strong>Toutes les occurrences</strong><br><span style='font-size:11px;opacity:.75;font-weight:600;'>Cocher et supprimer la récurrence</span>";
   btnAll.onclick=()=>{
-    /* Cocher et terminer la récurrence */
     const real=S.tasks.find(x=>x.id===t.id);
     if(real){real.done=true;real.recurrence=null;}
     lsSave();document.body.removeChild(ov);
@@ -1817,8 +1817,9 @@ function showRecurCheckDialog(t,dueDate,cb){
     if(cb)cb();
   };
 
-  const btnCancel=mk("button","btn btn-gh");btnCancel.textContent="Annuler";
-  btnCancel.style.marginTop="4px";
+  const btnCancel=mk("button","btn btn-gh");
+  btnCancel.style.cssText="width:100%;padding:9px 14px;color:var(--tx3);";
+  btnCancel.textContent="Annuler";
   btnCancel.onclick=()=>document.body.removeChild(ov);
 
   btns.append(btnOcc,btnAll,btnCancel);
@@ -1831,21 +1832,20 @@ function showRecurCheckDialog(t,dueDate,cb){
 /* ── Dialogue récurrence : archiver cette occurrence ou toutes ── */
 function showRecurArchiveDialog(t,dueDate,cb){
   const ov=mk("div","ov");ov.id="recur-arch-ov";ov.style.zIndex="600";
-  const mo=mk("div","mo");mo.style.maxWidth="320px";
-  const h=mk("h3");h.textContent="🗄 Archiver la tâche récurrente";
-  const sub=mk("p");sub.style="font-size:13px;color:var(--tx2);margin-bottom:14px;";
+  const mo=mk("div","mo");mo.style.cssText="max-width:340px;width:100%;";
+  const h=mk("h3");h.textContent="🗄 Tâche récurrente";
+  const sub=mk("p");sub.style.cssText="font-size:13px;color:var(--tx2);margin-bottom:16px;line-height:1.4;background:var(--blbg);border-radius:9px;padding:8px 11px;border-left:3px solid var(--bl);";
   sub.textContent='"'+t.title+'" — '+fD(dueDate);
-  const btns=mk("div","mo-btns");btns.style.flexDirection="column";
+  const btns=mk("div");btns.style.cssText="display:flex;flex-direction:column;gap:8px;margin-top:4px;";
 
-  const btnOcc=mk("button","btn btn-bl");btnOcc.textContent="🗄 Cette occurrence seulement ("+fD(dueDate)+")";
-  btnOcc.style.marginBottom="8px";
+  const btnOcc=mk("button","btn btn-bl");
+  btnOcc.style.cssText="width:100%;white-space:normal;text-align:left;padding:10px 14px;line-height:1.4;";
+  btnOcc.innerHTML="<strong>Cette occurrence</strong><br><span style='font-size:11px;opacity:.85;font-weight:600;'>Archiver uniquement le "+fD(dueDate)+"</span>";
   btnOcc.onclick=()=>{
-    /* Archiver uniquement cette occurrence */
     const archKey=t.id+"__arch__"+dueDate;
     let arch=S.tasks.find(x=>x.id===archKey);
     if(!arch){arch={id:archKey,_archOf:t.id,_archDate:dueDate,archived:true,done:true};S.tasks.push(arch);}
     else arch.archived=true;
-    /* Marquer aussi comme cochée */
     const occKey=t.id+"__done__"+dueDate;
     let occ=S.tasks.find(x=>x.id===occKey);
     if(!occ){occ={id:occKey,_occOf:t.id,_occDate:dueDate,done:true,archived:false};S.tasks.push(occ);}
@@ -1855,7 +1855,9 @@ function showRecurArchiveDialog(t,dueDate,cb){
     if(cb)cb();
   };
 
-  const btnAll=mk("button","btn btn-gh");btnAll.textContent="🗄 Toutes les occurrences (archiver et supprimer la récurrence)";
+  const btnAll=mk("button","btn btn-gh");
+  btnAll.style.cssText="width:100%;white-space:normal;text-align:left;padding:10px 14px;line-height:1.4;";
+  btnAll.innerHTML="<strong>Toutes les occurrences</strong><br><span style='font-size:11px;opacity:.75;font-weight:600;'>Archiver et supprimer la récurrence</span>";
   btnAll.onclick=()=>{
     const real=S.tasks.find(x=>x.id===t.id);
     if(real){real.archived=true;real.done=true;real.recurrence=null;}
@@ -1864,8 +1866,9 @@ function showRecurArchiveDialog(t,dueDate,cb){
     if(cb)cb();
   };
 
-  const btnCancel=mk("button","btn btn-gh");btnCancel.textContent="Annuler";
-  btnCancel.style.marginTop="4px";
+  const btnCancel=mk("button","btn btn-gh");
+  btnCancel.style.cssText="width:100%;padding:9px 14px;color:var(--tx3);";
+  btnCancel.textContent="Annuler";
   btnCancel.onclick=()=>document.body.removeChild(ov);
 
   btns.append(btnOcc,btnAll,btnCancel);
