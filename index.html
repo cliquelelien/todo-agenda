@@ -259,84 +259,53 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 
 /* ══ DESKTOP LAYOUT ≥900px ══ */
 @media(min-width:900px){
-  /* Header fixe, nav masquée */
   nav{display:none;}
   body{overflow:hidden;height:100vh;}
-  #app-content{display:flex!important;flex-direction:column;height:100vh;}
-  /* Zone principale en deux colonnes */
-  #desktop-body{
-    display:flex;
-    flex:1;
-    overflow:hidden;
-    min-height:0;
+  #desktop-body{display:flex;flex:1;overflow:hidden;min-height:0;}
+
+  /* FORCER les deux panneaux visibles indépendamment de .active */
+  #panel-todo,#panel-agenda{
+    display:flex!important;
+    max-width:none!important;
+    margin:0!important;
   }
+
   /* ── Colonne tâches (gauche) ── */
   #panel-todo{
-    display:flex!important;
     flex-direction:column;
-    width:340px;
-    min-width:280px;
-    flex-shrink:0;
-    overflow-y:auto;
-    padding:14px 12px;
+    width:340px;min-width:280px;flex-shrink:0;
+    overflow-y:auto;padding:14px 12px;
     border-right:2px solid var(--blb);
-    background:#f8fbff;
-    height:100%;
-    scrollbar-width:thin;
-    scrollbar-color:var(--blb) transparent;
+    background:#f8fbff;height:100%;
+    scrollbar-width:thin;scrollbar-color:var(--blb) transparent;
   }
   #panel-todo::-webkit-scrollbar{width:5px;}
   #panel-todo::-webkit-scrollbar-thumb{background:var(--blb);border-radius:3px;}
-  /* Titre de la sidebar */
-  #panel-todo::before{
-    content:"✅ Tâches";
-    display:block;
-    font-weight:800;
-    font-size:13px;
-    color:var(--bld);
-    text-transform:uppercase;
-    letter-spacing:.07em;
-    padding:4px 2px 10px;
-    border-bottom:2px solid var(--blb);
-    margin-bottom:12px;
-  }
-  /* Masquer le mini-cal drag (pas utile en sidebar) */
   #panel-todo .mini-cal-wrap{display:none!important;}
-  /* Cartes tâches : padding réduit dans sidebar */
   #panel-todo .card{padding:10px 12px;margin-bottom:10px;}
+
   /* ── Colonne agenda (droite) ── */
   #panel-agenda{
-    display:flex!important;
-    flex-direction:column;
-    flex:1;
-    overflow-y:auto;
-    padding:14px;
-    height:100%;
-    min-width:0;
-    scrollbar-width:thin;
-    scrollbar-color:var(--blb) transparent;
+    flex-direction:column;flex:1;min-width:0;
+    overflow-y:auto;padding:14px;height:100%;
+    scrollbar-width:thin;scrollbar-color:var(--blb) transparent;
   }
   #panel-agenda::-webkit-scrollbar{width:5px;}
   #panel-agenda::-webkit-scrollbar-thumb{background:var(--blb);border-radius:3px;}
-  /* Hauteurs agrandies vue semaine/jour */
+
+  /* Hauteurs agrandies */
   .w-scroll{height:calc(100vh - 200px)!important;}
   .day-scroll{height:calc(100vh - 220px)!important;}
-  /* Cellules horaires plus hautes */
   .wsl,.wtl{height:56px!important;}
   .day-sl,.day-lbl,.day-lbl-weather{height:56px!important;}
-  /* Cellules mensuelles plus grandes */
   .md{height:88px!important;}
+
   /* ── ALIGNEMENT EN-TÊTES SEMAINE ──
-     Forcer whr et wtr (et war) à utiliser les mêmes colonnes via CSS variable */
-  .whr,.war,.wtr{
-    display:grid!important;
-    grid-template-columns:var(--wk-cols,40px repeat(7,minmax(0,1fr)))!important;
-    gap:2px!important;
-  }
-  /* Panels sans max-width en desktop */
-  #panel-todo,#panel-agenda{max-width:none;margin:0;}
+     Le scrollBox de la grille a une scrollbar (5px) qui décale les colonnes.
+     On compense en ajoutant padding-right au wrapper des headers. */
+  .wg{display:flex;flex-direction:column;}
+  .whr-wrap{padding-right:5px;/* compense la scrollbar du w-scroll */}
 }
-/* Fallback mobile : desktop-body n'interfère pas */
 @media(max-width:899px){
   #desktop-body{display:contents;}
 }
@@ -361,6 +330,8 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .auth-error{background:#fdecea;color:var(--rd);border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:10px;display:none;}
 .auth-loading{text-align:center;font-size:14px;color:var(--tx3);padding:8px 0;}
 #app-content{display:none;}
+#app-content.visible{display:block;}
+@media(min-width:900px){#app-content.visible{display:flex!important;flex-direction:column;height:100vh;}}
 </style>
 </head>
 <body>
@@ -803,9 +774,8 @@ function initFirebase(){
         /* Récupérer le token Calendar stocké depuis la dernière connexion Google */
         var stored=localStorage.getItem('gcal_token');
         if(stored)token=stored;
-        /* Afficher l'app instantanément */
         document.getElementById('auth-overlay').style.display='none';
-        document.getElementById('app-content').style.display='block';
+        document.getElementById('app-content').classList.add('visible');
         var photo=user.photoURL||'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg';
         document.getElementById('gs').textContent='✓ '+(user.displayName||user.email||'');
         document.getElementById('gs').className='ok';
@@ -828,7 +798,8 @@ function initFirebase(){
       } else {
         fbUser=null;token=null;
         document.getElementById('auth-overlay').style.display='flex';
-        document.getElementById('app-content').style.display='none';
+        document.getElementById('app-content').classList.remove('visible');
+        document.getElementById('app-content').style.display='';
         setAuthLoading(false);
         renderAuthButtons();
       }
@@ -1199,8 +1170,11 @@ function renderWeek(){
 
   const grid=mk("div","wg");wrap.appendChild(grid);
 
+  /* Wrapper des en-têtes — recevra padding-right = largeur scrollbar pour aligner avec la grille */
+  const hdrWrap=mk("div","whr-wrap");grid.appendChild(hdrWrap);
+
   /* Headers */
-  const hr=mk("div","whr");grid.appendChild(hr);
+  const hr=mk("div","whr");hdrWrap.appendChild(hr);
   const hrSpacer=mk("div","wtl");hrSpacer.style.visibility="hidden";hrSpacer.textContent="00h";hr.appendChild(hrSpacer);
   days.forEach(day=>{
     const col=mk("div","whd");
@@ -1221,8 +1195,8 @@ function renderWeek(){
     });
   });
 
-  /* All-day */
-  const ar=mk("div","war");grid.appendChild(ar);
+  /* All-day — dans le même wrapper que les en-têtes pour alignement */
+  const ar=mk("div","war");hdrWrap.appendChild(ar);
   const al=mk("div","wal");al.textContent="Jour";ar.appendChild(al);
   days.forEach(day=>{
     const cell=mk("div","wac");cell.dataset.date=day.date;
@@ -1266,11 +1240,14 @@ function renderWeek(){
     const totalW=tr.offsetWidth;
     const colW=(totalW-labelW)/7;
 
-    /* Calculer le top réel de chaque heure via getBoundingClientRect
-       (élimine l'accumulation des gaps CSS entre les lignes) */
+    /* Compenser la scrollbar : aligner hdrWrap sur la largeur visible du scrollBox */
+    const sbW=scrollBox.offsetWidth-scrollBox.clientWidth; // largeur scrollbar
+    if(sbW>0)hdrWrap.style.paddingRight=sbW+"px";
+
+    /* Calculer le top réel de chaque heure via getBoundingClientRect */
     const wtrRect=wtrWrap.getBoundingClientRect();
     const hourTops=Array.from({length:24},(_,h)=>{
-      const s=allWsl[h*7]; // premier slot de l'heure h (7 colonnes)
+      const s=allWsl[h*7];
       return s?s.getBoundingClientRect().top-wtrRect.top:h*slotH;
     });
 
