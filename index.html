@@ -166,8 +166,8 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 /* Day */
 .day-allday{background:var(--blbg);border:1.5px solid var(--blb);border-radius:11px;padding:10px 13px;margin-bottom:10px;}
 .day-allday-t{font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
-.day-dz{border:2px dashed var(--blb);border-radius:11px;padding:10px;text-align:center;font-size:12px;font-weight:700;color:var(--tx3);margin-bottom:10px;transition:all .15s;}
-.day-dz.drag-ov{border-color:var(--or);background:var(--orbg);color:var(--or);}
+.day-dz{display:none;/* Zone de drop invisible — fonctionnalité glisser conservée via les slots horaires */}
+.day-dz.drag-ov{display:block;border:2px dashed var(--or);border-radius:11px;padding:10px;text-align:center;font-size:12px;font-weight:700;color:var(--or);margin-bottom:10px;background:var(--orbg);}
 .day-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--blb) transparent;}
 .day-scroll::-webkit-scrollbar{width:5px;}
 .day-scroll::-webkit-scrollbar-thumb{background:var(--blb);border-radius:3px;}
@@ -2121,7 +2121,21 @@ function buildTask(t){
   /* État coché : utilise _isDoneOcc si enrichi, sinon t.done */
   const isDoneNow = (t._isDoneOcc!==undefined) ? t._isDoneOcc : t.done;
   if(isDoneNow)item.classList.add("done");
-  const overdue=t.due&&t.due<today&&!isDoneNow;
+
+  /* Surbrillance overdue :
+     - date passée (avant aujourd'hui) → overdue
+     - date = aujourd'hui ET heure définie ET heure déjà passée → overdue aussi */
+  let overdue=false;
+  if(!isDoneNow){
+    if(t.due&&t.due<today){
+      overdue=true;
+    } else if(gcalEv&&!gcalEv.allDay&&gcalEv.start.includes("T")){
+      overdue=new Date(gcalEv.start)<NOW;
+    } else if(t.due&&t.due===today&&t._pendingTS){
+      const [hh,mm]=(t._pendingTS||"").split(":").map(Number);
+      if(!isNaN(hh)){const taskTime=new Date();taskTime.setHours(hh,mm||0,0,0);overdue=taskTime<NOW;}
+    }
+  }
   if(overdue)item.classList.add("overdue");
 
   const top=mk("div","ti-top");
@@ -2157,7 +2171,7 @@ function buildTask(t){
   const tags=mk("div","tgs");
   /* Échéance : toujours affichée pour les tâches locales (récurrentes ou non) */
   if(t.due&&!gcalEv){
-    const isPast=t.due<today;
+    const isPast=t.due<today||overdue;
     const overdueLbl=(overdue||isPast)?" ov":"";
     const tg=mk("div","tg tg-d"+overdueLbl);
     let dueLbl="";
