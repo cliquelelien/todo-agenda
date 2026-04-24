@@ -926,16 +926,18 @@ async function fetchGcal(){
     var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items){
-      gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null};});
+      gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null,eventType:e.eventType||null,readOnly:e.organizer&&e.organizer.self===false&&e.guestsCanModify===false};});
       /* Resynchronisation couleurs : tous les events dont on connait l etat done/undone
          Comparaison stricte en string pour eviter les faux negatifs (null vs "6" etc.)
          On envoie meme si la couleur semble correcte car GCal peut stocker null pour "couleur par defaut du calendrier" */
       if(token){
         const toSync=gcal.filter(function(e){
+          /* Exclure les events en lecture seule : anniversaires, events d autres calendriers */
+          if(e.eventType==="birthday")return false;
+          if(e.eventType==="fromGmail")return false;
           const meta=S.tasks.find(t=>t.id===e.id);
           if(!meta)return false;
           const expected=meta.done?"10":"6";
-          /* Forcer si colorId null/absent ou different de expected */
           return String(e.colorId||"")!==expected;
         });
         toSync.reduce(function(p,e){
@@ -972,6 +974,9 @@ function gcalColorId(taskId){
 /* Met a jour la couleur d un event GCal selon son etat done dans S.tasks */
 async function patchGcalColor(gcalId){
   if(!token||!gcalId)return;
+  /* Verifier que l event est dans gcal et n est pas un anniversaire */
+  const ev=gcal.find(e=>e.id===gcalId);
+  if(ev&&(ev.eventType==="birthday"||ev.eventType==="fromGmail"))return;
   const colorId=gcalColorId(gcalId);
   return calFetch('PATCH','/calendars/primary/events/'+gcalId,{colorId});
 }
