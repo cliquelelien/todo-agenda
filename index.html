@@ -926,14 +926,26 @@ async function fetchGcal(){
     var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items){
-      gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime};});
+      gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null};});
+      /* Synchroniser les couleurs GCal pour les events dont on connait l etat done */
+      if(token){
+        gcal.forEach(function(e){
+          const meta=S.tasks.find(t=>t.id===e.id);
+          if(!meta)return; /* pas de meta = etat inconnu, on ne touche pas */
+          const expected=meta.done?"9":"6";
+          if(e.colorId!==expected){
+            calFetch('PATCH','/calendars/primary/events/'+e.id,{colorId:expected}).catch(()=>{});
+          }
+        });
+      }
       /* Purger les tâches locales dont l'id existe dans GCal ET qui n'ont pas _createdHere
          Les tâches créées dans cette app (_createdHere) sont conservées même si elles sont dans GCal */
       var gcalIds=new Set(gcal.map(function(e){return e.id;}));
       var before=S.tasks.length;
       S.tasks=S.tasks.filter(function(t){
         if(t._createdHere)return true; // toujours garder les tâches créées ici
-        return !gcalIds.has(t.id)||(t.archived||t.done);
+        if(t.done||t.archived)return true; // garder les metas done/archived pour la couleur GCal
+        return !gcalIds.has(t.id);
       });
       if(S.tasks.length!==before)lsSave();
     }
@@ -944,6 +956,12 @@ async function fetchGcal(){
 function gcalColorId(taskId){
   const meta=S.tasks.find(t=>t.id===taskId);
   return (meta&&meta.done)?"9":"6";
+}
+/* Met a jour la couleur d un event GCal selon son etat done dans S.tasks */
+async function patchGcalColor(gcalId){
+  if(!token||!gcalId)return;
+  const colorId=gcalColorId(gcalId);
+  return calFetch('PATCH','/calendars/primary/events/'+gcalId,{colorId});
 }
 async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId){
   if(!token)return null;
@@ -1581,9 +1599,10 @@ function toggleEvDone(gcalId){
   meta.done=!meta.done;
   if(!meta.done)meta.archived=false;
   lsSave();renderAg();renderTasks();
-  /* Mettre a jour la couleur dans GCal : orange=a faire, bleu=fait */
+  /* Mettre a jour la couleur dans GCal : orange=a faire, bleu=fait
+     On lit gcalColorId APRES avoir mis a jour meta.done ci-dessus */
   if(token&&gcalId){
-    calFetch('PATCH','/calendars/primary/events/'+gcalId,{colorId:gcalColorId(gcalId)}).catch(()=>{});
+    patchGcalColor(gcalId).catch(e=>console.warn('GCal color update failed:',e));
   }
 }
 
