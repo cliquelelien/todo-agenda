@@ -2826,29 +2826,47 @@ document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.t
     }
   }
 
+  /* baseText et sessionStarted vivent hors de buildRecog pour survivre
+     aux redémarrages automatiques de l'engine (fréquents sur mobile/Safari) */
+  let baseText='';
+  let sessionStarted=false;
+  let lastFinalIndex=0;   /* index du dernier résultat final traité */
+
   function buildRecog(){
     const r=new SpeechRecognition();
     r.lang='fr-FR';
-    r.continuous=true;      /* Continue jusqu'au Stop explicite */
+    r.continuous=true;
     r.interimResults=true;
     r.maxAlternatives=1;
 
     const ta=document.getElementById('te-desc');
     const status=document.getElementById('mic-desc-status');
-    let baseText='';        /* Texte déjà validé avant cette session */
 
     r.onstart=()=>{
-      baseText=(ta.value||'').trimEnd();
-      if(baseText)baseText+=' ';
+      if(!sessionStarted){
+        /* Premier démarrage : on capture le texte existant une seule fois */
+        baseText=(ta.value||'').trimEnd();
+        if(baseText)baseText+=' ';
+        lastFinalIndex=0;
+        sessionStarted=true;
+      }
+      /* Les redémarrages automatiques n'écrasent plus baseText */
       status.textContent='🎙️ En écoute… parlez maintenant';
     };
 
     r.onresult=(ev)=>{
       let interim='', final='';
+      /* On part de lastFinalIndex pour ne pas retraiter les anciens résultats */
       for(let i=ev.resultIndex;i<ev.results.length;i++){
         const t=ev.results[i][0].transcript;
-        if(ev.results[i].isFinal) final+=t;
-        else interim+=t;
+        if(ev.results[i].isFinal){
+          if(i>=lastFinalIndex){
+            final+=t;
+            lastFinalIndex=i+1;
+          }
+        } else {
+          interim+=t;
+        }
       }
       if(final){
         baseText+=(final.trimStart());
@@ -2866,11 +2884,11 @@ document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.t
         'audio-capture':'🎤 Micro introuvable'
       };
       document.getElementById('mic-desc-status').textContent=msgs[ev.error]||'⚠️ '+ev.error;
-      setUI(false);
+      if(ev.error!=='no-speech') setUI(false);
     };
 
     r.onend=()=>{
-      /* Nettoyer les crochets d'intérimaire si la session se termine */
+      /* Nettoyer les crochets d'intérimaire */
       const ta2=document.getElementById('te-desc');
       if(ta2)ta2.value=ta2.value.replace(/\[.*?\]/g,'').trimEnd();
       setUI(false);
@@ -2884,6 +2902,10 @@ document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.t
       if(recog)recog.stop();
       return;
     }
+    /* Réinitialiser l'état de session à chaque nouveau clic Dicter */
+    baseText='';
+    sessionStarted=false;
+    lastFinalIndex=0;
     recog=buildRecog();
     setUI(true);
     try{recog.start();}
