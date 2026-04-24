@@ -379,22 +379,11 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <div class="card">
     <div class="ct">&#9999;&#65039; Nouvelle t&#226;che</div>
     <div class="ar">
-      <div style="display:flex;align-items:center;gap:6px;width:100%;">
-        <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100" style="flex:1;min-width:0;">
-        <button id="mic-task-btn" title="Dicter le titre" onclick="toggleTaskMic()" style="flex-shrink:0;width:38px;height:38px;border-radius:50%;border:1.5px solid var(--blb);background:var(--blbg);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;transition:all .2s;position:relative;">
-          &#127908;
-        </button>
-      </div>
+      <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
       <input type="date" id="tdat">
       <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure début (optionnel)" oninput="onTtimInput()">
       <input type="time" id="ttim-end" style="display:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure de fin">
       <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
-    </div>
-    <!-- Bandeau dictée vocale -->
-    <div id="mic-task-bar" style="display:none;align-items:center;gap:8px;margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#fff8ed,#fff3e0);border:1.5px solid var(--or);border-radius:11px;font-size:12px;font-weight:700;color:var(--or);">
-      <span style="display:inline-block;width:10px;height:10px;background:var(--or);border-radius:50%;animation:pulse-mic .8s infinite alternate;flex-shrink:0;"></span>
-      <span id="mic-task-status">&#127908; En écoute… parlez maintenant</span>
-      <button onclick="stopTaskMic()" style="margin-left:auto;background:none;border:none;font-size:16px;cursor:pointer;color:var(--or);">&#10005;</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
       <span>&#128276; Rappel par d&#233;faut :</span>
@@ -531,8 +520,18 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <input type="text" id="te-title" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:8px">
     <label>&#201;ch&#233;ance</label>
     <input type="date" id="te-due" style="margin-bottom:8px">
-    <label>Descriptif</label>
-    <textarea id="te-desc" rows="3" placeholder="Descriptif optionnel&#8230;" style="margin-bottom:8px"></textarea>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <label style="margin:0">Descriptif</label>
+      <button id="mic-desc-btn" title="Dicter le descriptif" onclick="toggleDescMic()" style="display:flex;align-items:center;gap:5px;background:var(--blbg);border:1.5px solid var(--blb);border-radius:20px;padding:4px 11px;cursor:pointer;font-size:12px;font-weight:700;color:var(--tx2);font-family:inherit;transition:all .2s;">
+        &#127908; Dicter
+      </button>
+    </div>
+    <textarea id="te-desc" rows="3" placeholder="Descriptif optionnel&#8230;" style="margin-bottom:4px"></textarea>
+    <div id="mic-desc-bar" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:7px 11px;background:linear-gradient(135deg,#fff8ed,#fff3e0);border:1.5px solid var(--or);border-radius:10px;font-size:12px;font-weight:700;color:var(--or);">
+      <span id="mic-desc-dot" style="display:inline-block;width:9px;height:9px;background:var(--or);border-radius:50%;animation:pulse-mic .8s infinite alternate;flex-shrink:0;"></span>
+      <span id="mic-desc-status">&#127908; En écoute…</span>
+      <button onclick="stopDescMic()" style="margin-left:auto;background:none;border:none;font-size:15px;cursor:pointer;color:var(--or);line-height:1;">&#10005;</button>
+    </div>
     <label>&#128276; Rappel</label>
     <select id="te-remind" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;margin-bottom:4px;">
       <option value="0">Au moment</option>
@@ -2792,96 +2791,110 @@ function saveTaskEdit(){
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 
-/* ══ DICTÉE VOCALE — TITRE DE TÂCHE ══ */
+/* ══ DICTÉE VOCALE — DESCRIPTIF (popup édition tâche) ══ */
 (function(){
   const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
   let recog=null;
   let listening=false;
 
-  /* Masquer le bouton si API non disponible */
   if(!SpeechRecognition){
-    const btn=document.getElementById('mic-task-btn');
-    if(btn)btn.style.display='none';
+    /* Masquer le bouton si API indisponible */
+    document.addEventListener('DOMContentLoaded',()=>{
+      const btn=document.getElementById('mic-desc-btn');
+      if(btn)btn.style.display='none';
+    });
     return;
+  }
+
+  function setUI(active){
+    const btn=document.getElementById('mic-desc-btn');
+    const bar=document.getElementById('mic-desc-bar');
+    if(!btn||!bar)return;
+    listening=active;
+    if(active){
+      bar.style.display='flex';
+      btn.style.background='var(--orbg)';
+      btn.style.borderColor='var(--or)';
+      btn.style.color='var(--or)';
+      btn.innerHTML='&#9632; Stop';
+    } else {
+      bar.style.display='none';
+      btn.style.background='var(--blbg)';
+      btn.style.borderColor='var(--blb)';
+      btn.style.color='var(--tx2)';
+      btn.innerHTML='&#127908; Dicter';
+    }
   }
 
   function buildRecog(){
     const r=new SpeechRecognition();
     r.lang='fr-FR';
-    r.continuous=false;
+    r.continuous=true;      /* Continue jusqu'au Stop explicite */
     r.interimResults=true;
     r.maxAlternatives=1;
 
-    const input=document.getElementById('ti');
-    const bar=document.getElementById('mic-task-bar');
-    const status=document.getElementById('mic-task-status');
-    const btn=document.getElementById('mic-task-btn');
+    const ta=document.getElementById('te-desc');
+    const status=document.getElementById('mic-desc-status');
+    let baseText='';        /* Texte déjà validé avant cette session */
 
     r.onstart=()=>{
-      listening=true;
-      bar.style.display='flex';
-      btn.classList.add('mic-active');
+      baseText=(ta.value||'').trimEnd();
+      if(baseText)baseText+=' ';
       status.textContent='🎙️ En écoute… parlez maintenant';
-      input.placeholder='En écoute…';
     };
 
     r.onresult=(ev)=>{
-      const transcript=Array.from(ev.results)
-        .map(res=>res[0].transcript).join('');
-      /* Affichage en temps réel dans le champ */
-      input.value=transcript;
-      if(ev.results[ev.results.length-1].isFinal){
-        status.textContent='✅ Dictée reçue — vérifiez et ajustez si besoin';
-      } else {
-        status.textContent='🎙️ '+transcript;
+      let interim='', final='';
+      for(let i=ev.resultIndex;i<ev.results.length;i++){
+        const t=ev.results[i][0].transcript;
+        if(ev.results[i].isFinal) final+=t;
+        else interim+=t;
       }
+      if(final){
+        baseText+=(final.trimStart());
+        if(!baseText.endsWith(' '))baseText+=' ';
+      }
+      ta.value=baseText+(interim?'['+interim+']':'');
+      status.textContent=interim?'🎙️ '+interim:'✅ Reçu — continuez ou arrêtez';
     };
 
     r.onerror=(ev)=>{
       const msgs={
-        'not-allowed':'🔒 Microphone refusé — autorisez l\'accès dans le navigateur',
-        'no-speech':'🔇 Aucune parole détectée — réessayez',
-        'network':'📶 Erreur réseau — vérifiez votre connexion',
-        'audio-capture':'🎤 Microphone introuvable'
+        'not-allowed':'🔒 Micro refusé — autorisez dans le navigateur',
+        'no-speech':'🔇 Aucune parole — réessayez',
+        'network':'📶 Erreur réseau',
+        'audio-capture':'🎤 Micro introuvable'
       };
-      status.textContent=msgs[ev.error]||'⚠️ Erreur : '+ev.error;
-      stopListening();
+      document.getElementById('mic-desc-status').textContent=msgs[ev.error]||'⚠️ '+ev.error;
+      setUI(false);
     };
 
-    r.onend=()=>{stopListening();};
+    r.onend=()=>{
+      /* Nettoyer les crochets d'intérimaire si la session se termine */
+      const ta2=document.getElementById('te-desc');
+      if(ta2)ta2.value=ta2.value.replace(/\[.*?\]/g,'').trimEnd();
+      setUI(false);
+    };
+
     return r;
   }
 
-  function stopListening(){
-    listening=false;
-    const bar=document.getElementById('mic-task-bar');
-    const btn=document.getElementById('mic-task-btn');
-    const input=document.getElementById('ti');
-    if(bar)bar.style.display='none';
-    if(btn)btn.classList.remove('mic-active');
-    if(input)input.placeholder='Titre de la tâche…';
-    /* Mettre le focus sur le champ pour que l'utilisateur puisse corriger */
-    if(input&&input.value)input.focus();
-  }
-
-  window.toggleTaskMic=function(){
+  window.toggleDescMic=function(){
     if(listening){
       if(recog)recog.stop();
-      stopListening();
       return;
     }
     recog=buildRecog();
+    setUI(true);
     try{recog.start();}
     catch(e){
-      const status=document.getElementById('mic-task-status');
-      if(status)status.textContent='⚠️ Impossible de démarrer le micro';
-      stopListening();
+      document.getElementById('mic-desc-status').textContent='⚠️ Impossible de démarrer le micro';
+      setUI(false);
     }
   };
 
-  window.stopTaskMic=function(){
+  window.stopDescMic=function(){
     if(recog)recog.stop();
-    stopListening();
   };
 })();
 </script>
