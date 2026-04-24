@@ -310,6 +310,8 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   #desktop-body{display:contents;}
 }
 
+@keyframes pulse-mic{from{opacity:1;transform:scale(1);}to{opacity:.4;transform:scale(1.3);}}
+.mic-active{background:var(--orbg)!important;border-color:var(--or)!important;animation:pulse-mic .8s infinite alternate;}
 /* ══ AUTH OVERLAY ══ */
 #auth-overlay{position:fixed;inset:0;background:var(--blbg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
 #auth-overlay.hidden{display:none;}
@@ -377,11 +379,22 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <div class="card">
     <div class="ct">&#9999;&#65039; Nouvelle t&#226;che</div>
     <div class="ar">
-      <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
+      <div style="display:flex;align-items:center;gap:6px;width:100%;">
+        <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100" style="flex:1;min-width:0;">
+        <button id="mic-task-btn" title="Dicter le titre" onclick="toggleTaskMic()" style="flex-shrink:0;width:38px;height:38px;border-radius:50%;border:1.5px solid var(--blb);background:var(--blbg);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;transition:all .2s;position:relative;">
+          &#127908;
+        </button>
+      </div>
       <input type="date" id="tdat">
       <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure début (optionnel)" oninput="onTtimInput()">
       <input type="time" id="ttim-end" style="display:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure de fin">
       <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
+    </div>
+    <!-- Bandeau dictée vocale -->
+    <div id="mic-task-bar" style="display:none;align-items:center;gap:8px;margin-top:8px;padding:8px 12px;background:linear-gradient(135deg,#fff8ed,#fff3e0);border:1.5px solid var(--or);border-radius:11px;font-size:12px;font-weight:700;color:var(--or);">
+      <span style="display:inline-block;width:10px;height:10px;background:var(--or);border-radius:50%;animation:pulse-mic .8s infinite alternate;flex-shrink:0;"></span>
+      <span id="mic-task-status">&#127908; En écoute… parlez maintenant</span>
+      <button onclick="stopTaskMic()" style="margin-left:auto;background:none;border:none;font-size:16px;cursor:pointer;color:var(--or);">&#10005;</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
       <span>&#128276; Rappel par d&#233;faut :</span>
@@ -2778,6 +2791,99 @@ function saveTaskEdit(){
   toast("✓ Tâche modifiée"+recurMsg);
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
+
+/* ══ DICTÉE VOCALE — TITRE DE TÂCHE ══ */
+(function(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  let recog=null;
+  let listening=false;
+
+  /* Masquer le bouton si API non disponible */
+  if(!SpeechRecognition){
+    const btn=document.getElementById('mic-task-btn');
+    if(btn)btn.style.display='none';
+    return;
+  }
+
+  function buildRecog(){
+    const r=new SpeechRecognition();
+    r.lang='fr-FR';
+    r.continuous=false;
+    r.interimResults=true;
+    r.maxAlternatives=1;
+
+    const input=document.getElementById('ti');
+    const bar=document.getElementById('mic-task-bar');
+    const status=document.getElementById('mic-task-status');
+    const btn=document.getElementById('mic-task-btn');
+
+    r.onstart=()=>{
+      listening=true;
+      bar.style.display='flex';
+      btn.classList.add('mic-active');
+      status.textContent='🎙️ En écoute… parlez maintenant';
+      input.placeholder='En écoute…';
+    };
+
+    r.onresult=(ev)=>{
+      const transcript=Array.from(ev.results)
+        .map(res=>res[0].transcript).join('');
+      /* Affichage en temps réel dans le champ */
+      input.value=transcript;
+      if(ev.results[ev.results.length-1].isFinal){
+        status.textContent='✅ Dictée reçue — vérifiez et ajustez si besoin';
+      } else {
+        status.textContent='🎙️ '+transcript;
+      }
+    };
+
+    r.onerror=(ev)=>{
+      const msgs={
+        'not-allowed':'🔒 Microphone refusé — autorisez l\'accès dans le navigateur',
+        'no-speech':'🔇 Aucune parole détectée — réessayez',
+        'network':'📶 Erreur réseau — vérifiez votre connexion',
+        'audio-capture':'🎤 Microphone introuvable'
+      };
+      status.textContent=msgs[ev.error]||'⚠️ Erreur : '+ev.error;
+      stopListening();
+    };
+
+    r.onend=()=>{stopListening();};
+    return r;
+  }
+
+  function stopListening(){
+    listening=false;
+    const bar=document.getElementById('mic-task-bar');
+    const btn=document.getElementById('mic-task-btn');
+    const input=document.getElementById('ti');
+    if(bar)bar.style.display='none';
+    if(btn)btn.classList.remove('mic-active');
+    if(input)input.placeholder='Titre de la tâche…';
+    /* Mettre le focus sur le champ pour que l'utilisateur puisse corriger */
+    if(input&&input.value)input.focus();
+  }
+
+  window.toggleTaskMic=function(){
+    if(listening){
+      if(recog)recog.stop();
+      stopListening();
+      return;
+    }
+    recog=buildRecog();
+    try{recog.start();}
+    catch(e){
+      const status=document.getElementById('mic-task-status');
+      if(status)status.textContent='⚠️ Impossible de démarrer le micro';
+      stopListening();
+    }
+  };
+
+  window.stopTaskMic=function(){
+    if(recog)recog.stop();
+    stopListening();
+  };
+})();
 </script>
 </div><!-- /app-content -->
 <!-- GAPI et GSI supprimés — Calendar via fetch REST direct -->
