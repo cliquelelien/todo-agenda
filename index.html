@@ -2794,17 +2794,20 @@ document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.t
 /* ══ DICTÉE VOCALE — DESCRIPTIF (popup édition tâche) ══ */
 (function(){
   const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  let recog=null;
-  let listening=false;
-
   if(!SpeechRecognition){
-    /* Masquer le bouton si API indisponible */
     document.addEventListener('DOMContentLoaded',()=>{
       const btn=document.getElementById('mic-desc-btn');
       if(btn)btn.style.display='none';
     });
     return;
   }
+
+  let recog=null;
+  let listening=false;
+  /* Texte confirmé AVANT cette session de dictée — ne change jamais en cours de session */
+  let committedText='';
+  /* Ensemble des indices de résultats finaux déjà intégrés dans committedText */
+  const seenFinals=new Set();
 
   function setUI(active){
     const btn=document.getElementById('mic-desc-btn');
@@ -2826,97 +2829,81 @@ document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.t
     }
   }
 
-  /* baseText et sessionStarted vivent hors de buildRecog pour survivre
-     aux redémarrages automatiques de l'engine (fréquents sur mobile/Safari) */
-  let baseText='';
-  let sessionStarted=false;
-  let lastFinalIndex=0;   /* index du dernier résultat final traité */
-
-  function buildRecog(){
-    const r=new SpeechRecognition();
-    r.lang='fr-FR';
-    r.continuous=true;
-    r.interimResults=true;
-    r.maxAlternatives=1;
+  function startSession(){
+    if(recog){try{recog.abort();}catch(e){} recog=null;}
 
     const ta=document.getElementById('te-desc');
     const status=document.getElementById('mic-desc-status');
 
+    /* committedText = ce qui était dans le champ AVANT de cliquer Dicter */
+    committedText=(ta?ta.value||'':'').trimEnd();
+    if(committedText)committedText+=' ';
+    seenFinals.clear();
+
+    const r=new SpeechRecognition();
+    r.lang='fr-FR';
+    /* continuous:false — une seule phrase à la fois, pas de redémarrage automatique
+       interimResults:false — uniquement les résultats finaux, aucun intermédiaire */
+    r.continuous=false;
+    r.interimResults=false;
+    r.maxAlternatives=1;
+
     r.onstart=()=>{
-      if(!sessionStarted){
-        /* Premier démarrage : on capture le texte existant une seule fois */
-        baseText=(ta.value||'').trimEnd();
-        if(baseText)baseText+=' ';
-        lastFinalIndex=0;
-        sessionStarted=true;
-      }
-      /* Les redémarrages automatiques n'écrasent plus baseText */
-      status.textContent='🎙️ En écoute… parlez maintenant';
+      if(status)status.textContent='🎙️ En écoute… parlez maintenant';
     };
 
     r.onresult=(ev)=>{
-      let interim='', final='';
-      /* On part de lastFinalIndex pour ne pas retraiter les anciens résultats */
+      /* Parcourir uniquement les nouveaux résultats */
       for(let i=ev.resultIndex;i<ev.results.length;i++){
-        const t=ev.results[i][0].transcript;
-        if(ev.results[i].isFinal){
-          if(i>=lastFinalIndex){
-            final+=t;
-            lastFinalIndex=i+1;
+        if(ev.results[i].isFinal && !seenFinals.has(i)){
+          seenFinals.add(i);
+          const t=ev.results[i][0].transcript.trim();
+          if(t){
+            committedText+=t;
+            if(!committedText.endsWith(' '))committedText+=' ';
           }
-        } else {
-          interim+=t;
         }
       }
-      if(final){
-        baseText+=(final.trimStart());
-        if(!baseText.endsWith(' '))baseText+=' ';
-      }
-      ta.value=baseText+(interim?'['+interim+']':'');
-      status.textContent=interim?'🎙️ '+interim:'✅ Reçu — continuez ou arrêtez';
+      if(ta)ta.value=committedText.trimEnd();
+      if(status)status.textContent='✅ Reçu — cliquez Dicter pour continuer';
     };
 
     r.onerror=(ev)=>{
       const msgs={
         'not-allowed':'🔒 Micro refusé — autorisez dans le navigateur',
-        'no-speech':'🔇 Aucune parole — réessayez',
+        'no-speech':'🔇 Aucune parole détectée',
         'network':'📶 Erreur réseau',
         'audio-capture':'🎤 Micro introuvable'
       };
-      document.getElementById('mic-desc-status').textContent=msgs[ev.error]||'⚠️ '+ev.error;
-      if(ev.error!=='no-speech') setUI(false);
-    };
-
-    r.onend=()=>{
-      /* Nettoyer les crochets d'intérimaire */
-      const ta2=document.getElementById('te-desc');
-      if(ta2)ta2.value=ta2.value.replace(/\[.*?\]/g,'').trimEnd();
+      if(status)status.textContent=msgs[ev.error]||'⚠️ '+ev.error;
       setUI(false);
     };
 
-    return r;
+    r.onend=()=>{
+      setUI(false);
+    };
+
+    recog=r;
+    try{r.start();}
+    catch(e){
+      if(status)status.textContent='⚠️ Impossible de démarrer le micro';
+      setUI(false);
+    }
   }
 
   window.toggleDescMic=function(){
     if(listening){
-      if(recog)recog.stop();
+      if(recog){try{recog.stop();}catch(e){}}
+      setUI(false);
       return;
     }
-    /* Réinitialiser l'état de session à chaque nouveau clic Dicter */
-    baseText='';
-    sessionStarted=false;
-    lastFinalIndex=0;
-    recog=buildRecog();
     setUI(true);
-    try{recog.start();}
-    catch(e){
-      document.getElementById('mic-desc-status').textContent='⚠️ Impossible de démarrer le micro';
-      setUI(false);
-    }
+    startSession();
   };
 
   window.stopDescMic=function(){
-    if(recog)recog.stop();
+    if(recog){try{recog.stop();}catch(e){}}
+    setUI(false);
   };
 })();
 </script>
