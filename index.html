@@ -940,7 +940,12 @@ async function fetchGcal(){
     hideSync();
   }catch(e){hideSync();}
 }
-async function createGcalEv(title,desc,date,tS,tE,remindMin){
+/* colorId GCal : 6=Tangerine (orange=a faire), 9=Blueberry (bleu=fait) */
+function gcalColorId(taskId){
+  const meta=S.tasks.find(t=>t.id===taskId);
+  return (meta&&meta.done)?"9":"6";
+}
+async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId){
   if(!token)return null;
   tS=tS||null; tE=tE||null;
   remindMin=remindMin||0;
@@ -948,20 +953,22 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin){
   var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
   var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
   var endObj=tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date};
-  return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:startObj,end:endObj});
+  var colorId=taskId?gcalColorId(taskId):"6";
+  return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId});
 }
 async function updateGcalEv(gcalId,title,desc,date,tS,tE){
   if(!token||!gcalId)return;
-  /* Traiter chaîne vide comme null */
   tS=tS||null; tE=tE||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-  await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date}});
+  var colorId=gcalColorId(gcalId);
+  await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date},colorId});
 }
 async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence){
   if(!token||!gcalId)return;
   tS=tS||null; tE=tE||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-  var body={summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date}};
+  var colorId=gcalColorId(gcalId);
+  var body={summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date},colorId};
   if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
   else{body.recurrence=[];}
   await calFetch('PATCH','/calendars/primary/events/'+gcalId,body);
@@ -1574,6 +1581,10 @@ function toggleEvDone(gcalId){
   meta.done=!meta.done;
   if(!meta.done)meta.archived=false;
   lsSave();renderAg();renderTasks();
+  /* Mettre a jour la couleur dans GCal : orange=a faire, bleu=fait */
+  if(token&&gcalId){
+    calFetch('PATCH','/calendars/primary/events/'+gcalId,{colorId:gcalColorId(gcalId)}).catch(()=>{});
+  }
 }
 
 /* ══ DRAG & DROP ══ */
@@ -1804,7 +1815,7 @@ async function planTask(tid,date,tS,tE){
   if(t.gcalId){showSync("Mise à jour…");await delGcalEv(t.gcalId);t.gcalId=null;}
   else if(existingGcal){showSync("Mise à jour…");await delGcalEv(existingGcal.id);}
   showSync("Envoi Google Agenda…");
-  const ev=await createGcalEv(t.title,t.desc,date,tS,tE,t.remind||0);
+  const ev=await createGcalEv(t.title,t.desc,date,tS,tE,t.remind||0,tid);
   hideSync();
   if(ev&&ev.id){
     const recur=t.recurrence||null;
