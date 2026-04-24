@@ -927,25 +927,15 @@ async function fetchGcal(){
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items){
       gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null};});
-      /* Synchroniser les couleurs GCal pour les events dont on connait l etat done */
-      if(token){
-        gcal.forEach(function(e){
-          const meta=S.tasks.find(t=>t.id===e.id);
-          if(!meta)return; /* pas de meta = etat inconnu, on ne touche pas */
-          const expected=meta.done?"9":"6";
-          if(e.colorId!==expected){
-            calFetch('PATCH','/calendars/primary/events/'+e.id,{colorId:expected}).catch(()=>{});
-          }
-        });
-      }
       /* Purger les tâches locales dont l'id existe dans GCal ET qui n'ont pas _createdHere
          Les tâches créées dans cette app (_createdHere) sont conservées même si elles sont dans GCal */
       var gcalIds=new Set(gcal.map(function(e){return e.id;}));
       var before=S.tasks.length;
       S.tasks=S.tasks.filter(function(t){
-        if(t._createdHere)return true; // toujours garder les tâches créées ici
-        if(t.done||t.archived)return true; // garder les metas done/archived pour la couleur GCal
-        return !gcalIds.has(t.id);
+        if(t._createdHere)return true;   // toujours garder les tâches créées ici
+        if(t.archived)return true;       // garder les archivées
+        if(gcalIds.has(t.id))return true; // garder tous les metas d events GCal connus (done ou pas)
+        return false; // purger les orphelins (events supprimés de GCal)
       });
       if(S.tasks.length!==before)lsSave();
     }
