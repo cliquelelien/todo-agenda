@@ -927,20 +927,24 @@ async function fetchGcal(){
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items){
       gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null};});
-      /* Resynchronisation couleurs : events dont la couleur GCal ne correspond pas a l etat done */
+      /* Resynchronisation couleurs : tous les events dont on connait l etat done/undone
+         Comparaison stricte en string pour eviter les faux negatifs (null vs "6" etc.)
+         On envoie meme si la couleur semble correcte car GCal peut stocker null pour "couleur par defaut du calendrier" */
       if(token){
         const toSync=gcal.filter(function(e){
           const meta=S.tasks.find(t=>t.id===e.id);
           if(!meta)return false;
           const expected=meta.done?"10":"6";
-          return e.colorId!==expected;
+          /* Forcer si colorId null/absent ou different de expected */
+          return String(e.colorId||"")!==expected;
         });
-        /* Envoi en serie avec 300ms entre chaque pour eviter le rate limit */
         toSync.reduce(function(p,e){
           return p.then(function(){
-            const expected=S.tasks.find(t=>t.id===e.id)?.done?"10":"6";
+            const meta=S.tasks.find(t=>t.id===e.id);
+            if(!meta)return;
+            const expected=meta.done?"10":"6";
             return calFetch('PATCH','/calendars/primary/events/'+e.id,{colorId:expected})
-              .then(function(){return new Promise(function(r){setTimeout(r,300);});})
+              .then(function(){return new Promise(function(r){setTimeout(r,400);});})
               .catch(function(){});
           });
         },Promise.resolve());
@@ -960,7 +964,7 @@ async function fetchGcal(){
     hideSync();
   }catch(e){hideSync();}
 }
-/* colorId GCal : 6=Tangerine (orange=a faire), 9=Blueberry (bleu=fait) */
+/* colorId GCal : 6=Tangerine (orange vif=a faire), 10=Basil (vert fonce=fait) */
 function gcalColorId(taskId){
   const meta=S.tasks.find(t=>t.id===taskId);
   return (meta&&meta.done)?"10":"6";
