@@ -1504,8 +1504,20 @@ function buildDetRow(e,forDate){
       let meta=S.tasks.find(x=>x.id===doneKey);
       if(!meta){meta={id:doneKey,title:e.title,done:false,archived:false};S.tasks.push(meta);}
       meta.done=!meta.done;
+      meta._colorSynced=null;
       lsSave();row.classList.toggle("done",meta.done);chk.classList.toggle("on",meta.done);
       renderTasks();
+      /* Si l event parent est dans GCal, patcher sa couleur */
+      if(!isLocal&&token){
+        const parentId=isVirtual?e._baseId:e.id;
+        const parentMeta=S.tasks.find(x=>x.id===parentId)||{done:meta.done};
+        const colorId=meta.done?"10":"6";
+        calFetch('PATCH','/calendars/primary/events/'+parentId,{colorId})
+          .then(()=>{
+            const pm=S.tasks.find(x=>x.id===parentId);
+            if(pm){pm._colorSynced=colorId;lsSave();}
+          }).catch(()=>{});
+      }
     } else if(isLocal){
       const t=S.tasks.find(x=>x.id===e.id);if(t){t.done=!t.done;lsSave();renderAg();renderTasks();}
     } else {
