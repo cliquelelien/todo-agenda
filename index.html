@@ -83,6 +83,22 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .ta-btn.drag-handle:active{cursor:grabbing;}
 .ta-btn.del:hover{background:#fdecea;color:var(--rd);}
 /* Remind popup */
+.shop-section{margin-top:10px;border-top:1.5px solid var(--blb);padding-top:10px;}
+.shop-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:800;color:var(--tx2);margin-bottom:0;}
+.shop-toggle input[type=checkbox]{accent-color:var(--or);width:16px;height:16px;cursor:pointer;}
+.shop-body{margin-top:10px;display:none;}
+.shop-body.open{display:block;}
+.shop-add-row{display:flex;gap:6px;margin-bottom:8px;align-items:center;}
+.shop-add-row input{flex:1;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:7px 10px;outline:none;}
+.shop-add-row button{background:var(--or);border:none;border-radius:10px;padding:7px 12px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;}
+.shop-mic-btn{background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:6px 10px;cursor:pointer;font-size:13px;font-weight:700;color:var(--tx2);font-family:inherit;}
+.shop-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:5px;}
+.shop-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--blbg);border-radius:9px;font-size:13px;font-weight:700;}
+.shop-item.bought{order:1;opacity:.55;}
+.shop-item.bought .shop-label{text-decoration:line-through;color:var(--tx2);}
+.shop-item input[type=checkbox]{accent-color:var(--or);width:15px;height:15px;cursor:pointer;flex-shrink:0;}
+.shop-label{flex:1;color:var(--tx);}
+.shop-del{background:none;border:none;cursor:pointer;color:var(--tx2);font-size:15px;padding:0 2px;line-height:1;}
 .remind-popup{position:absolute;right:0;top:36px;background:#fff;border:1.5px solid var(--blb);border-radius:12px;box-shadow:0 6px 24px rgba(26,86,160,.14);padding:6px;z-index:400;min-width:130px;display:none;}
 .remind-popup.open{display:block;}
 .remind-opt{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:700;color:var(--tx2);cursor:pointer;transition:background .12s,color .12s;white-space:nowrap;}
@@ -548,6 +564,20 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <option value="MONTHLY">Chaque mois</option>
       <option value="YEARLY">Chaque ann&#233;e</option>
     </select>
+    <div class="shop-section">
+      <label class="shop-toggle">
+        <input type="checkbox" id="te-shop-toggle" onchange="toggleShopBody()">
+        &#x1F6D2; Courses ?
+      </label>
+      <div class="shop-body" id="te-shop-body">
+        <div class="shop-add-row">
+          <input type="text" id="te-shop-input" placeholder="Ajouter un article…" onkeydown="if(event.key==='Enter')addShopItem()">
+          <button onclick="addShopItem()">+</button>
+          <button class="shop-mic-btn" id="shop-mic-btn" onclick="toggleShopMic()" title="Dicter">&#127908;</button>
+        </div>
+        <ul class="shop-list" id="te-shop-list"></ul>
+      </div>
+    </div>
     <div class="mo-btns" style="margin-top:12px">
       <button class="btn btn-gh" onclick="closeTaskEdit()">Annuler</button>
       <button class="btn btn-bl" onclick="saveTaskEdit()">&#10003; Enregistrer</button>
@@ -2838,6 +2868,11 @@ function openTaskEdit(tid){
   document.getElementById("te-desc").value=t.desc||"";
   document.getElementById("te-remind").value=String(t.remind||0);
   document.getElementById("te-recur").value=t.recurrence||"";
+  /* Shopping list */
+  const shop=t.shopping||{active:false,items:[]};
+  document.getElementById("te-shop-toggle").checked=!!shop.active;
+  document.getElementById("te-shop-body").classList.toggle("open",!!shop.active);
+  renderShopList(shop.items||[]);
   document.getElementById("task-edit-overlay").classList.add("open");
 }
 function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;}
@@ -2847,6 +2882,12 @@ function saveTaskEdit(){
   t.title=document.getElementById("te-title").value.trim()||t.title;
   t.due=document.getElementById("te-due").value||null;
   t.desc=document.getElementById("te-desc").value;
+  /* Shopping list */
+  const shopItems=Array.from(document.querySelectorAll("#te-shop-list .shop-item")).map(li=>({
+    text:li.querySelector(".shop-label").textContent,
+    bought:li.classList.contains("bought")
+  }));
+  t.shopping={active:document.getElementById("te-shop-toggle").checked,items:shopItems};
   t.remind=parseInt(document.getElementById("te-remind").value)||0;
   t.recurrence=document.getElementById("te-recur").value||null;
   lsSave();closeTaskEdit();
@@ -2866,6 +2907,90 @@ function saveTaskEdit(){
   toast("✓ Tâche modifiée"+recurMsg);
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
+
+/* ══ LISTE DE COURSES ══ */
+function toggleShopBody(){
+  const active=document.getElementById("te-shop-toggle").checked;
+  document.getElementById("te-shop-body").classList.toggle("open",active);
+}
+function renderShopList(items){
+  const ul=document.getElementById("te-shop-list");
+  if(!ul)return;
+  ul.innerHTML="";
+  /* Trier : non achetés d'abord, achetés en dernier */
+  const sorted=[...items.filter(i=>!i.bought),...items.filter(i=>i.bought)];
+  sorted.forEach(function(item,idx){
+    const li=document.createElement("li");
+    li.className="shop-item"+(item.bought?" bought":"");
+    const chk=document.createElement("input");
+    chk.type="checkbox";chk.checked=!!item.bought;
+    chk.onchange=function(){
+      item.bought=chk.checked;
+      /* Sauvegarder immédiatement dans la tâche */
+      const t=S.tasks.find(x=>x.id===_editTaskId);
+      if(t&&t.shopping){
+        const li2=chk.closest(".shop-item");
+        const label=li2.querySelector(".shop-label").textContent;
+        const found=t.shopping.items.find(i=>i.text===label);
+        if(found)found.bought=chk.checked;
+        lsSave();
+      }
+      renderShopList(getCurrentShopItems());
+    };
+    const lbl=document.createElement("span");lbl.className="shop-label";lbl.textContent=item.text;
+    const del=document.createElement("button");del.className="shop-del";del.textContent="×";
+    del.onclick=function(){
+      const t=S.tasks.find(x=>x.id===_editTaskId);
+      if(t&&t.shopping){t.shopping.items=t.shopping.items.filter(i=>i.text!==item.text);lsSave();}
+      renderShopList(getCurrentShopItems());
+    };
+    li.append(chk,lbl,del);ul.appendChild(li);
+  });
+}
+function getCurrentShopItems(){
+  return Array.from(document.querySelectorAll("#te-shop-list .shop-item")).map(li=>({
+    text:li.querySelector(".shop-label").textContent,
+    bought:li.classList.contains("bought")
+  }));
+}
+function addShopItem(text){
+  const inp=document.getElementById("te-shop-input");
+  const val=(text||inp.value).trim();
+  if(!val)return;
+  const items=getCurrentShopItems();
+  if(items.find(i=>i.text===val))return; /* pas de doublon */
+  items.push({text:val,bought:false});
+  inp.value="";
+  renderShopList(items);
+  /* Sauvegarder dans le meta de la tâche */
+  const t=S.tasks.find(x=>x.id===_editTaskId);
+  if(t){
+    if(!t.shopping)t.shopping={active:true,items:[]};
+    t.shopping.items=items;
+    lsSave();
+  }
+}
+
+/* Dictée vocale pour la liste de courses */
+(function(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return;
+  let recog=null,listening=false;
+  window.toggleShopMic=function(){
+    const btn=document.getElementById("shop-mic-btn");
+    if(listening){if(recog)recog.stop();listening=false;if(btn)btn.textContent="🎙";return;}
+    recog=new SR();recog.lang="fr-FR";recog.continuous=false;recog.interimResults=false;
+    recog.onresult=function(ev){
+      /* Chaque résultat peut contenir plusieurs articles séparés par virgule ou "et" */
+      const raw=ev.results[0][0].transcript.trim();
+      const articles=raw.split(/,|( et )/i).map(s=>s&&s.trim()).filter(s=>s&&s.toLowerCase()!=="et");
+      articles.forEach(function(a){if(a)addShopItem(a);});
+    };
+    recog.onend=function(){listening=false;if(btn)btn.textContent="🎙";};
+    recog.onerror=function(){listening=false;if(btn)btn.textContent="🎙";};
+    recog.start();listening=true;if(btn)btn.textContent="⏹";
+  };
+})();
 
 /* ══ DICTÉE VOCALE — DESCRIPTIF (popup édition tâche) ══ */
 (function(){
