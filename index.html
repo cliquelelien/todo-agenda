@@ -926,7 +926,11 @@ async function fetchGcal(){
     var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items){
-      gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null,eventType:e.eventType||null,readOnly:e.organizer&&e.organizer.self===false&&e.guestsCanModify===false};});
+      gcal=data.items.map(function(e){
+        /* organizer.self===true => calendrier principal, sinon calendrier tiers */
+        var calId=(e.organizer&&e.organizer.self===false&&e.organizer.email)?e.organizer.email:'primary';
+        return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null,eventType:e.eventType||null,calendarId:calId,readOnly:e.organizer&&e.organizer.self===false&&e.guestsCanModify===false};
+      });
       /* Resync couleurs : on patche uniquement les events dont le meta a change
          depuis la derniere sync (_colorSynced !== etat actuel done) */
       if(token){
@@ -943,7 +947,8 @@ async function fetchGcal(){
             const meta=S.tasks.find(t=>t.id===e.id);
             if(!meta)return;
             const expected=meta.done?"10":"6";
-            return calFetch('PATCH','/calendars/primary/events/'+e.id,{colorId:expected})
+            const calId2=e.calendarId||'primary';
+            return calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+e.id,{colorId:expected})
               .then(function(){
                 meta._colorSynced=expected;
                 lsSave();
@@ -977,11 +982,13 @@ function gcalColorId(taskId){
 async function patchGcalColor(gcalId){
   if(!token||!gcalId)return;
   const ev=gcal.find(e=>e.id===gcalId);
-  if(ev&&(ev.eventType==="birthday"||ev.eventType==="fromGmail"))return;
+  if(!ev)return; /* event inconnu, on ne tente rien */
+  if(ev.eventType==="birthday"||ev.eventType==="fromGmail")return;
+  if(ev.readOnly)return;
+  const calId=ev.calendarId||'primary';
   const colorId=gcalColorId(gcalId);
-  return calFetch('PATCH','/calendars/primary/events/'+gcalId,{colorId})
+  return calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalId,{colorId})
     .then(function(){
-      /* Marquer le meta comme synced pour eviter re-PATCH inutile */
       const meta=S.tasks.find(t=>t.id===gcalId);
       if(meta){meta._colorSynced=colorId;lsSave();}
     });
