@@ -927,18 +927,16 @@ async function fetchGcal(){
     var data=await calFetch('GET','/calendars/primary/events?'+params);
     if(data&&data.items){
       gcal=data.items.map(function(e){return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null,eventType:e.eventType||null,readOnly:e.organizer&&e.organizer.self===false&&e.guestsCanModify===false};});
-      /* Resynchronisation couleurs : tous les events dont on connait l etat done/undone
-         Comparaison stricte en string pour eviter les faux negatifs (null vs "6" etc.)
-         On envoie meme si la couleur semble correcte car GCal peut stocker null pour "couleur par defaut du calendrier" */
+      /* Resync couleurs : on patche uniquement les events dont le meta a change
+         depuis la derniere sync (_colorSynced !== etat actuel done) */
       if(token){
         const toSync=gcal.filter(function(e){
-          /* Exclure les events en lecture seule : anniversaires, events d autres calendriers */
-          if(e.eventType==="birthday")return false;
-          if(e.eventType==="fromGmail")return false;
+          if(e.eventType==="birthday"||e.eventType==="fromGmail")return false;
           const meta=S.tasks.find(t=>t.id===e.id);
           if(!meta)return false;
+          /* _colorSynced stocke "10" ou "6" selon le dernier PATCH envoye */
           const expected=meta.done?"10":"6";
-          return String(e.colorId||"")!==expected;
+          return meta._colorSynced!==expected;
         });
         toSync.reduce(function(p,e){
           return p.then(function(){
@@ -946,7 +944,11 @@ async function fetchGcal(){
             if(!meta)return;
             const expected=meta.done?"10":"6";
             return calFetch('PATCH','/calendars/primary/events/'+e.id,{colorId:expected})
-              .then(function(){return new Promise(function(r){setTimeout(r,400);});})
+              .then(function(){
+                meta._colorSynced=expected;
+                lsSave();
+                return new Promise(function(r){setTimeout(r,350);});
+              })
               .catch(function(){});
           });
         },Promise.resolve());
@@ -974,11 +976,15 @@ function gcalColorId(taskId){
 /* Met a jour la couleur d un event GCal selon son etat done dans S.tasks */
 async function patchGcalColor(gcalId){
   if(!token||!gcalId)return;
-  /* Verifier que l event est dans gcal et n est pas un anniversaire */
   const ev=gcal.find(e=>e.id===gcalId);
   if(ev&&(ev.eventType==="birthday"||ev.eventType==="fromGmail"))return;
   const colorId=gcalColorId(gcalId);
-  return calFetch('PATCH','/calendars/primary/events/'+gcalId,{colorId});
+  return calFetch('PATCH','/calendars/primary/events/'+gcalId,{colorId})
+    .then(function(){
+      /* Marquer le meta comme synced pour eviter re-PATCH inutile */
+      const meta=S.tasks.find(t=>t.id===gcalId);
+      if(meta){meta._colorSynced=colorId;lsSave();}
+    });
 }
 async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId){
   if(!token)return null;
@@ -1615,6 +1621,7 @@ function toggleEvDone(gcalId){
   const meta=metaOf(gcalId);
   meta.done=!meta.done;
   if(!meta.done)meta.archived=false;
+  meta._colorSynced=null; /* forcer re-sync couleur */
   lsSave();renderAg();renderTasks();
   /* Mettre a jour la couleur dans GCal : orange=a faire, bleu=fait
      On lit gcalColorId APRES avoir mis a jour meta.done ci-dessus */
