@@ -1514,29 +1514,12 @@ function buildDetRow(e,forDate){
       meta._colorSynced=null;
       lsSave();row.classList.toggle("done",meta.done);chk.classList.toggle("on",meta.done);
       renderTasks();
-      /* Si l event parent est dans GCal, patcher sa couleur via patchGcalColor
-         Pour les events multi-jours : vert seulement si TOUTES les dates sont cochees */
+      /* Patcher la couleur de l event parent GCal selon l etat de cette occurrence */
       if(!isLocal&&token){
         const parentId=isVirtual?e._baseId:e.id;
         const parentEv=gcal.find(x=>x.id===parentId);
-        if(parentEv){
-          /* Compter les jours de l event multi-jours */
-          let allDone=meta.done;
-          if(parentEv.allDay&&parentEv.start&&parentEv.end){
-            const d0=new Date(parentEv.start);
-            const d1=new Date(parentEv.end);
-            const days=[];
-            for(let d=new Date(d0);d<d1;d.setDate(d.getDate()+1)){
-              days.push(d.toISOString().slice(0,10));
-            }
-            if(days.length>1){
-              allDone=days.every(function(day){
-                const key=parentId+'__'+day;
-                return S.tasks.find(x=>x.id===key)?.done||false;
-              });
-            }
-          }
-          const colorId=allDone?"10":"6";
+        if(parentEv&&parentEv.eventType!=="birthday"&&parentEv.eventType!=="fromGmail"&&!parentEv.readOnly){
+          const colorId=meta.done?"10":"6";
           const calId=parentEv.calendarId||'primary';
           calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+parentId,{colorId})
             .then(()=>{
