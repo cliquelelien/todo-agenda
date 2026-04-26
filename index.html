@@ -968,15 +968,15 @@ async function fetchGcal(){
           if(e.eventType==="birthday"||e.eventType==="fromGmail")return false;
           const meta=S.tasks.find(t=>t.id===e.id);
           if(!meta)return false;
-          /* _colorSynced stocke "10" ou "6" selon le dernier PATCH envoye */
-          const expected=meta.done?"10":"6";
+          /* _colorSynced stocke "9" ou "6" selon le dernier PATCH envoye */
+          const expected=meta.done?"9":"6";
           return meta._colorSynced!==expected;
         });
         toSync.reduce(function(p,e){
           return p.then(function(){
             const meta=S.tasks.find(t=>t.id===e.id);
             if(!meta)return;
-            const expected=meta.done?"10":"6";
+            const expected=meta.done?"9":"6";
             const calId2=e.calendarId||'primary';
             return calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+e.id,{colorId:expected})
               .then(function(){
@@ -1003,10 +1003,10 @@ async function fetchGcal(){
     hideSync();
   }catch(e){hideSync();}
 }
-/* colorId GCal : 6=Tangerine (orange vif=a faire), 10=Basil (vert fonce=fait) */
+/* colorId GCal : 6=Tangerine (orange=a faire), 9=Blueberry (bleu=fait) */
 function gcalColorId(taskId){
   const meta=S.tasks.find(t=>t.id===taskId);
-  return (meta&&meta.done)?"10":"6";
+  return (meta&&meta.done)?"9":"6";
 }
 /* Met a jour la couleur d un event GCal selon son etat done dans S.tasks */
 async function patchGcalColor(gcalId){
@@ -1549,7 +1549,7 @@ function buildDetRow(e,forDate){
         const parentId=isVirtual?e._baseId:e.id;
         const parentEv=gcal.find(x=>x.id===parentId);
         if(parentEv&&parentEv.eventType!=="birthday"&&parentEv.eventType!=="fromGmail"&&!parentEv.readOnly){
-          const colorId=meta.done?"10":"6";
+          const colorId=meta.done?"9":"6";
           const calId=parentEv.calendarId||'primary';
           calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+parentId,{colorId})
             .then(()=>{
