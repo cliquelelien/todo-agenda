@@ -2870,9 +2870,10 @@ function openTaskEdit(tid){
   document.getElementById("te-recur").value=t.recurrence||"";
   /* Shopping list */
   const shop=t.shopping||{active:false,items:[]};
+  _shopItems=(shop.items||[]).map(i=>({text:i.text,bought:!!i.bought}));
   document.getElementById("te-shop-toggle").checked=!!shop.active;
   document.getElementById("te-shop-body").classList.toggle("open",!!shop.active);
-  renderShopList(shop.items||[]);
+  renderShopList();
   document.getElementById("task-edit-overlay").classList.add("open");
 }
 function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;}
@@ -2883,11 +2884,7 @@ function saveTaskEdit(){
   t.due=document.getElementById("te-due").value||null;
   t.desc=document.getElementById("te-desc").value;
   /* Shopping list */
-  const shopItems=Array.from(document.querySelectorAll("#te-shop-list .shop-item")).map(li=>({
-    text:li.querySelector(".shop-label").textContent,
-    bought:li.classList.contains("bought")
-  }));
-  t.shopping={active:document.getElementById("te-shop-toggle").checked,items:shopItems};
+  t.shopping={active:document.getElementById("te-shop-toggle").checked,items:_shopItems.map(i=>({text:i.text,bought:i.bought}))};
   t.remind=parseInt(document.getElementById("te-remind").value)||0;
   t.recurrence=document.getElementById("te-recur").value||null;
   lsSave();closeTaskEdit();
@@ -2909,66 +2906,61 @@ function saveTaskEdit(){
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 
 /* ══ LISTE DE COURSES ══ */
+/* Source de vérité unique : _shopItems, jamais lu depuis le DOM */
+var _shopItems=[];
+
 function toggleShopBody(){
   const active=document.getElementById("te-shop-toggle").checked;
   document.getElementById("te-shop-body").classList.toggle("open",active);
 }
+
+function _saveShop(){
+  const t=S.tasks.find(x=>x.id===_editTaskId);
+  if(t){
+    if(!t.shopping)t.shopping={active:true,items:[]};
+    t.shopping.items=_shopItems.map(i=>({text:i.text,bought:i.bought}));
+    lsSave();
+  }
+}
+
 function renderShopList(items){
+  if(items!==undefined)_shopItems=items.map(i=>({text:i.text,bought:!!i.bought}));
   const ul=document.getElementById("te-shop-list");
   if(!ul)return;
   ul.innerHTML="";
   /* Trier : non achetés d'abord, achetés en dernier */
-  const sorted=[...items.filter(i=>!i.bought),...items.filter(i=>i.bought)];
-  sorted.forEach(function(item,idx){
+  const sorted=[..._shopItems.filter(i=>!i.bought),..._shopItems.filter(i=>i.bought)];
+  sorted.forEach(function(item){
     const li=document.createElement("li");
     li.className="shop-item"+(item.bought?" bought":"");
     const chk=document.createElement("input");
     chk.type="checkbox";chk.checked=!!item.bought;
     chk.onchange=function(){
-      item.bought=chk.checked;
-      /* Sauvegarder immédiatement dans la tâche */
-      const t=S.tasks.find(x=>x.id===_editTaskId);
-      if(t&&t.shopping){
-        const li2=chk.closest(".shop-item");
-        const label=li2.querySelector(".shop-label").textContent;
-        const found=t.shopping.items.find(i=>i.text===label);
-        if(found)found.bought=chk.checked;
-        lsSave();
-      }
-      renderShopList(getCurrentShopItems());
+      const found=_shopItems.find(i=>i.text===item.text);
+      if(found)found.bought=chk.checked;
+      _saveShop();
+      renderShopList();
     };
     const lbl=document.createElement("span");lbl.className="shop-label";lbl.textContent=item.text;
     const del=document.createElement("button");del.className="shop-del";del.textContent="×";
     del.onclick=function(){
-      const t=S.tasks.find(x=>x.id===_editTaskId);
-      if(t&&t.shopping){t.shopping.items=t.shopping.items.filter(i=>i.text!==item.text);lsSave();}
-      renderShopList(getCurrentShopItems());
+      _shopItems=_shopItems.filter(i=>i.text!==item.text);
+      _saveShop();
+      renderShopList();
     };
     li.append(chk,lbl,del);ul.appendChild(li);
   });
 }
-function getCurrentShopItems(){
-  return Array.from(document.querySelectorAll("#te-shop-list .shop-item")).map(li=>({
-    text:li.querySelector(".shop-label").textContent,
-    bought:li.classList.contains("bought")
-  }));
-}
+
 function addShopItem(text){
   const inp=document.getElementById("te-shop-input");
   const val=(text||inp.value).trim();
   if(!val)return;
-  const items=getCurrentShopItems();
-  if(items.find(i=>i.text===val))return; /* pas de doublon */
-  items.push({text:val,bought:false});
-  inp.value="";
-  renderShopList(items);
-  /* Sauvegarder dans le meta de la tâche */
-  const t=S.tasks.find(x=>x.id===_editTaskId);
-  if(t){
-    if(!t.shopping)t.shopping={active:true,items:[]};
-    t.shopping.items=items;
-    lsSave();
-  }
+  if(_shopItems.find(i=>i.text===val))return; /* pas de doublon */
+  _shopItems.push({text:val,bought:false});
+  if(inp)inp.value="";
+  _saveShop();
+  renderShopList();
 }
 
 /* Dictée vocale pour la liste de courses */
