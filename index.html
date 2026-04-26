@@ -615,8 +615,29 @@ const CLIENT_ID="967524451418-ti36ivnj5ep40sa3q041alqo6ndfma9k.apps.googleuserco
 const SCOPES="https://www.googleapis.com/auth/calendar";
 const LS_KEY="planning_app_v5";
 
-function lsLoad(){try{const r=localStorage.getItem(LS_KEY);if(r)return JSON.parse(r);}catch(e){}return{tasks:[]};}
+function lsLoad(){
+  try{const r=localStorage.getItem(LS_KEY);if(r)return JSON.parse(r);}catch(e){}
+  return{tasks:[]};
+}
 function lsSave(){localStorage.setItem(LS_KEY,JSON.stringify(S));}
+
+/* Purge du cache _colorSynced si valeur obsolète (anciens colorIds "8","9","10")
+   Force une resync vers les valeurs actuelles "7" (paon=fait) et "6" (orange=à faire) */
+(function purgeObsoleteColorCache(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(!raw)return;
+    const data=JSON.parse(raw);
+    let changed=false;
+    (data.tasks||[]).forEach(t=>{
+      if(t._colorSynced&&t._colorSynced!=="7"&&t._colorSynced!=="6"){
+        t._colorSynced=null;
+        changed=true;
+      }
+    });
+    if(changed)localStorage.setItem(LS_KEY,JSON.stringify(data));
+  }catch(e){}
+})();
 
 let S=lsLoad(), gcal=[], token=null;
 let curTab="todo", view="month";
