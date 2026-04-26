@@ -2995,15 +2995,16 @@ function saveTaskEdit(){
   t.shopping={active:document.getElementById("te-shop-toggle").checked,items:_shopItems.map(i=>({text:i.text,bought:i.bought}))};
   t.remind=parseInt(document.getElementById("te-remind").value)||0;
   t.recurrence=document.getElementById("te-recur").value||null;
+  /* Lire les heures AVANT closeTaskEdit (fermeture détruirait l'accès aux champs) */
+  const _ts=document.getElementById("te-tstart").value||null;
+  const _te=document.getElementById("te-tend").value||null;
   lsSave();closeTaskEdit();
-  /* Synchroniser dans GCal si l'événement existe */
-  const gcalEv=gcal.find(e=>e.id===t.id);
+  /* Synchroniser dans GCal : chercher par t.id ET par t.gcalId */
+  const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
   if(token&&gcalEv){
     const date=t.due||(gcalEv.start.slice(0,10));
-    const ts=document.getElementById("te-tstart").value||null;
-    const te=document.getElementById("te-tend").value||null;
     showSync("Mise à jour GCal…");
-    updateGcalEvWithRecur(t.id,t.title,t.desc,date,ts,te,t.recurrence).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
+    updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
   } else {
     renderTasks();
   }
