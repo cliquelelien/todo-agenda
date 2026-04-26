@@ -2995,9 +2995,20 @@ function saveTaskEdit(){
   t.shopping={active:document.getElementById("te-shop-toggle").checked,items:_shopItems.map(i=>({text:i.text,bought:i.bought}))};
   t.remind=parseInt(document.getElementById("te-remind").value)||0;
   t.recurrence=document.getElementById("te-recur").value||null;
-  /* Lire les heures AVANT closeTaskEdit (fermeture détruirait l'accès aux champs) */
-  const _ts=document.getElementById("te-tstart").value||null;
-  const _te=document.getElementById("te-tend").value||null;
+  /* Lire les heures ET détecter le mode (journée vs avec heure) AVANT closeTaskEdit */
+  const tf=document.getElementById("te-time-fields");
+  const isTimed=tf&&tf.style.display!=="none";
+  const _ts=isTimed?(document.getElementById("te-tstart").value||null):null;
+  const _te=isTimed?(document.getElementById("te-tend").value||null):null;
+  /* Stocker les heures dans la tâche locale pour qu'elles persistent */
+  if(isTimed&&_ts){
+    t._pendingTS=_ts;
+    t._pendingTE=_te||addOneHour(_ts);
+  } else {
+    /* Bascule vers journée entière : effacer les heures stockées */
+    delete t._pendingTS;
+    delete t._pendingTE;
+  }
   lsSave();closeTaskEdit();
   /* Synchroniser dans GCal : chercher par t.id ET par t.gcalId */
   const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
@@ -3005,8 +3016,12 @@ function saveTaskEdit(){
     const date=t.due||(gcalEv.start.slice(0,10));
     showSync("Mise à jour GCal…");
     updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
+  } else if(token&&t.due&&isTimed&&_ts){
+    /* Tâche locale avec heure → planifier dans GCal */
+    planTask(t.id,t.due,_ts,_te||addOneHour(_ts));
+    return;
   } else {
-    renderTasks();
+    renderTasks();renderAg();
   }
   const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
   const recurMsg=t.recurrence?(" · "+(recLbl[t.recurrence]||"↻ Récurrent")):"";
