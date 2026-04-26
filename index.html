@@ -1674,7 +1674,7 @@ function setTeAllDay(allDay){
     const ts=document.getElementById("te-tstart");
     const te=document.getElementById("te-tend");
     if(!ts.value)ts.value="09:00";
-    if(!te.value)te.value="10:00";
+    te.value=addOneHour(ts.value);
   }
 }
 function setEvAllDay(allDay){
@@ -1698,7 +1698,7 @@ function setEvAllDay(allDay){
     const ts=document.getElementById("ev-tstart");
     const te=document.getElementById("ev-tend");
     if(!ts.value)ts.value="09:00";
-    if(!te.value)te.value="10:00";
+    te.value=addOneHour(ts.value);
   }
 }
 function closeEvModal(){document.getElementById("ev-overlay").classList.remove("open");evPending=null;}
@@ -1977,7 +1977,8 @@ async function confirmPlan(withTime){
 }
 document.getElementById("overlay").addEventListener("click",e=>{if(e.target===document.getElementById("overlay"))closeModal(false);});
 document.getElementById("mo-start").addEventListener("change",()=>{document.getElementById("mo-end").value=addOneHour(document.getElementById("mo-start").value);});
-document.getElementById("ev-tstart").addEventListener("change",()=>{const tend=document.getElementById("ev-tend");if(!tend.value)tend.value=addOneHour(document.getElementById("ev-tstart").value);});
+document.getElementById("ev-tstart").addEventListener("change",()=>{const tend=document.getElementById("ev-tend");tend.value=addOneHour(document.getElementById("ev-tstart").value);});
+document.getElementById("te-tstart").addEventListener("change",()=>{document.getElementById("te-tend").value=addOneHour(document.getElementById("te-tstart").value);});
 document.getElementById("ev-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("ev-overlay"))closeEvModal();});
 
 /* ══ PLAN TASK ══ */
@@ -2867,6 +2868,7 @@ async function parseVoiceTask(txt){
     .replace(/\b\d{1,2}\b/g,"")
     /* 9. prépositions/articles orphelins en fin ou début */
     .replace(/\s+à\s*$/gi,"").replace(/^\s*à\s+/gi,"")
+    .replace(/\s+a\s*$/gi,"").replace(/^\s*a\s+/gi,"")  /* 'a' oral = 'à' sans accent */
     .replace(/\s+le\s*$/gi,"").replace(/^\s*le\s+/gi,"")
     .replace(/\s+de\s*$/gi,"").replace(/^\s*de\s+/gi,"")
     .replace(/\s+du\s*$/gi,"").replace(/^\s*du\s+/gi,"")
@@ -2976,8 +2978,9 @@ function openTaskEdit(tid){
     tf.style.display="block";
     tb.style.cssText=tb.style.cssText.replace(/background:[^;]+;?/g,"").replace(/color:[^;]+;?/g,"").replace(/border-color:[^;]+;?/g,"")+activeStyle;
     ab.style.cssText=ab.style.cssText.replace(/background:[^;]+;?/g,"").replace(/color:[^;]+;?/g,"").replace(/border-color:[^;]+;?/g,"")+inactiveStyle;
-    document.getElementById("te-tstart").value=gcalEv?fT(gcalEv.start):"09:00";
-    document.getElementById("te-tend").value=(gcalEv&&gcalEv.end&&gcalEv.end.includes("T"))?fT(gcalEv.end):"10:00";
+    const _ts=gcalEv?fT(gcalEv.start):"09:00";
+    document.getElementById("te-tstart").value=_ts;
+    document.getElementById("te-tend").value=(gcalEv&&gcalEv.end&&gcalEv.end.includes("T"))?fT(gcalEv.end):addOneHour(_ts);
   }
   document.getElementById("task-edit-overlay").classList.add("open");
 }
