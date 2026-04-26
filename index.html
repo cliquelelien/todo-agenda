@@ -502,8 +502,14 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <div id="ev-edit-area" style="display:none">
       <label>Titre</label><input type="text" id="ev-titlefield" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:6px">
       <label>Date</label><input type="date" id="ev-date">
-      <label>Heure d&#233;but</label><input type="time" id="ev-tstart">
-      <label>Heure fin</label><input type="time" id="ev-tend">
+      <div style="display:flex;gap:6px;margin:8px 0 4px">
+        <button id="ev-allday-btn" onclick="setEvAllDay(true)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128197; Journ&#233;e</button>
+        <button id="ev-timed-btn" onclick="setEvAllDay(false)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128336; Avec heure</button>
+      </div>
+      <div id="ev-time-fields" style="display:none">
+        <label>Heure d&#233;but</label><input type="time" id="ev-tstart">
+        <label>Heure fin</label><input type="time" id="ev-tend">
+      </div>
       <label>Descriptif</label>
       <textarea id="ev-descfield" rows="3" placeholder="Descriptif optionnel&#8230;"></textarea>
       <label>&#128257; R&#233;currence</label>
@@ -645,7 +651,7 @@ let selDay=null, pending=null, touchDragId=null;
 const NOW=new Date();
 let cY=NOW.getFullYear(), cM=NOW.getMonth();
 let cDay=ds(NOW), cWeek=monday(NOW);
-let evPending=null;
+let evPending=null, _evIsAllDay=true;
 const EDGE_MS=300;
 let edgeTimer=null, edgeSide=null;
 let tEdgeTimer=null, tEdgeSide=null;
@@ -1633,11 +1639,37 @@ function openEvModal(gcalId){
   document.getElementById("ev-titlefield").value=e.title;
   document.getElementById("ev-tstart").value=e.allDay?"":(fT(e.start));
   document.getElementById("ev-tend").value=e.allDay||!e.end?"":fT(e.end);
+  /* Initialiser le toggle journée/heure selon l'état actuel de l'événement */
+  _evIsAllDay=e.allDay;
   document.getElementById("ev-descfield").value=meta?.desc||"";
   /* Récurrence — depuis méta locale ou depuis GCal (recurrenceRule) */
   const recurVal=meta?.recurrence||e._recurrence||"";
   document.getElementById("ev-recur").value=recurVal;
   document.getElementById("ev-overlay").classList.add("open");
+}
+function setEvAllDay(allDay){
+  const tf=document.getElementById("ev-time-fields");
+  const ab=document.getElementById("ev-allday-btn");
+  const tb=document.getElementById("ev-timed-btn");
+  const activeStyle="background:var(--bl);color:#fff;border-color:var(--bl)";
+  const inactiveStyle="background:var(--blbg);color:var(--tx2);border-color:var(--blb)";
+  if(allDay){
+    tf.style.display="none";
+    ab.style.cssText=ab.style.cssText.replace(/background:[^;]+;color:[^;]+;border-color:[^;]+/,"")+activeStyle;
+    tb.style.cssText=tb.style.cssText.replace(/background:[^;]+;color:[^;]+;border-color:[^;]+/,"")+inactiveStyle;
+    /* Vider les heures pour que saveEvEdit envoie allDay */
+    document.getElementById("ev-tstart").value="";
+    document.getElementById("ev-tend").value="";
+  }else{
+    tf.style.display="block";
+    tb.style.cssText=tb.style.cssText.replace(/background:[^;]+;color:[^;]+;border-color:[^;]+/,"")+activeStyle;
+    ab.style.cssText=ab.style.cssText.replace(/background:[^;]+;color:[^;]+;border-color:[^;]+/,"")+inactiveStyle;
+    /* Pré-remplir avec valeurs par défaut si vides */
+    const ts=document.getElementById("ev-tstart");
+    const te=document.getElementById("ev-tend");
+    if(!ts.value)ts.value="09:00";
+    if(!te.value)te.value="10:00";
+  }
 }
 function closeEvModal(){document.getElementById("ev-overlay").classList.remove("open");evPending=null;}
 function toggleEvEdit(){
@@ -1645,6 +1677,8 @@ function toggleEvEdit(){
   const open=area.style.display==="none";
   area.style.display=open?"block":"none";sep.style.display=open?"block":"none";saveBtn.style.display=open?"block":"none";
   editBtn.textContent=open?"✕ Annuler":"✎ Modifier";
+  /* À l'ouverture du panneau édition, initialiser le toggle journée/heure */
+  if(open) setEvAllDay(_evIsAllDay!==false);
 }
 async function saveEvEdit(){
   if(!evPending)return;
