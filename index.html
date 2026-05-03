@@ -99,7 +99,7 @@ nav{background:#fff;border-bottom:2px solid var(--blb);display:flex;position:sti
 .shop-item input[type=checkbox]{accent-color:var(--or);width:15px;height:15px;cursor:pointer;flex-shrink:0;}
 .shop-label{flex:1;color:var(--tx);}
 .shop-del{background:none;border:none;cursor:pointer;color:var(--tx2);font-size:15px;padding:0 2px;line-height:1;}
-.remind-popup{position:absolute;right:0;top:36px;background:#fff;border:1.5px solid var(--blb);border-radius:12px;box-shadow:0 6px 24px rgba(26,86,160,.14);padding:6px;z-index:400;min-width:130px;display:none;}
+.remind-popup{position:absolute;right:0;top:36px;background:#fff;border:1.5px solid var(--blb);border-radius:12px;box-shadow:0 6px 24px rgba(26,86,160,.14);padding:6px;z-index:400;min-width:150px;max-height:320px;overflow-y:auto;display:none;}
 .remind-popup.open{display:block;}
 .remind-opt{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:700;color:var(--tx2);cursor:pointer;transition:background .12s,color .12s;white-space:nowrap;}
 .remind-opt:hover{background:var(--blbg);color:var(--bl);}
@@ -410,6 +410,11 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
         <option value="15">15 min avant</option>
         <option value="30">30 min avant</option>
         <option value="60">1h avant</option>
+        <option value="120">2h avant</option>
+        <option value="360">6h avant</option>
+        <option value="1440">1 jour avant</option>
+        <option value="2880">2 jours avant</option>
+        <option value="10080">1 semaine avant</option>
       </select>
     </div>
   </div>
@@ -563,14 +568,28 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <button onclick="stopDescMic()" style="margin-left:auto;background:none;border:none;font-size:15px;cursor:pointer;color:var(--or);line-height:1;">&#10005;</button>
     </div>
     <label>&#128276; Rappel</label>
-    <select id="te-remind" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;margin-bottom:4px;">
+    <select id="te-remind" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;margin-bottom:4px;" onchange="onTeRemindChange(this)">
       <option value="0">Au moment</option>
       <option value="5">5 min avant</option>
       <option value="10">10 min avant</option>
       <option value="15">15 min avant</option>
       <option value="30">30 min avant</option>
       <option value="60">1h avant</option>
+      <option value="120">2h avant</option>
+      <option value="360">6h avant</option>
+      <option value="1440">1 jour avant</option>
+      <option value="2880">2 jours avant</option>
+      <option value="10080">1 semaine avant</option>
+      <option value="custom">Personnalisé…</option>
     </select>
+    <div id="te-remind-custom" style="display:none;align-items:center;gap:6px;margin-bottom:4px;">
+      <input type="number" id="te-remind-custom-val" min="1" max="43200" placeholder="Ex: 90" style="width:80px;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;">
+      <select id="te-remind-custom-unit" style="font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;">
+        <option value="1">minutes</option>
+        <option value="60">heures</option>
+        <option value="1440">jours</option>
+      </select>
+    </div>
     <label>&#128257; R&#233;currence</label>
     <select id="te-recur" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;margin-bottom:4px;">
       <option value="">Aucune r&#233;currence</option>
@@ -2406,23 +2425,68 @@ function buildTask(t){
   const remWrap=mk("div");remWrap.style="position:relative;";
   const remBtn=mk("button","ta-btn remind");
   const remVal=t.remind||0;
-  remBtn.title="Rappel avant la tâche";
+  function fmtRemind(m){if(!m||m===0)return"Rappel";if(m>=10080)return"Rappel: "+(m/10080|0)+"sem";if(m>=1440)return"Rappel: "+(m/1440|0)+"j";if(m>=60)return"Rappel: "+(m/60|0)+"h";return"Rappel: "+m+"min";}
+  remBtn.title=fmtRemind(remVal);
   remBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
   if(remVal>0)remBtn.classList.add("active");
   const remPop=mk("div","remind-popup");
-  const REMIND_OPTS=[["0","Au moment",""],["5","5 min avant",""],["10","10 min avant",""],["15","15 min avant",""],["30","30 min avant",""],["60","1 h avant",""]];
+  const REMIND_OPTS=[["0","Désactivé",""],["5","5 min avant",""],["15","15 min avant",""],["30","30 min avant",""],["60","1h avant",""],["120","2h avant",""],["360","6h avant",""],["1440","1 jour avant",""],["2880","2 jours avant",""],["10080","1 semaine avant",""],["custom","Personnalisé…",""]];
   REMIND_OPTS.forEach(([v,lbl])=>{
     const opt=mk("div","remind-opt"+(String(remVal)===v?" selected":""));
-    opt.innerHTML=(String(remVal)===v?'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="var(--or)" stroke-width="2" stroke-linecap="round"/></svg>':'<span style="width:12px;display:inline-block"></span>')+' '+lbl;
+    const checkSvg='<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="var(--or)" stroke-width="2" stroke-linecap="round"/></svg>';
+    const emptySpc='<span style="width:12px;display:inline-block"></span>';
+    opt.innerHTML=(String(remVal)===v?checkSvg:emptySpc)+' '+lbl;
     opt.onclick=(e)=>{
       e.stopPropagation();
-      t.remind=parseInt(v);lsSave();
+      if(v==='custom'){
+        customRow.style.display='flex';
+        customInput.focus();
+        return;
+      }
+      customRow.style.display='none';
+      t.remind=parseInt(v)||0;lsSave();
       remBtn.classList.toggle("active",t.remind>0);
-      remPop.classList.remove("open");
+      remBtn.title=fmtRemind(t.remind);
+      remPop.querySelectorAll('.remind-opt').forEach(o=>{
+        o.classList.remove('selected');
+        o.innerHTML=emptySpc+' '+o.dataset.lbl;
+      });
+      opt.classList.add('selected');
+      opt.innerHTML=checkSvg+' '+lbl;
+      setTimeout(()=>remPop.classList.remove("open"),120);
       renderTasks();
     };
+    opt.dataset.lbl=lbl;
     remPop.appendChild(opt);
   });
+  /* Ligne saisie personnalisée */
+  const customRow=mk('div');
+  customRow.style='display:none;align-items:center;gap:4px;padding:5px 8px;';
+  const customInput=mk('input');
+  customInput.type='number';customInput.min='1';customInput.max='43200';customInput.placeholder='Ex: 90';
+  customInput.style='width:58px;font-family:inherit;font-size:12px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:8px;padding:4px 6px;outline:none;';
+  customInput.onclick=e=>e.stopPropagation();
+  const customUnit=mk('select');
+  customUnit.style='font-family:inherit;font-size:12px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:8px;padding:4px 5px;outline:none;';
+  customUnit.innerHTML='<option value="1">min</option><option value="60">h</option><option value="1440">j</option>';
+  customUnit.onclick=e=>e.stopPropagation();
+  const customOk=mk('button');
+  customOk.textContent='OK';
+  customOk.style='font-family:inherit;font-size:12px;font-weight:700;background:var(--or);color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;';
+  customOk.onclick=(e)=>{
+    e.stopPropagation();
+    const mins=Math.round(parseFloat(customInput.value)||0)*parseInt(customUnit.value);
+    if(mins>0){
+      t.remind=mins;lsSave();
+      remBtn.classList.add('active');
+      remBtn.title=fmtRemind(mins);
+      renderTasks();
+    }
+    customRow.style.display='none';
+    remPop.classList.remove('open');
+  };
+  customRow.append(customInput,customUnit,customOk);
+  remPop.appendChild(customRow);
   remBtn.onclick=(e)=>{e.stopPropagation();remPop.classList.toggle("open");};
   document.addEventListener("click",()=>remPop.classList.remove("open"),{capture:false});
   remWrap.append(remBtn,remPop);
@@ -2641,7 +2705,12 @@ function scheduleNotif(task,gcalEvent){
   if(delay<-60000||delay>7*24*60*60*1000)return;
   setTimeout(()=>{
     if(Notification.permission!=="granted")return;
-    const body=remMin>0?"Dans "+remMin+" min — "+fT(start):"Maintenant — "+fT(start);
+    let remLabel;
+    if(remMin>=10080)remLabel="Dans "+(remMin/10080|0)+" semaine(s)";
+    else if(remMin>=1440)remLabel="Dans "+(remMin/1440|0)+" jour(s)";
+    else if(remMin>=60)remLabel="Dans "+(remMin/60|0)+"h";
+    else remLabel="Dans "+remMin+" min";
+    const body=remMin>0?remLabel+" — "+fT(start):"Maintenant — "+fT(start);
     const n=new Notification("📅 "+task.title,{body,tag:"task-"+task.id,requireInteraction:true});
     n.onclick=()=>{window.focus();n.close();};
   },Math.max(delay,0));
@@ -2953,7 +3022,24 @@ function openTaskEdit(tid){
   const gcalEv=gcal.find(e=>e.id===tid);
   document.getElementById("te-due").value=t.due||(gcalEv?gcalEv.start.slice(0,10):"")||"";
   document.getElementById("te-desc").value=t.desc||"";
-  document.getElementById("te-remind").value=String(t.remind||0);
+  /* Rappel : si valeur non standard, utiliser "custom" */
+  const remSel2=document.getElementById("te-remind");
+  const stdVals=["0","5","10","15","30","60","120","360","1440","2880","10080"];
+  const remVal2=String(t.remind||0);
+  const customDiv2=document.getElementById('te-remind-custom');
+  if(stdVals.includes(remVal2)){
+    remSel2.value=remVal2;
+    customDiv2.style.display='none';
+  } else if((t.remind||0)>0){
+    remSel2.value='custom';
+    customDiv2.style.display='flex';
+    /* Decompose: try hours first */
+    if(t.remind%1440===0){document.getElementById('te-remind-custom-val').value=t.remind/1440;document.getElementById('te-remind-custom-unit').value='1440';}
+    else if(t.remind%60===0){document.getElementById('te-remind-custom-val').value=t.remind/60;document.getElementById('te-remind-custom-unit').value='60';}
+    else{document.getElementById('te-remind-custom-val').value=t.remind;document.getElementById('te-remind-custom-unit').value='1';}
+  } else {
+    remSel2.value='0';customDiv2.style.display='none';
+  }
   document.getElementById("te-recur").value=t.recurrence||"";
   /* Shopping list */
   const shop=t.shopping||{active:false,items:[]};
@@ -2985,6 +3071,11 @@ function openTaskEdit(tid){
   document.getElementById("task-edit-overlay").classList.add("open");
 }
 function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;}
+function onTeRemindChange(sel){
+  const customDiv=document.getElementById('te-remind-custom');
+  if(sel.value==='custom'){customDiv.style.display='flex';document.getElementById('te-remind-custom-val').focus();}
+  else{customDiv.style.display='none';}
+}
 function saveTaskEdit(){
   if(!_editTaskId)return;
   const t=S.tasks.find(x=>x.id===_editTaskId);if(!t)return;
@@ -2993,7 +3084,15 @@ function saveTaskEdit(){
   t.desc=document.getElementById("te-desc").value;
   /* Shopping list */
   t.shopping={active:document.getElementById("te-shop-toggle").checked,items:_shopItems.map(i=>({text:i.text,bought:i.bought}))};
-  t.remind=parseInt(document.getElementById("te-remind").value)||0;
+  /* Rappel : gérer valeur personnalisée */
+  const remSel=document.getElementById("te-remind");
+  if(remSel.value==='custom'){
+    const rv=parseFloat(document.getElementById('te-remind-custom-val').value)||0;
+    const ru=parseInt(document.getElementById('te-remind-custom-unit').value)||1;
+    t.remind=Math.round(rv*ru)||0;
+  } else {
+    t.remind=parseInt(remSel.value)||0;
+  }
   t.recurrence=document.getElementById("te-recur").value||null;
   /* Lire les heures ET détecter le mode (journée vs avec heure) AVANT closeTaskEdit */
   const tf=document.getElementById("te-time-fields");
