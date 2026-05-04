@@ -498,9 +498,10 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <div class="mini-mg" id="mini-mg"></div>
     </div>
   </div>
-</div>
+</div><!-- /main-task-content -->
+</div><!-- /panel-todo -->
 
-<!-- AGENDA -->
+<!-- VUE SEMAINE -->
 <div class="panel" id="panel-week">
   <div id="sync-bar-week" class="sync" style="margin-bottom:10px;"><div class="spinner"></div><span>Chargement…</span></div>
   <div class="card" id="week-quick-card">
@@ -525,7 +526,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   </div>
   <div class="det" id="detail" style="display:none"></div>
 </div>
-</div><!-- /main-task-content --></div><!-- /desktop-body -->
+</div><!-- /desktop-body -->
 
 <!-- MODAL PLANIFIER -->
 <div class="ov" id="overlay">
@@ -960,12 +961,12 @@ function initFirebase(){
 let _searchQ='';
 function onSearchInput(q){
   _searchQ=q.trim().toLowerCase();
-  const clearBtn=document.getElementById('search-clear');
-  const resultsDiv=document.getElementById('search-results');
-  const mainContent=document.getElementById('main-task-content');
+  var clearBtn=document.getElementById('search-clear');
+  var resultsDiv=document.getElementById('search-results');
+  var mainContent=document.getElementById('main-task-content');
   if(clearBtn)clearBtn.classList.toggle('show',!!_searchQ);
   if(!_searchQ){
-    if(resultsDiv)resultsDiv.classList.remove('show');
+    if(resultsDiv){resultsDiv.classList.remove('show');resultsDiv.innerHTML='';}
     if(mainContent)mainContent.style.display='';
     return;
   }
@@ -1203,6 +1204,8 @@ function handleAuth(){
         localStorage.setItem('gcal_token',token);
         var doFetch3=function(){fetchGcal().then(function(){renderTasks();renderAg();if(curTab==='week')renderWeekQuick();updateCalendarBtn();toast('✅ Agenda rechargé !');});};
         if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doFetch3).catch(doFetch3);}else doFetch3();
+      } else {
+        toast('⚠️ Connexion réussie mais pas de token Calendar — réessayez');
       }
     }).catch(function(e){toast('❌ '+e.message);});
     return;
@@ -1251,8 +1254,12 @@ function authGoogle(){
     if(result.credential&&result.credential.accessToken){
       token=result.credential.accessToken;
       localStorage.setItem('gcal_token',token);
+      /* Lancer le fetch immédiatement avec le token frais */
+      var doFetch=function(){fetchGcal().then(function(){renderTasks();renderAg();if(curTab==='week')renderWeekQuick();updateCalendarBtn();scheduleRecapNotif();});};
+      if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doFetch).catch(doFetch);}
+      else doFetch();
     }
-    /* onAuthStateChanged prend le relais */
+    /* onAuthStateChanged prend le relais pour l'UI */
   }).catch(function(e){
     setAuthLoading(false);
     showAuthError(e.code==='auth/popup-blocked'?'Popup bloquée — autorisez les popups pour ce site.':e.message);
@@ -1322,21 +1329,19 @@ function renderCalSelector(){
 }
 
 async function fetchGcal(){
-  if(!token)return;
+  if(!token){toast('⚠️ Pas de token GCal — reconnectez-vous via votre avatar');return;}
   showSync("Chargement Agenda…");
   try{
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
     var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
-    /* Si la liste des cals n'est pas encore chargée, on fetch primary uniquement */
-    var calsToFetch;
+    /* Toujours fetcher primary, plus les autres calendriers sélectionnés */
+    var calsToFetch=['primary'];
     if(selectedCals.size>0){
-      calsToFetch=[...selectedCals];
-      if(!calsToFetch.includes('primary'))calsToFetch.unshift('primary');
-    } else {
-      calsToFetch=['primary'];
+      [...selectedCals].forEach(function(c){if(c!=='primary')calsToFetch.push(c);});
     }
     var allItems=[];
+    var fetchErrors=[];
     await Promise.all(calsToFetch.map(async function(calId){
       var data=await calFetch('GET','/calendars/'+encodeURIComponent(calId)+'/events?'+params);
       if(data&&data.items){
@@ -1344,8 +1349,15 @@ async function fetchGcal(){
           e._calId=calId;
           if(!allItems.find(function(x){return x.id===e.id;}))allItems.push(e);
         });
+      } else if(data===null){
+        fetchErrors.push(calId);
       }
     }));
+    if(fetchErrors.length>0&&allItems.length===0){
+      hideSync();
+      toast('🔒 Token expiré — cliquez sur votre avatar pour reconnecter Google');
+      return;
+    }
     var data={items:allItems};
     if(data&&data.items){
       gcal=data.items.map(function(e){
