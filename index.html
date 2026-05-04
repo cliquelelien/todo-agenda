@@ -926,14 +926,24 @@ function initFirebase(){
         document.getElementById('bg').innerHTML='<img src="'+photo+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);" alt="">';
         initApp();
         if(token){
-          fetchGcal().then(function(){
-            renderTasks();renderAg();
-            if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
-            updateCalendarBtn();scheduleRecapNotif();
-            if(!_calListLoaded){_calListLoaded=true;fetchCalendarList();}
-          });
+          /* Charger d'abord la liste des calendriers, puis fetcher tous les events */
+          var doFetch=function(){
+            fetchGcal().then(function(){
+              renderTasks();renderAg();
+              if(curTab==='week')renderWeekQuick();
+              if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
+              updateCalendarBtn();scheduleRecapNotif();
+            });
+          };
+          if(!_calListLoaded){
+            _calListLoaded=true;
+            fetchCalendarList().then(doFetch).catch(doFetch);
+          } else {
+            doFetch();
+          }
         } else {
           updateCalendarBtn();
+          toast('⚠️ Connectez-vous à Google Calendar via ⚙️ pour voir vos événements');
         }
       } else {
         fbUser=null;token=null;
@@ -1191,7 +1201,8 @@ function handleAuth(){
       if(result.credential&&result.credential.accessToken){
         token=result.credential.accessToken;
         localStorage.setItem('gcal_token',token);
-        fetchGcal().then(function(){renderTasks();renderAg();updateCalendarBtn();toast('✅ Agenda rechargé !');if(!_calListLoaded){_calListLoaded=true;fetchCalendarList();}});
+        var doFetch3=function(){fetchGcal().then(function(){renderTasks();renderAg();if(curTab==='week')renderWeekQuick();updateCalendarBtn();toast('✅ Agenda rechargé !');});};
+        if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doFetch3).catch(doFetch3);}else doFetch3();
       }
     }).catch(function(e){toast('❌ '+e.message);});
     return;
@@ -1215,7 +1226,8 @@ function connectCalendar(){
     if(result.credential&&result.credential.accessToken){
       token=result.credential.accessToken;
       localStorage.setItem('gcal_token',token);
-      fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();updateCalendarBtn();toast('✅ Agenda connecté !');if(!_calListLoaded){_calListLoaded=true;fetchCalendarList();}});
+      var doFetch2=function(){fetchGcal().then(function(){renderTasks();renderAg();if(curTab==='week')renderWeekQuick();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();updateCalendarBtn();toast('✅ Agenda connecté !');});};
+      if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doFetch2).catch(doFetch2);}else doFetch2();
     }
   }).catch(function(e){toast('❌ '+e.message);});
 }
@@ -1281,10 +1293,12 @@ async function fetchCalendarList(){
   var data=await calFetch('GET','/users/me/calendarList?maxResults=50');
   if(!data||!data.items)return;
   allCalendars=data.items.map(function(c){return{id:c.id,title:c.summary||c.id,color:c.backgroundColor||'#2a7de1',primary:!!c.primary};});
+  var wasEmpty=selectedCals.size===0;
   /* Si aucune sélection stockée, tout sélectionner */
-  if(selectedCals.size===0){allCalendars.forEach(function(c){selectedCals.add(c.id);});}
+  if(wasEmpty){allCalendars.forEach(function(c){selectedCals.add(c.id);});}
   localStorage.setItem('pfy_sel_cals',JSON.stringify([...selectedCals]));
   renderCalSelector();
+  /* Le re-fetch est géré par l'appelant (initFirebase) */
 }
 
 function renderCalSelector(){
@@ -1314,17 +1328,20 @@ async function fetchGcal(){
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
     var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
-    /* Fetch calendriers sélectionnés en parallèle */
-    var calsToFetch=(selectedCals.size>0)?[...selectedCals]:['primary'];
-    /* Toujours inclure primary */
-    if(!calsToFetch.includes('primary'))calsToFetch.unshift('primary');
+    /* Si la liste des cals n'est pas encore chargée, on fetch primary uniquement */
+    var calsToFetch;
+    if(selectedCals.size>0){
+      calsToFetch=[...selectedCals];
+      if(!calsToFetch.includes('primary'))calsToFetch.unshift('primary');
+    } else {
+      calsToFetch=['primary'];
+    }
     var allItems=[];
     await Promise.all(calsToFetch.map(async function(calId){
       var data=await calFetch('GET','/calendars/'+encodeURIComponent(calId)+'/events?'+params);
       if(data&&data.items){
         data.items.forEach(function(e){
           e._calId=calId;
-          /* Éviter les doublons sur l'id */
           if(!allItems.find(function(x){return x.id===e.id;}))allItems.push(e);
         });
       }
@@ -1440,8 +1457,20 @@ function goTab(t,skipRender){
   document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active");});
   var panel=document.getElementById("panel-"+t);
   if(panel)panel.classList.add("active");
-  if(t==="agenda"&&!skipRender){renderAg();if(token)fetchGcal().then(function(){renderAg();});}
-  if(t==="week"&&!skipRender){renderWeekQuick();}
+  if(t==="agenda"&&!skipRender){
+    renderAg();
+    if(token){
+      var doAg=function(){fetchGcal().then(function(){renderAg();});};
+      if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doAg).catch(doAg);}else doAg();
+    }
+  }
+  if(t==="week"&&!skipRender){
+    if(gcal.length===0&&token){
+      fetchGcal().then(function(){renderWeekQuick();});
+    } else {
+      renderWeekQuick();
+    }
+  }
   /* Close settings if open */
   var sp=document.getElementById('settings-panel');if(sp&&sp.style.display!=='none')sp.style.display='none';
 }
