@@ -25,21 +25,12 @@
   --card-bg:#fff;--body-bg:var(--blbg);--nav-bg:#fff;--input-bg:var(--blbg);
   --modal-bg:#fff;--overlay-bg:rgba(15,30,60,.50);
 }
-body.dark{
-  --bl:#5b9cf6;--bld:#90bfff;--blbg:#141c2e;--bll:#1a2744;--blb:#253659;
-  --or:#f5a623;--orbg:#2a1f00;
-  --gr:#3dba5f;--grbg:#0f2518;--grb:#3dba5f;
-  --rd:#ff6b6b;--tx:#e2eaf8;--tx2:#8aaac8;--tx3:#4a6080;
-  --sh:0 2px 12px rgba(0,0,0,.40);
-  --card-bg:#1c2740;--body-bg:#111827;--nav-bg:#1c2740;--input-bg:#0f1a2e;
-  --modal-bg:#1c2740;--overlay-bg:rgba(0,0,0,.70);
-}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Nunito',sans-serif;background:var(--body-bg);color:var(--tx);min-height:100vh;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}
-header{background:linear-gradient(135deg,#1a56a0,#2a7de1);height:56px;display:flex;align-items:center;padding:0 16px;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,.20);position:sticky;top:0;z-index:200;}
-header h1{flex:1;font-size:17px;font-weight:800;color:#fff;}
-#gs{font-size:11px;font-weight:700;color:rgba(255,255,255,.65);white-space:nowrap;}#gs.ok{color:#a8f5c8;}
-#bg{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 12px;font-family:inherit;font-weight:800;font-size:11px;color:#fff;cursor:pointer;white-space:nowrap;transition:background .15s;}
+header{background:linear-gradient(135deg,#1a56a0,#2a7de1);height:56px;display:flex;align-items:center;padding:0 12px;gap:8px;box-shadow:0 2px 12px rgba(0,0,0,.20);position:sticky;top:0;z-index:200;overflow:hidden;}
+header h1{flex:1;min-width:0;font-size:17px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#gs{font-size:11px;font-weight:700;color:rgba(255,255,255,.65);white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;}#gs.ok{color:#a8f5c8;}
+#bg{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 10px;font-family:inherit;font-weight:800;font-size:11px;color:#fff;cursor:pointer;white-space:nowrap;transition:background .15s;flex-shrink:0;}
 #bg:hover{background:rgba(255,255,255,.25);}
 #bg img{width:14px;height:14px;}
 nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;position:sticky;top:56px;z-index:199;box-shadow:0 1px 4px rgba(26,86,160,.06);}
@@ -113,7 +104,6 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .remind-popup{position:absolute;right:0;top:36px;background:var(--card-bg);border:1.5px solid var(--blb);border-radius:12px;box-shadow:0 6px 24px rgba(26,86,160,.14);padding:6px;z-index:400;min-width:150px;max-height:320px;overflow-y:auto;display:none;}
 .remind-popup.open{display:block;}
 .remind-opt{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:700;color:var(--tx2);cursor:pointer;transition:background .12s,color .12s;white-space:nowrap;}
-body.dark .remind-opt{color:var(--tx2);}
 .remind-opt:hover{background:var(--blbg);color:var(--bl);}
 .remind-opt.selected{background:var(--orbg);color:var(--or);}
 .ti-top{position:relative;}
@@ -379,12 +369,6 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .sr-meta{font-size:11px;font-weight:700;color:var(--tx3);margin-top:3px;}
 .sr-empty{text-align:center;font-size:13px;font-weight:700;color:var(--tx3);padding:24px 0;}
 
-body.dark input[type=date],body.dark input[type=time]{color-scheme:dark;}
-body.dark .mo{border:1.5px solid var(--blb);}
-body.dark .auth-card{background:var(--card-bg);border:1.5px solid var(--blb);}
-
-body.dark #search-bar{background:var(--input-bg);}
-
 #panel-week{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 </style>
 </head>
@@ -414,9 +398,8 @@ body.dark #search-bar{background:var(--input-bg);}
   <span style="font-size:20px">&#128203;</span>
   <h1>Planify</h1>
   <span id="gs">Non connect&#233;</span>
-  <button id="mic-btn" title="Maintenir pour dicter" style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 13px;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;user-select:none;-webkit-user-select:none;" aria-label="Microphone">&#127908; <span style="font-size:11px">Dicter</span></button>
-  <button id="dark-toggle-btn" onclick="toggleDark()" title="Mode sombre/clair" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 10px;color:#fff;font-size:16px;cursor:pointer;transition:background .15s;" aria-label="Thème">🌙</button>
-  <button id="settings-btn" onclick="toggleSettings()" title="Paramètres" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 10px;color:#fff;font-size:16px;cursor:pointer;transition:background .15s;" aria-label="Paramètres">⚙️</button>
+  <button id="mic-btn" title="Dicter" style="display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 10px;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;user-select:none;-webkit-user-select:none;flex-shrink:0;" aria-label="Microphone">&#127908;</button>
+  <button id="settings-btn" onclick="toggleSettings()" title="Paramètres" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 10px;color:#fff;font-size:16px;cursor:pointer;transition:background .15s;flex-shrink:0;" aria-label="Paramètres">⚙️</button>
   <button id="bg" onclick="handleAuth()">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
     Connexion Google
@@ -426,13 +409,7 @@ body.dark #search-bar{background:var(--input-bg);}
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <span style="font-size:14px;font-weight:800;color:var(--bld);">⚙️ Paramètres</span>
     <button onclick="toggleSettings()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--tx3);">✕</button>
-  </div>
-  <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Apparence</div>
-  <label style="display:flex;align-items:center;gap:9px;padding:8px 0;cursor:pointer;font-size:13px;font-weight:700;color:var(--tx);">
-    <input type="checkbox" id="dark-checkbox" onchange="toggleDark()" style="width:16px;height:16px;accent-color:var(--bl);">
-    🌙 Mode sombre
-  </label>
-  <hr style="border:none;border-top:1px solid var(--blb);margin:12px 0;">
+  </div><hr style="border:none;border-top:1px solid var(--blb);margin:12px 0;">
   <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Calendriers Google</div>
   <div id="cal-selector-wrap" style="margin-bottom:8px;"></div>
   <button onclick="fetchCalendarList().then(renderCalSelector)" style="font-family:inherit;font-size:12px;font-weight:700;background:var(--blbg);border:1.5px solid var(--blb);border-radius:9px;padding:6px 12px;cursor:pointer;color:var(--bl);">🔄 Actualiser la liste</button>
@@ -927,48 +904,39 @@ function initFirebase(){
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
     fbAuth=firebase.auth();
+
+    /* Récupérer un éventuel token GCal issu d'un redirect précédent */
+    fbAuth.getRedirectResult().then(function(result){
+      if(result&&result.credential&&result.credential.accessToken){
+        token=result.credential.accessToken;
+        localStorage.setItem('gcal_token',token);
+      }
+    }).catch(function(){});
+
     fbAuth.onAuthStateChanged(function(user){
       if(user){
         fbUser=user;
         localStorage.setItem('pfy_ever_logged','1');
-        var stored=localStorage.getItem('gcal_token');
-        if(stored)token=stored;
+        if(!token){var stored=localStorage.getItem('gcal_token');if(stored)token=stored;}
         document.getElementById('auth-overlay').style.display='none';
         document.getElementById('app-content').classList.add('visible');
         var photo=user.photoURL||'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg';
-        document.getElementById('gs').textContent='✓ '+(user.displayName||user.email||'');
+        document.getElementById('gs').textContent='✓ '+(user.displayName||user.email||'').split(' ')[0];
         document.getElementById('gs').className='ok';
-        document.getElementById('bg').innerHTML='<img src="'+photo+'" style="width:22px;height:22px;border-radius:50%;object-fit:cover" alt="">';
+        document.getElementById('bg').innerHTML='<img src="'+photo+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);" alt="">';
         initApp();
-        /* Charger Calendar : d'abord récupérer résultat du redirect OAuth */
-        fbAuth.getRedirectResult().then(function(result){
-          if(result&&result.credential&&result.credential.accessToken){
-            token=result.credential.accessToken;
-            localStorage.setItem('gcal_token',token);
-            sessionStorage.removeItem('pfy_auto_tried');
-          }
-          if(token){
-            fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();updateCalendarBtn();scheduleRecapNotif();
+        if(token){
+          fetchGcal().then(function(){
+            renderTasks();renderAg();
+            if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
+            updateCalendarBtn();scheduleRecapNotif();
             if(!_calListLoaded){_calListLoaded=true;fetchCalendarList();}
           });
-          } else {
-            updateCalendarBtn();
-          }
-        }).catch(function(err){
-          if(token){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();updateCalendarBtn();scheduleRecapNotif();if(!_calListLoaded){_calListLoaded=true;fetchCalendarList();}});}
-          else updateCalendarBtn();
-        });
+        } else {
+          updateCalendarBtn();
+        }
       } else {
         fbUser=null;token=null;
-        var autoTried=sessionStorage.getItem('pfy_auto_tried');
-        var everLogged=localStorage.getItem('pfy_ever_logged');
-        if(everLogged&&!autoTried){
-          sessionStorage.setItem('pfy_auto_tried','1');
-          var prov=new firebase.auth.GoogleAuthProvider();
-          prov.addScope('https://www.googleapis.com/auth/calendar');
-          fbAuth.signInWithRedirect(prov);
-          return;
-        }
         document.getElementById('auth-overlay').style.display='flex';
         document.getElementById('app-content').classList.remove('visible');
         document.getElementById('app-content').style.display='';
@@ -1041,21 +1009,7 @@ function renderSearchResults(q,container){
 }
 
 /* ══ MODE SOMBRE ══ */
-(function(){
-  var dm=localStorage.getItem('pfy_dark')==='1';
-  if(dm)document.body.classList.add('dark');
-})();
-function toggleDark(){
-  var on=document.body.classList.toggle('dark');
-  localStorage.setItem('pfy_dark',on?'1':'0');
-  renderDarkBtn();
-}
-function renderDarkBtn(){
-  var btn=document.getElementById('dark-toggle-btn');
-  if(btn)btn.textContent=document.body.classList.contains('dark')?'☀️':'🌙';
-  var cb=document.getElementById('dark-checkbox');
-  if(cb)cb.checked=document.body.classList.contains('dark');
-}
+function renderDarkBtn(){/* dark mode removed */}
 function toggleSettings(){
   var p=document.getElementById('settings-panel');
   if(!p)return;
@@ -1229,17 +1183,21 @@ function updateCalendarBtn(){
 
 function handleAuth(){
   if(!fbUser){authGoogle();return;}
-  /* Token GCal expiré → reconnecter */
+  /* Token GCal expiré → reconnecter via popup */
   if(!token){
-    localStorage.setItem('pfy_ever_logged','1');
-    sessionStorage.removeItem('pfy_auto_tried');
     var provider=new firebase.auth.GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/calendar');
-    fbAuth.signInWithRedirect(provider);
+    fbAuth.signInWithPopup(provider).then(function(result){
+      if(result.credential&&result.credential.accessToken){
+        token=result.credential.accessToken;
+        localStorage.setItem('gcal_token',token);
+        fetchGcal().then(function(){renderTasks();renderAg();updateCalendarBtn();toast('✅ Agenda rechargé !');if(!_calListLoaded){_calListLoaded=true;fetchCalendarList();}});
+      }
+    }).catch(function(e){toast('❌ '+e.message);});
     return;
   }
-  /* Session active → proposer déconnexion */
-  if(confirm('Se déconnecter ?')){localStorage.removeItem('gcal_token');localStorage.removeItem('pfy_ever_logged');token=null;fbAuth.signOut();}
+  /* Session active → menu */
+  if(confirm('Se déconnecter ?')){localStorage.removeItem('gcal_token');token=null;fbAuth.signOut();}
 }
 
 function doLogout(){
@@ -1251,11 +1209,15 @@ function doLogout(){
 
 function connectCalendar(){
   if(!fbAuth){toast('⏳ Chargement…');return;}
-  localStorage.setItem('pfy_ever_logged','1');
-  sessionStorage.removeItem('pfy_auto_tried');
   var provider=new firebase.auth.GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/calendar');
-  fbAuth.signInWithRedirect(provider);
+  fbAuth.signInWithPopup(provider).then(function(result){
+    if(result.credential&&result.credential.accessToken){
+      token=result.credential.accessToken;
+      localStorage.setItem('gcal_token',token);
+      fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();updateCalendarBtn();toast('✅ Agenda connecté !');if(!_calListLoaded){_calListLoaded=true;fetchCalendarList();}});
+    }
+  }).catch(function(e){toast('❌ '+e.message);});
 }
 
 function renderAuthButtons(){
@@ -1270,11 +1232,19 @@ function setAuthLoading(on){var lo=document.getElementById('auth-loading');var f
 function authGoogle(){
   if(!fbAuth){showAuthError('Chargement… réessayez.');return;}
   showAuthError('');setAuthLoading(true);
-  localStorage.setItem('pfy_ever_logged','1');
-  sessionStorage.removeItem('pfy_auto_tried');
   var provider=new firebase.auth.GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/calendar');
-  fbAuth.signInWithRedirect(provider);
+  fbAuth.signInWithPopup(provider).then(function(result){
+    localStorage.setItem('pfy_ever_logged','1');
+    if(result.credential&&result.credential.accessToken){
+      token=result.credential.accessToken;
+      localStorage.setItem('gcal_token',token);
+    }
+    /* onAuthStateChanged prend le relais */
+  }).catch(function(e){
+    setAuthLoading(false);
+    showAuthError(e.code==='auth/popup-blocked'?'Popup bloquée — autorisez les popups pour ce site.':e.message);
+  });
 }
 
 function authEmail(){
@@ -3403,8 +3373,6 @@ async function parseVoiceTask(txt){
   toast(msg);
   if(curTab!=="todo")goTab("todo");
 }
-
-
 
 /* ══ ÉDITION TÂCHE LOCALE ══ */
 let _editTaskId=null;
