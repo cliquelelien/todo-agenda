@@ -370,6 +370,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .sr-empty{text-align:center;font-size:13px;font-weight:700;color:var(--tx3);padding:24px 0;}
 
 #panel-week{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#week-quick-card{transition:outline .1s,box-shadow .1s;}
 </style>
 </head>
 <body>
@@ -1100,8 +1101,11 @@ function renderWeekQuick(){
   for(var i=0;i<7;i++){var d=new Date(ws);d.setDate(d.getDate()+i);days.push(ds(d));}
 
   /* Tâches sans date (journalières) — affichées une seule fois en tête */
+  /* Une tâche est "sans date" uniquement si elle n'a ni due ni plannedDate non-vides */
   var noDateTasks=S.tasks.filter(function(t){
-    return !t.archived&&!t.done&&!t.due&&!t.plannedDate&&t._createdHere!==false;
+    var hasDue=t.due&&t.due.trim()!=='';
+    var hasPlanned=t.plannedDate&&t.plannedDate.trim()!=='';
+    return !t.archived&&!t.done&&!hasDue&&!hasPlanned&&t._createdHere!==false;
   });
   if(noDateTasks.length){
     var hdr=document.createElement('div');
@@ -3063,10 +3067,24 @@ document.addEventListener("dragend",()=>{clearTimeout(viewHoverTimer);viewHoverT
   if(!panel)return;
   var tX=null,tY=null,locked=null,liveSide=null;
   var SWIPE_MIN=40;
-  var FLASH_MS=350;
+  var FLASH_MS=400;
 
   function navWeekPrev(){cWeek=monday(new Date(new Date(cWeek).getTime()-7*86400000));renderWeekQuick();}
   function navWeekNext(){cWeek=monday(new Date(new Date(cWeek).getTime()+7*86400000));renderWeekQuick();}
+
+  /* Liseret orange sur TOUTE la bordure du cadran Semaine */
+  function showWeekCardEdge(){
+    var card=document.getElementById("week-quick-card");
+    if(!card)return;
+    card.style.outline="3px solid var(--or)";
+    card.style.boxShadow="0 0 0 4px rgba(245,166,35,.18), var(--sh)";
+  }
+  function hideWeekCardEdge(){
+    var card=document.getElementById("week-quick-card");
+    if(!card)return;
+    card.style.outline="";
+    card.style.boxShadow="";
+  }
 
   panel.addEventListener("touchstart",function(e){
     if(e.touches.length!==1){tX=null;return;}
@@ -3086,10 +3104,7 @@ document.addEventListener("dragend",()=>{clearTimeout(viewHoverTimer);viewHoverT
       var side=dx<0?"right":"left";
       if(side!==liveSide){
         liveSide=side;
-        var body=document.getElementById("week-quick-body");
-        if(body){
-          if(typeof showEdge==="function")showEdge(side);
-        }
+        showWeekCardEdge();
       }
     }
   },{passive:false});
@@ -3098,12 +3113,11 @@ document.addEventListener("dragend",()=>{clearTimeout(viewHoverTimer);viewHoverT
     if(tX===null)return;
     var dx=e.changedTouches[0].clientX-tX;
     tX=null;
-    if(locked!=="h"||Math.abs(dx)<SWIPE_MIN){if(typeof hideEdges==="function")hideEdges();locked=null;liveSide=null;return;}
-    var side=dx<0?"right":"left";
-    if(typeof showEdge==="function")showEdge(side);
+    if(locked!=="h"||Math.abs(dx)<SWIPE_MIN){hideWeekCardEdge();locked=null;liveSide=null;return;}
     locked=null;liveSide=null;
+    showWeekCardEdge();
     if(dx<0)navWeekNext();else navWeekPrev();
-    setTimeout(function(){if(typeof hideEdges==="function")hideEdges();},FLASH_MS);
+    setTimeout(hideWeekCardEdge,FLASH_MS);
   },{passive:true});
 })();
 
