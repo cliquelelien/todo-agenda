@@ -503,9 +503,11 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 
 <!-- VUE SEMAINE -->
 <div class="panel" id="panel-week">
-  <div id="sync-bar-week" class="sync" style="margin-bottom:10px;"><div class="spinner"></div><span>Chargement…</span></div>
   <div class="card" id="week-quick-card">
-    <div class="ct" id="week-quick-title">&#128198; Semaine en cours</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div class="ct" id="week-quick-title" style="margin:0;">&#128198; Semaine en cours</div>
+      <button onclick="jumpWeekToday()" style="font-family:inherit;font-size:11px;font-weight:800;background:var(--bl);color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;">Auj.</button>
+    </div>
     <div id="week-quick-body" style="font-size:13px;font-weight:700;color:var(--tx3);text-align:center;padding:12px 0;">Chargement…</div>
   </div>
 </div>
@@ -1090,13 +1092,29 @@ function renderWeekQuick(){
   var titleEl=document.getElementById('week-quick-title');
   if(!body)return;
   var ws=new Date(cWeek);
-  var we=new Date(ws);we.setDate(we.getDate()+6);
   var fmt=function(d){return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});};
+  var we=new Date(ws);we.setDate(we.getDate()+6);
   if(titleEl)titleEl.textContent='📅 Semaine du '+fmt(ws)+' au '+fmt(we);
   body.innerHTML='';
   var days=[];
   for(var i=0;i<7;i++){var d=new Date(ws);d.setDate(d.getDate()+i);days.push(ds(d));}
+
+  /* Tâches sans date (journalières) — affichées une seule fois en tête */
+  var noDateTasks=S.tasks.filter(function(t){
+    return !t.archived&&!t.done&&!t.due&&!t.plannedDate&&t._createdHere!==false;
+  });
+  if(noDateTasks.length){
+    var hdr=document.createElement('div');
+    hdr.style.cssText='font-size:11px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;padding:0 0 6px;';
+    hdr.textContent='📋 Tâches sans date';
+    body.appendChild(hdr);
+    noDateTasks.forEach(function(t){body.appendChild(makeWeekRow(t,false,null));});
+    var sep=document.createElement('div');sep.style.cssText='border-top:1px solid var(--blb);margin:10px 0;';
+    body.appendChild(sep);
+  }
+
   var hasAny=false;
+  var today=ds(new Date());
   days.forEach(function(date){
     var dayTasks=S.tasks.filter(function(t){return !t.archived&&(t.due===date||t.plannedDate===date);});
     var dayGcal=gcal.filter(function(e){return (e.start||'').startsWith(date)&&!e.allDay&&!S.tasks.find(function(t){return t.id===e.id;});});
@@ -1105,32 +1123,15 @@ function renderWeekQuick(){
     var d2=new Date(date+'T00:00:00');
     var dayLbl=d2.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'});
     dayLbl=dayLbl.charAt(0).toUpperCase()+dayLbl.slice(1);
-    var today=ds(new Date());
     var isToday=date===today;
     var hdr=document.createElement('div');
-    hdr.style.cssText='font-size:11px;font-weight:800;color:'+(isToday?'var(--bl)':'var(--tx3)')+';text-transform:uppercase;letter-spacing:.06em;padding:'+(hasAny?'12px':'6px')+' 0 4px;';
+    hdr.style.cssText='font-size:11px;font-weight:800;color:'+(isToday?'var(--bl)':'var(--tx3)')+';text-transform:uppercase;letter-spacing:.06em;padding:12px 0 5px;';
     hdr.textContent=(isToday?'✦ ':'')+dayLbl;
     body.appendChild(hdr);
-    dayTasks.forEach(function(t){
-      var row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:9px;padding:7px 10px;background:var(--card-bg);border:1.5px solid var(--blb);border-radius:10px;margin-bottom:5px;cursor:pointer;transition:border-color .15s;';
-      row.onmouseenter=function(){row.style.borderColor='var(--bl)';};
-      row.onmouseleave=function(){row.style.borderColor='var(--blb)';};
-      var dot=document.createElement('span');
-      dot.style.cssText='width:9px;height:9px;border-radius:50%;background:'+(t.done?'var(--bl)':'var(--or)')+';flex-shrink:0;';
-      var lbl=document.createElement('span');
-      lbl.style.cssText='font-size:13px;font-weight:700;color:var(--tx);flex:1;'+(t.done?'text-decoration:line-through;color:var(--tx3);':'');
-      lbl.textContent=t.title||'(sans titre)';
-      if(t._pendingTS){var ts=document.createElement('span');ts.style.cssText='font-size:11px;font-weight:700;color:var(--tx3);';ts.textContent=t._pendingTS.slice(0,5);row.append(dot,lbl,ts);}
-      else row.append(dot,lbl);
-      row.onclick=function(){openTaskEdit(t.id);};
-      body.appendChild(row);
-    });
+    dayTasks.forEach(function(t){body.appendChild(makeWeekRow(t,true,date));});
     dayGcal.forEach(function(e){
       var row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:9px;padding:7px 10px;background:var(--card-bg);border:1.5px solid var(--blb);border-radius:10px;margin-bottom:5px;cursor:pointer;transition:border-color .15s;';
-      row.onmouseenter=function(){row.style.borderColor='var(--gr)';};
-      row.onmouseleave=function(){row.style.borderColor='var(--blb)';};
+      row.style.cssText='display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--card-bg,#fff);border:1.5px solid var(--blb);border-radius:10px;margin-bottom:5px;cursor:pointer;';
       var dot=document.createElement('span');dot.style.cssText='width:9px;height:9px;border-radius:50%;background:var(--gr);flex-shrink:0;';
       var lbl=document.createElement('span');lbl.style.cssText='font-size:13px;font-weight:700;color:var(--tx);flex:1;';lbl.textContent=e.title;
       var ts=document.createElement('span');ts.style.cssText='font-size:11px;font-weight:700;color:var(--tx3);';ts.textContent=fT(e.start);
@@ -1139,29 +1140,29 @@ function renderWeekQuick(){
       body.appendChild(row);
     });
   });
-  if(!hasAny){
+  if(!hasAny&&!noDateTasks.length){
     var emp=document.createElement('div');
     emp.style.cssText='text-align:center;font-size:13px;font-weight:700;color:var(--tx3);padding:24px 0;';
     emp.textContent='✨ Semaine libre !';
     body.appendChild(emp);
   }
-  /* Nav de semaine */
-  var navRow=document.createElement('div');
-  navRow.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-top:16px;gap:8px;';
-  var prev=document.createElement('button');
-  prev.style.cssText='flex:1;font-family:inherit;font-size:13px;font-weight:800;background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 0;cursor:pointer;color:var(--bl);';
-  prev.textContent='← Semaine préc.';
-  prev.onclick=function(){cWeek=monday(new Date(new Date(cWeek).getTime()-7*86400000));renderWeekQuick();};
-  var todayBtn=document.createElement('button');
-  todayBtn.style.cssText='font-family:inherit;font-size:12px;font-weight:800;background:var(--bl);color:#fff;border:none;border-radius:10px;padding:8px 14px;cursor:pointer;';
-  todayBtn.textContent='Auj.';
-  todayBtn.onclick=function(){cWeek=monday(new Date());renderWeekQuick();};
-  var next=document.createElement('button');
-  next.style.cssText='flex:1;font-family:inherit;font-size:13px;font-weight:800;background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 0;cursor:pointer;color:var(--bl);';
-  next.textContent='Semaine suiv. →';
-  next.onclick=function(){cWeek=monday(new Date(new Date(cWeek).getTime()+7*86400000));renderWeekQuick();};
-  navRow.append(prev,todayBtn,next);
-  body.appendChild(navRow);
+}
+
+function makeWeekRow(t,hasDate,date){
+  var row=document.createElement('div');
+  row.style.cssText='display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--card-bg,#fff);border:1.5px solid var(--blb);border-radius:10px;margin-bottom:5px;cursor:pointer;transition:border-color .15s;';
+  var isDone=t.done||false;
+  var dot=document.createElement('span');
+  dot.style.cssText='width:9px;height:9px;border-radius:50%;flex-shrink:0;background:'+(isDone?'var(--bl)':date&&date<ds(new Date())?'var(--rd)':'var(--or)')+';';
+  var lbl=document.createElement('span');
+  lbl.style.cssText='font-size:13px;font-weight:700;color:var(--tx);flex:1;'+(isDone?'text-decoration:line-through;color:var(--tx3);':'');
+  lbl.textContent=t.title||'(sans titre)';
+  var extra=[];
+  if(t._pendingTS)extra.push(t._pendingTS.slice(0,5));
+  if(extra.length){var ts=document.createElement('span');ts.style.cssText='font-size:11px;font-weight:700;color:var(--tx3);';ts.textContent=extra.join(' ');row.append(dot,lbl,ts);}
+  else row.append(dot,lbl);
+  row.onclick=function(){openTaskEdit(t.id);};
+  return row;
 }
 
 document.addEventListener('click',function(e){
@@ -2817,9 +2818,11 @@ function buildTask(t){
         return;
       }
       customRow.style.display='none';
-      t.remind=parseInt(v)||0;lsSave();
-      remBtn.classList.toggle("active",t.remind>0);
-      remBtn.title=fmtRemind(t.remind);
+      const _orig=S.tasks.find(x=>x.id===t.id);
+      if(_orig){_orig.remind=parseInt(v)||0;lsSave();}
+      const _remVal=(_orig?_orig.remind:0);
+      remBtn.classList.toggle("active",_remVal>0);
+      remBtn.title=fmtRemind(_remVal);
       remPop.querySelectorAll('.remind-opt').forEach(o=>{
         o.classList.remove('selected');
         o.innerHTML=emptySpc+' '+o.dataset.lbl;
@@ -2850,7 +2853,8 @@ function buildTask(t){
     e.stopPropagation();
     const mins=Math.round(parseFloat(customInput.value)||0)*parseInt(customUnit.value);
     if(mins>0){
-      t.remind=mins;lsSave();
+      const _orig2=S.tasks.find(x=>x.id===t.id);
+      if(_orig2){_orig2.remind=mins;lsSave();}
       remBtn.classList.add('active');
       remBtn.title=fmtRemind(mins);
       renderTasks();
@@ -2989,7 +2993,7 @@ document.addEventListener("dragend",()=>{clearTimeout(viewHoverTimer);viewHoverT
   const FLASH_MS=350;    // durée surbrillance après navigation
 
   /* Positionne et allume un bord, éteint l'autre */
-  function showEdge(side){
+  window.showEdge=function showEdge(side){
     const body=document.getElementById("ag-body");
     if(!body)return;
     const r=body.getBoundingClientRect();
@@ -3009,7 +3013,7 @@ document.addEventListener("dragend",()=>{clearTimeout(viewHoverTimer);viewHoverT
     }
   }
 
-  function hideEdges(){
+  window.hideEdges=function hideEdges(){
     _ezL.classList.remove("lit");_ezL.style.cssText="";
     _ezR.classList.remove("lit");_ezR.style.cssText="";
   }
@@ -3052,6 +3056,58 @@ document.addEventListener("dragend",()=>{clearTimeout(viewHoverTimer);viewHoverT
   },{passive:true});
 })();
 
+
+/* ══ SWIPE PANEL SEMAINE ══ */
+(function(){
+  var panel=document.getElementById("panel-week");
+  if(!panel)return;
+  var tX=null,tY=null,locked=null,liveSide=null;
+  var SWIPE_MIN=40;
+  var FLASH_MS=350;
+
+  function navWeekPrev(){cWeek=monday(new Date(new Date(cWeek).getTime()-7*86400000));renderWeekQuick();}
+  function navWeekNext(){cWeek=monday(new Date(new Date(cWeek).getTime()+7*86400000));renderWeekQuick();}
+
+  panel.addEventListener("touchstart",function(e){
+    if(e.touches.length!==1){tX=null;return;}
+    tX=e.touches[0].clientX;tY=e.touches[0].clientY;
+    locked=null;liveSide=null;
+  },{passive:true});
+
+  panel.addEventListener("touchmove",function(e){
+    if(tX===null)return;
+    var dx=e.touches[0].clientX-tX;
+    var dy=e.touches[0].clientY-tY;
+    if(locked===null&&(Math.abs(dx)>8||Math.abs(dy)>8)){
+      locked=Math.abs(dx)>Math.abs(dy)?"h":"v";
+    }
+    if(locked==="h"){
+      e.preventDefault();
+      var side=dx<0?"right":"left";
+      if(side!==liveSide){
+        liveSide=side;
+        var body=document.getElementById("week-quick-body");
+        if(body){
+          if(typeof showEdge==="function")showEdge(side);
+        }
+      }
+    }
+  },{passive:false});
+
+  panel.addEventListener("touchend",function(e){
+    if(tX===null)return;
+    var dx=e.changedTouches[0].clientX-tX;
+    tX=null;
+    if(locked!=="h"||Math.abs(dx)<SWIPE_MIN){if(typeof hideEdges==="function")hideEdges();locked=null;liveSide=null;return;}
+    var side=dx<0?"right":"left";
+    if(typeof showEdge==="function")showEdge(side);
+    locked=null;liveSide=null;
+    if(dx<0)navWeekNext();else navWeekPrev();
+    setTimeout(function(){if(typeof hideEdges==="function")hideEdges();},FLASH_MS);
+  },{passive:true});
+})();
+
+function jumpWeekToday(){cWeek=monday(new Date());renderWeekQuick();}
 
 /* ══ NOTIFICATIONS ══ */
 function saveDefaultRemind(){localStorage.setItem("default_remind",document.getElementById("default-remind").value);}
