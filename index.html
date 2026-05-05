@@ -438,39 +438,14 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   </div>
   <div id="search-results"></div>
   <div id="main-task-content">
-  <!-- Toggle vue semaine / toutes les tâches -->
-  <div style="display:flex;gap:3px;background:var(--blbg);border-radius:10px;padding:3px;margin-bottom:12px;">
-    <button id="tv-week-btn" onclick="setTaskView('week')" style="flex:1;padding:7px 0;border:none;border-radius:8px;font-family:inherit;font-weight:800;font-size:12px;cursor:pointer;transition:all .15s;background:#fff;color:var(--bl);box-shadow:0 1px 6px rgba(26,86,160,.12);">&#128198; Semaine</button>
-    <button id="tv-all-btn" onclick="setTaskView('all')" style="flex:1;padding:7px 0;border:none;border-radius:8px;font-family:inherit;font-weight:800;font-size:12px;cursor:pointer;transition:all .15s;background:transparent;color:var(--tx2);">&#128203; Toutes</button>
-  </div>
-  <!-- Vue semaine rapide (dans l'onglet tâches) -->
-  <div id="task-week-view" style="display:none;">
-    <div class="card" id="task-week-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="ct" id="task-week-title" style="margin:0;">&#128198; Semaine en cours</div>
-        <button onclick="jumpTaskWeekToday()" style="font-family:inherit;font-size:11px;font-weight:800;background:var(--bl);color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;">Auj.</button>
-      </div>
-      <div id="task-week-body" style="font-size:13px;font-weight:700;color:var(--tx3);text-align:center;padding:12px 0;">Chargement…</div>
-    </div>
-  </div>
-  <!-- Vue toutes les tâches (affichée par défaut) -->
-  <div id="task-all-view">
   <div class="card">
     <div class="ct">&#9999;&#65039; Nouvelle t&#226;che</div>
     <div class="ar">
       <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
-      <input type="date" id="tdat" title="Date de début">
-      <input type="date" id="tdat-end" style="display:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Date de fin (optionnel)">
+      <input type="date" id="tdat">
       <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure début (optionnel)" oninput="onTtimInput()">
       <input type="time" id="ttim-end" style="display:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure de fin">
       <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
-    </div>
-    <div style="margin-top:6px;">
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--tx2);cursor:pointer;">
-        <input type="checkbox" id="tdat-multiday" onchange="toggleMultiDay()" style="accent-color:var(--bl);width:14px;height:14px;">
-        &#128197; Tâche sur plusieurs jours
-      </label>
-    </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
       <span>&#128276; Rappel par d&#233;faut :</span>
@@ -490,7 +465,13 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     </div>
   </div>
   <div class="card">
-    <div class="ct">&#128204; &#192; faire</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="ct" style="margin:0;">&#128204; &#192; faire</div>
+      <div style="display:flex;gap:2px;background:var(--blbg);border-radius:8px;padding:2px;">
+        <button id="tf-week-btn" onclick="setTaskFilter('week')" style="padding:4px 12px;border:none;border-radius:6px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer;transition:all .15s;background:#fff;color:var(--bl);box-shadow:0 1px 4px rgba(26,86,160,.12);">&#128198; Semaine</button>
+        <button id="tf-all-btn" onclick="setTaskFilter('all')" style="padding:4px 12px;border:none;border-radius:6px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer;transition:all .15s;background:transparent;color:var(--tx2);">Toutes</button>
+      </div>
+    </div>
     <div class="tl" id="list-todo"></div>
   </div>
   <div class="card" id="card-done" style="display:none">
@@ -509,7 +490,6 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     </div>
     <div class="tl" id="list-archives"></div>
   </div>
-  </div><!-- /task-all-view -->
   <div class="mini-cal-wrap" id="mini-cal-wrap">
     <div class="mini-cal-card">
       <div class="mini-cal-head">
@@ -628,17 +608,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <label>Titre</label>
     <input type="text" id="te-title" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:8px">
     <label>&#201;ch&#233;ance</label>
-    <input type="date" id="te-due" style="margin-bottom:4px">
-    <div style="margin-bottom:6px;">
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--tx2);cursor:pointer;">
-        <input type="checkbox" id="te-multiday" onchange="toggleTeMultiDay()" style="accent-color:var(--bl);width:14px;height:14px;">
-        &#128197; Tâche sur plusieurs jours
-      </label>
-    </div>
-    <div id="te-due-end-wrap" style="display:none;margin-bottom:6px;">
-      <label>Date de fin</label>
-      <input type="date" id="te-due-end" style="margin-bottom:4px">
-    </div>
+    <input type="date" id="te-due" style="margin-bottom:6px">
     <div style="display:flex;gap:6px;margin:4px 0 4px">
       <button id="te-allday-btn" onclick="setTeAllDay(true)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128197; Journ&#233;e</button>
       <button id="te-timed-btn" onclick="setTeAllDay(false)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128336; Avec heure</button>
@@ -752,130 +722,22 @@ function lsSave(){localStorage.setItem(LS_KEY,JSON.stringify(S));}
 let S=lsLoad(), gcal=[], token=null;
 let allCalendars=[], selectedCals=new Set(JSON.parse(localStorage.getItem('pfy_sel_cals')||'null')||[]);
 let curTab="todo", view="month";
-let _taskView="week"; // 'week' ou 'all'
+let _taskFilter="week"; // 'week' | 'all'
 
-function setTaskView(v){
-  _taskView=v;
-  const weekBtn=document.getElementById('tv-week-btn');
-  const allBtn=document.getElementById('tv-all-btn');
-  const weekView=document.getElementById('task-week-view');
-  const allView=document.getElementById('task-all-view');
-  const activeStyle='background:#fff;color:var(--bl);box-shadow:0 1px 6px rgba(26,86,160,.12);';
-  const inactiveStyle='background:transparent;color:var(--tx2);box-shadow:none;';
-  if(v==='week'){
-    if(weekBtn)weekBtn.style.cssText=weekBtn.style.cssText.replace(/background:[^;]+;color:[^;]+;box-shadow:[^;]+;?/g,'')+activeStyle;
-    if(allBtn)allBtn.style.cssText=allBtn.style.cssText.replace(/background:[^;]+;color:[^;]+;box-shadow:[^;]+;?/g,'')+inactiveStyle;
-    if(weekView)weekView.style.display='';
-    if(allView)allView.style.display='none';
-    renderTaskWeekView();
-  }else{
-    if(allBtn)allBtn.style.cssText=allBtn.style.cssText.replace(/background:[^;]+;color:[^;]+;box-shadow:[^;]+;?/g,'')+activeStyle;
-    if(weekBtn)weekBtn.style.cssText=weekBtn.style.cssText.replace(/background:[^;]+;color:[^;]+;box-shadow:[^;]+;?/g,'')+inactiveStyle;
-    if(weekView)weekView.style.display='none';
-    if(allView)allView.style.display='';
-    renderTasks();
+function setTaskFilter(f){
+  _taskFilter=f;
+  const wb=document.getElementById('tf-week-btn');
+  const ab=document.getElementById('tf-all-btn');
+  if(wb&&ab){
+    if(f==='week'){
+      wb.style.background='#fff';wb.style.color='var(--bl)';wb.style.boxShadow='0 1px 4px rgba(26,86,160,.12)';
+      ab.style.background='transparent';ab.style.color='var(--tx2)';ab.style.boxShadow='none';
+    } else {
+      ab.style.background='#fff';ab.style.color='var(--bl)';ab.style.boxShadow='0 1px 4px rgba(26,86,160,.12)';
+      wb.style.background='transparent';wb.style.color='var(--tx2)';wb.style.boxShadow='none';
+    }
   }
-}
-
-/* Vue semaine dans l'onglet tâches */
-let _taskCWeek=monday(new Date());
-function jumpTaskWeekToday(){_taskCWeek=monday(new Date());renderTaskWeekView();}
-function renderTaskWeekView(){
-  var body=document.getElementById('task-week-body');
-  var titleEl=document.getElementById('task-week-title');
-  if(!body)return;
-  var ws=new Date(_taskCWeek);
-  var fmt=function(d){return d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});};
-  var we=new Date(ws);we.setDate(we.getDate()+6);
-  if(titleEl)titleEl.textContent='📅 Semaine du '+fmt(ws)+' au '+fmt(we);
-  body.innerHTML='';
-  var days=[];
-  for(var i=0;i<7;i++){var d=new Date(ws);d.setDate(d.getDate()+i);days.push(ds(d));}
-
-  var noDateTasks=S.tasks.filter(function(t){
-    if(t.archived||t.done)return false;
-    if(t._createdHere===false)return false;
-    if(t.due&&t.due.trim()!=='')return false;
-    if(t.plannedDate&&t.plannedDate.trim()!=='')return false;
-    var gcalEv=gcal.find(function(e){return e.id===t.id;});
-    if(gcalEv&&gcalEv.start)return false;
-    return true;
-  });
-  if(noDateTasks.length){
-    var hdr=document.createElement('div');
-    hdr.style.cssText='font-size:11px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;padding:0 0 6px;';
-    hdr.textContent='📋 Tâches sans date';
-    body.appendChild(hdr);
-    noDateTasks.forEach(function(t){body.appendChild(makeWeekRow(t,false,null));});
-    var sep=document.createElement('div');sep.style.cssText='border-top:1px solid var(--blb);margin:10px 0;';
-    body.appendChild(sep);
-  }
-
-  var hasAny=false;
-  var today=ds(new Date());
-  days.forEach(function(date){
-    var dayTasks=S.tasks.filter(function(t){
-      if(t.archived)return false;
-      // Tâche sur plusieurs jours : visible si la date est dans la plage
-      if(t.dueEnd&&t.due){return date>=t.due&&date<=t.dueEnd;}
-      return t.due===date||t.plannedDate===date;
-    });
-    var dayGcal=gcal.filter(function(e){return (e.start||'').startsWith(date)&&!e.allDay&&!S.tasks.find(function(t){return t.id===e.id;});});
-    if(!dayTasks.length&&!dayGcal.length)return;
-    hasAny=true;
-    var d2=new Date(date+'T00:00:00');
-    var dayLbl=d2.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'});
-    dayLbl=dayLbl.charAt(0).toUpperCase()+dayLbl.slice(1);
-    var isToday=date===today;
-    var hdr=document.createElement('div');
-    hdr.style.cssText='font-size:11px;font-weight:800;color:'+(isToday?'var(--bl)':'var(--tx3)')+';text-transform:uppercase;letter-spacing:.06em;padding:12px 0 5px;';
-    hdr.textContent=(isToday?'✦ ':'')+dayLbl;
-    body.appendChild(hdr);
-    dayTasks.forEach(function(t){body.appendChild(makeWeekRow(t,true,date));});
-    dayGcal.forEach(function(e){
-      var row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--card-bg,#fff);border:1.5px solid var(--blb);border-radius:10px;margin-bottom:5px;cursor:pointer;';
-      var dot=document.createElement('span');dot.style.cssText='width:9px;height:9px;border-radius:50%;background:var(--gr);flex-shrink:0;';
-      var lbl=document.createElement('span');lbl.style.cssText='font-size:13px;font-weight:700;color:var(--tx);flex:1;';lbl.textContent=e.title;
-      var ts=document.createElement('span');ts.style.cssText='font-size:11px;font-weight:700;color:var(--tx3);';ts.textContent=fT(e.start);
-      row.append(dot,lbl,ts);
-      row.onclick=function(){openEvModal(e.id);};
-      body.appendChild(row);
-    });
-  });
-  if(!hasAny&&!noDateTasks.length){
-    var emp=document.createElement('div');
-    emp.style.cssText='text-align:center;font-size:13px;font-weight:700;color:var(--tx3);padding:24px 0;';
-    emp.textContent='✨ Semaine libre !';
-    body.appendChild(emp);
-  }
-  /* Navigation semaine avec swipe */
-  _initTaskWeekSwipe();
-}
-
-var _taskWeekSwipeInit=false;
-function _initTaskWeekSwipe(){
-  if(_taskWeekSwipeInit)return;
-  _taskWeekSwipeInit=true;
-  var card=document.getElementById('task-week-card');
-  if(!card)return;
-  var tX=null,tY=null,locked=null,SWIPE_MIN=40;
-  card.addEventListener('touchstart',function(e){if(e.touches.length!==1){tX=null;return;}tX=e.touches[0].clientX;tY=e.touches[0].clientY;locked=null;},{passive:true});
-  card.addEventListener('touchmove',function(e){
-    if(tX===null)return;
-    var dx=e.touches[0].clientX-tX;var dy=e.touches[0].clientY-tY;
-    if(locked===null&&(Math.abs(dx)>8||Math.abs(dy)>8)){locked=Math.abs(dx)>Math.abs(dy)?'h':'v';}
-    if(locked==='h')e.preventDefault();
-  },{passive:false});
-  card.addEventListener('touchend',function(e){
-    if(tX===null)return;
-    var dx=e.changedTouches[0].clientX-tX;tX=null;
-    if(locked!=='h'||Math.abs(dx)<SWIPE_MIN){locked=null;return;}
-    locked=null;
-    if(dx<0){_taskCWeek=monday(new Date(new Date(_taskCWeek).getTime()+7*86400000));}
-    else{_taskCWeek=monday(new Date(new Date(_taskCWeek).getTime()-7*86400000));}
-    renderTaskWeekView();
-  },{passive:true});
+  renderTasks();
 }
 let selDay=null, pending=null, touchDragId=null;
 const NOW=new Date();
@@ -1343,9 +1205,8 @@ document.addEventListener('click',function(e){
 function initApp(){
   var tiEl=document.getElementById('ti');
   if(tiEl)tiEl.addEventListener('keydown',function(e){if(e.key==='Enter')addTask();});
-  renderMiniCal();renderAg();
+  renderMiniCal();renderTasks();renderAg();
   renderDarkBtn();
-  setTaskView('week'); // vue semaine par défaut
   if(typeof requestNotifPermission==='function')requestNotifPermission().then(function(granted){
     if(granted){
       var recapEn=localStorage.getItem('pfy_recap_enabled')!=='0';
@@ -1595,16 +1456,14 @@ async function patchGcalColor(gcalId){
       if(meta){meta._colorSynced=colorId;lsSave();}
     });
 }
-async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,endDate){
+async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId){
   if(!token)return null;
   tS=tS||null; tE=tE||null;
   remindMin=remindMin||0;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
   var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
-  /* endDate : date de fin pour événements multi-jours (GCal exclut ce jour) */
-  var endDay=endDate||date;
-  var endObj=tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:endDay};
+  var endObj=tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date};
   var colorId=taskId?gcalColorId(taskId):"6";
   return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId});
 }
@@ -1640,9 +1499,6 @@ function goTab(t,skipRender){
   document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active");});
   var panel=document.getElementById("panel-"+t);
   if(panel)panel.classList.add("active");
-  if(t==="todo"&&!skipRender){
-    setTaskView(_taskView);
-  }
   if(t==="agenda"&&!skipRender){
     renderAg();
     if(token){
@@ -2583,31 +2439,6 @@ async function retryPendingTasks(){
 }
 
 /* ══ CRUD TASKS ══ */
-function toggleMultiDay(){
-  const cb=document.getElementById('tdat-multiday');
-  const endField=document.getElementById('tdat-end');
-  if(!cb||!endField)return;
-  endField.style.display=cb.checked?'':'none';
-  if(cb.checked&&!endField.value){
-    const start=document.getElementById('tdat').value;
-    if(start)endField.value=start;
-  }
-}
-
-function toggleTeMultiDay(){
-  const cb=document.getElementById('te-multiday');
-  const wrap=document.getElementById('te-due-end-wrap');
-  if(!cb||!wrap)return;
-  wrap.style.display=cb.checked?'':'none';
-  if(cb.checked){
-    const endInp=document.getElementById('te-due-end');
-    if(endInp&&!endInp.value){
-      const start=document.getElementById('te-due').value;
-      if(start)endInp.value=start;
-    }
-  }
-}
-
 function onTtimInput(){
   const ttim=document.getElementById("ttim");
   const ttimEnd=document.getElementById("ttim-end");
@@ -2622,37 +2453,31 @@ function onTtimInput(){
 async function addTask(){
   const title=document.getElementById("ti").value.trim();if(!title)return;
   const due=document.getElementById("tdat").value||null;
-  const dueEnd=(document.getElementById('tdat-multiday').checked&&document.getElementById('tdat-end').value)||null;
   const tim=document.getElementById("ttim").value||null;
   const timEnd=document.getElementById("ttim-end").value||null;
   const remind=parseInt(document.getElementById("default-remind").value)||0;
   document.getElementById("ti").value="";document.getElementById("tdat").value="";
-  document.getElementById("tdat-end").value="";document.getElementById("tdat-multiday").checked=false;
-  document.getElementById("tdat-end").style.display="none";
   document.getElementById("ttim").value="";document.getElementById("ttim-end").value="";document.getElementById("ttim-end").style.display="none";
   /* Heure de fin : champ saisi > +1h auto */
   const timeEnd=timEnd||( tim?addOneHour(tim):null );
-  /* Date de fin GCal : si multi-jours, lendemain de dueEnd (GCal exclut le dernier jour) */
-  const gcalEnd=dueEnd?(()=>{const d=new Date(dueEnd+'T00:00:00');d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})():null;
   if(token){
     showSync("Ajout dans Google Agenda…");
-    const ev=await createGcalEv(title,"",due||ds(new Date()),tim,timeEnd,remind,null,gcalEnd||undefined);
+    const ev=await createGcalEv(title,"",due||ds(new Date()),tim,timeEnd,remind);
     hideSync();
     if(ev&&ev.id){
-      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,_createdHere:true,dueEnd:dueEnd||null});
+      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,_createdHere:true});
       lsSave();await fetchGcal();renderTasks();renderAg();
       let msg='📌 "'+title.slice(0,20)+'"';
       if(due)msg+=' → '+fD(due);else msg+=' (aujourd\'hui)';
-      if(dueEnd&&dueEnd!==due)msg+=' → '+fD(dueEnd);
       if(tim)msg+=' à '+tim;
       toast(msg);return;
     }
-    S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd:dueEnd||null,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
+    S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
     lsSave();renderTasks();
     toast('⚠️ Erreur GCal — tâche sauvegardée localement');
     return;
   }
-  S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd:dueEnd||null,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
+  S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
   lsSave();renderTasks();
   toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
 }
@@ -2826,6 +2651,15 @@ function renderTasks(){
     return !t.done;
   }).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
 
+  /* Filtre Semaine : 7 prochains jours + tâches passées non résolues + tâches sans date */
+  const in7=new Date(today);in7.setDate(in7.getDate()+7);const in7s=ds(in7);
+  const todoFiltered=(_taskFilter==='week')?todo.filter(t=>{
+    const due=t.due||(t._gcalEv?t._gcalEv.start.slice(0,10):null);
+    if(!due)return true;           // sans date : toujours visible
+    if(due<=in7s)return true;      // passé ou dans les 7 prochains jours
+    return false;
+  }):todo;
+
   const done=enriched.filter(t=>{
     if(t._isArchOcc)return false;
     if(t.recurrence&&!gcal.find(e=>e.id===t.id)){
@@ -2835,14 +2669,24 @@ function renderTasks(){
   }).sort((a,b)=>taskSortKeyDesc(b).localeCompare(taskSortKeyDesc(a)));
 
   tl.innerHTML="";dl.innerHTML="";
-  if(!todo.length){tl.innerHTML='<div class="emp">Aucune tâche 🎉</div>';}
-  else{todo.forEach(t=>tl.appendChild(buildTask(t)));}
+  const hiddenCount=todo.length-todoFiltered.length;
+  if(!todoFiltered.length){
+    tl.innerHTML=_taskFilter==='week'&&hiddenCount>0
+      ?'<div class="emp">Aucune tâche cette semaine 🎉<br><span style="font-size:11px;color:var(--tx3);">'+hiddenCount+' tâche'+(hiddenCount>1?'s':'')+' au-delà</span></div>'
+      :'<div class="emp">Aucune tâche 🎉</div>';
+  } else {
+    todoFiltered.forEach(t=>tl.appendChild(buildTask(t)));
+    if(_taskFilter==='week'&&hiddenCount>0){
+      const more=document.createElement('div');
+      more.style.cssText='text-align:center;font-size:11px;font-weight:700;color:var(--tx3);padding:8px 0 2px;';
+      more.textContent='+ '+hiddenCount+' tâche'+(hiddenCount>1?'s':'')+' hors semaine (vue "Toutes")';
+      tl.appendChild(more);
+    }
+  }
   cd.style.display=done.length?"block":"none";
   done.forEach(t=>dl.appendChild(buildTask(t)));
   const ca=document.getElementById("card-archives");
   if(ca&&ca.style.display!=="none")renderArchives();
-  /* Rafraîchir aussi la vue semaine si active */
-  if(_taskView==='week')renderTaskWeekView();
 }
 
 let _archivesOpen=false;
@@ -2976,7 +2820,7 @@ function buildTask(t){
     }else{
       dueLbl=overdue?"⚠️ En retard : ":"📅 Échéance : ";
     }
-    tg.textContent=dueLbl+fD(t.due)+(t.dueEnd&&t.dueEnd!==t.due?' → '+fD(t.dueEnd):'');
+    tg.textContent=dueLbl+fD(t.due);
     tags.appendChild(tg);
   }
   if(gcalEv){
@@ -3706,14 +3550,6 @@ function openTaskEdit(tid){
   /* Date : priorité méta locale, sinon GCal */
   const gcalEv=gcal.find(e=>e.id===tid);
   document.getElementById("te-due").value=t.due||(gcalEv?gcalEv.start.slice(0,10):"")||"";
-  /* Date de fin multi-jours */
-  const dueEnd=t.dueEnd||(gcalEv&&gcalEv.end&&gcalEv.allDay&&gcalEv.end!==gcalEv.start?(()=>{const d=new Date(gcalEv.end+'T00:00:00');d.setDate(d.getDate()-1);return ds(d);})():null)||null;
-  const teMultiday=document.getElementById('te-multiday');
-  const teDueEndWrap=document.getElementById('te-due-end-wrap');
-  const teDueEnd=document.getElementById('te-due-end');
-  if(teMultiday)teMultiday.checked=!!dueEnd;
-  if(teDueEndWrap)teDueEndWrap.style.display=dueEnd?'':'none';
-  if(teDueEnd)teDueEnd.value=dueEnd||'';
   document.getElementById("te-desc").value=t.desc||"";
   /* Rappels multiples */
   const remList=document.getElementById('te-reminders-list');
@@ -3766,9 +3602,6 @@ function saveTaskEdit(){
   const t=S.tasks.find(x=>x.id===_editTaskId);if(!t)return;
   t.title=document.getElementById("te-title").value.trim()||t.title;
   t.due=document.getElementById("te-due").value||null;
-  const teMultiday=document.getElementById('te-multiday');
-  const teDueEnd=document.getElementById('te-due-end');
-  t.dueEnd=(teMultiday&&teMultiday.checked&&teDueEnd&&teDueEnd.value)||null;
   t.desc=document.getElementById("te-desc").value;
   /* Shopping list */
   t.shopping={active:document.getElementById("te-shop-toggle").checked,items:_shopItems.map(i=>({text:i.text,bought:i.bought}))};
