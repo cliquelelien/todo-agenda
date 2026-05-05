@@ -370,6 +370,12 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .sr-empty{text-align:center;font-size:13px;font-weight:700;color:var(--tx3);padding:24px 0;}
 
 #panel-week{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+/* ── Sélecteur de jours multiples ── */
+.day-picker{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+.day-pill{font-family:inherit;font-size:12px;font-weight:800;border:1.5px solid var(--blb);border-radius:20px;padding:5px 10px;background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s;user-select:none;-webkit-user-select:none;}
+.day-pill.on{background:var(--or);border-color:var(--or);color:#fff;box-shadow:0 2px 6px rgba(245,166,35,.30);}
+.day-picker-label{font-size:11px;font-weight:800;color:var(--tx3);margin-top:8px;margin-bottom:2px;display:block;}
 </style>
 </head>
 <body>
@@ -608,7 +614,18 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <label>Titre</label>
     <input type="text" id="te-title" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:8px">
     <label>&#201;ch&#233;ance</label>
-    <input type="date" id="te-due" style="margin-bottom:6px">
+    <input type="date" id="te-due" style="margin-bottom:4px">
+    <span class="day-picker-label">📆 Jours supplémentaires (optionnel)</span>
+    <div class="day-picker" id="te-day-picker">
+      <button type="button" class="day-pill" data-dow="1">Lun</button>
+      <button type="button" class="day-pill" data-dow="2">Mar</button>
+      <button type="button" class="day-pill" data-dow="3">Mer</button>
+      <button type="button" class="day-pill" data-dow="4">Jeu</button>
+      <button type="button" class="day-pill" data-dow="5">Ven</button>
+      <button type="button" class="day-pill" data-dow="6">Sam</button>
+      <button type="button" class="day-pill" data-dow="0">Dim</button>
+    </div>
+    <div id="te-days-preview" style="font-size:11px;font-weight:700;color:var(--or);margin:3px 0 6px;min-height:16px;"></div>
     <div style="display:flex;gap:6px;margin:4px 0 4px">
       <button id="te-allday-btn" onclick="setTeAllDay(true)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128197; Journ&#233;e</button>
       <button id="te-timed-btn" onclick="setTeAllDay(false)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128336; Avec heure</button>
@@ -3533,6 +3550,64 @@ async function parseVoiceTask(txt){
   if(curTab!=="todo")goTab("todo");
 }
 
+/* ══ DAY PICKER (sélection de jours multiples pour une tâche) ══
+   _pickedDays : Set de dates YYYY-MM-DD sélectionnées via les boutons de jour
+   Principe : on propose les 4 prochaines occurrences de chaque jour de la semaine
+   à partir de la date d'échéance (ou aujourd'hui si vide).
+   Chaque pill représente un jour de la semaine ; cliquer dessus toggle
+   la prochaine occurrence de ce jour dans _pickedDays.
+*/
+let _pickedDays=new Set(); // dates YYYY-MM-DD
+
+function _nextDateForDow(dow){
+  /* Prochaine date (>= demain) correspondant au jour de la semaine dow (0=dim) */
+  const base=document.getElementById("te-due").value;
+  const ref=base?new Date(base+"T00:00:00"):new Date();
+  /* On cherche la prochaine occurrence STRICTEMENT après ref */
+  const d=new Date(ref);
+  d.setDate(d.getDate()+1);
+  while(d.getDay()!==parseInt(dow))d.setDate(d.getDate()+1);
+  return ds(d);
+}
+
+function _refreshDayPicker(){
+  const pills=document.querySelectorAll("#te-day-picker .day-pill");
+  /* Recalculer quelle date correspond à chaque pill selon te-due */
+  pills.forEach(p=>{
+    const date=_nextDateForDow(p.dataset.dow);
+    p.dataset.date=date;
+    p.classList.toggle("on",_pickedDays.has(date));
+  });
+  /* Preview */
+  const prev=document.getElementById("te-days-preview");
+  if(!prev)return;
+  const sorted=[..._pickedDays].sort();
+  prev.textContent=sorted.length?sorted.map(fD).join(", "):"";
+}
+
+(function(){
+  /* Toggle pill au clic */
+  document.addEventListener("click",function(e){
+    const pill=e.target.closest("#te-day-picker .day-pill");
+    if(!pill)return;
+    e.preventDefault();
+    const date=pill.dataset.date;
+    if(!date)return;
+    if(_pickedDays.has(date))_pickedDays.delete(date);
+    else _pickedDays.add(date);
+    pill.classList.toggle("on",_pickedDays.has(date));
+    const prev=document.getElementById("te-days-preview");
+    if(prev){const sorted=[..._pickedDays].sort();prev.textContent=sorted.length?sorted.map(fD).join(", "):"";}
+  });
+  /* Recalculer les dates cibles quand te-due change */
+  document.addEventListener("change",function(e){
+    if(e.target&&e.target.id==="te-due"){
+      _pickedDays.clear();
+      _refreshDayPicker();
+    }
+  });
+})();
+
 /* ══ ÉDITION TÂCHE LOCALE ══ */
 let _editTaskId=null;
 function openTaskEdit(tid){
@@ -3551,6 +3626,9 @@ function openTaskEdit(tid){
   const gcalEv=gcal.find(e=>e.id===tid);
   document.getElementById("te-due").value=t.due||(gcalEv?gcalEv.start.slice(0,10):"")||"";
   document.getElementById("te-desc").value=t.desc||"";
+  /* Jours multiples */
+  _pickedDays=new Set(Array.isArray(t.days)?t.days:[]);
+  _refreshDayPicker();
   /* Rappels multiples */
   const remList=document.getElementById('te-reminders-list');
   if(remList){
@@ -3591,7 +3669,7 @@ function openTaskEdit(tid){
   }
   document.getElementById("task-edit-overlay").classList.add("open");
 }
-function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;}
+function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;_pickedDays=new Set();_refreshDayPicker();}
 function onTeRemindChange(sel){/* legacy, not used */}
 function addTeReminder(){
   var list=document.getElementById('te-reminders-list');
@@ -3603,6 +3681,9 @@ function saveTaskEdit(){
   t.title=document.getElementById("te-title").value.trim()||t.title;
   t.due=document.getElementById("te-due").value||null;
   t.desc=document.getElementById("te-desc").value;
+  /* Jours multiples — filtrer la date d'échéance principale pour éviter doublon */
+  const extraDays=[..._pickedDays].filter(d=>d!==t.due).sort();
+  t.days=extraDays.length?extraDays:[];
   /* Shopping list */
   t.shopping={active:document.getElementById("te-shop-toggle").checked,items:_shopItems.map(i=>({text:i.text,bought:i.bought}))};
   /* Rappels multiples */
@@ -3624,6 +3705,27 @@ function saveTaskEdit(){
     delete t._pendingTS;
     delete t._pendingTE;
   }
+  /* Créer des tâches séparées pour chaque jour supplémentaire */
+  extraDays.forEach(function(date){
+    /* Éviter les doublons : si une tâche liée existe déjà pour cette date, la mettre à jour */
+    const existKey=t.id+"__day__"+date;
+    let linked=S.tasks.find(x=>x.id===existKey);
+    if(!linked){
+      linked={id:existKey,title:t.title,desc:t.desc,due:date,done:false,archived:false,
+        remind:t.remind,reminders:t.reminders?t.reminders.slice():[],
+        recurrence:t.recurrence,_createdHere:true,_linkedTo:t.id};
+      S.tasks.push(linked);
+    } else {
+      linked.title=t.title;linked.desc=t.desc;linked.due=date;
+      linked.remind=t.remind;linked.recurrence=t.recurrence;
+    }
+  });
+  /* Supprimer les anciennes tâches liées qui ne sont plus dans la sélection */
+  S.tasks=S.tasks.filter(function(x){
+    if(x._linkedTo!==t.id)return true;
+    const d=x.due;
+    return extraDays.includes(d);
+  });
   lsSave();closeTaskEdit();
   /* Synchroniser dans GCal : chercher par t.id ET par t.gcalId */
   const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
@@ -3640,7 +3742,8 @@ function saveTaskEdit(){
   }
   const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
   const recurMsg=t.recurrence?(" · "+(recLbl[t.recurrence]||"↻ Récurrent")):"";
-  toast("✓ Tâche modifiée"+recurMsg);
+  const daysMsg=extraDays.length?" · +"+extraDays.length+" jour"+(extraDays.length>1?"s":""):"";
+  toast("✓ Tâche modifiée"+recurMsg+daysMsg);
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 
