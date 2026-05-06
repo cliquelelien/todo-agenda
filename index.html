@@ -371,11 +371,11 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 
 #panel-week{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 
-/* ── Sélecteur de jours multiples ── */
-.day-picker{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
-.day-pill{font-family:inherit;font-size:12px;font-weight:800;border:1.5px solid var(--blb);border-radius:20px;padding:5px 10px;background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s;user-select:none;-webkit-user-select:none;}
-.day-pill.on{background:var(--or);border-color:var(--or);color:#fff;box-shadow:0 2px 6px rgba(245,166,35,.30);}
-.day-picker-label{font-size:11px;font-weight:800;color:var(--tx3);margin-top:8px;margin-bottom:2px;display:block;}
+/* ── Champ date de fin ── */
+.date-end-row{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.date-end-row label{font-size:11px;font-weight:800;color:var(--tx3);white-space:nowrap;}
+.date-end-row input[type=date]{font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:7px 10px;outline:none;color-scheme:light;transition:border-color .15s;}
+.date-end-row input[type=date]:focus{border-color:var(--bl);}
 </style>
 </head>
 <body>
@@ -448,10 +448,14 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <div class="ct">&#9999;&#65039; Nouvelle t&#226;che</div>
     <div class="ar">
       <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
-      <input type="date" id="tdat">
+      <input type="date" id="tdat" oninput="onTdatInput()">
       <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure début (optionnel)" oninput="onTtimInput()">
       <input type="time" id="ttim-end" style="display:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure de fin">
       <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
+    </div>
+    <div class="date-end-row" id="tdat-end-row" style="display:none;">
+      <label>📅 Fin :</label>
+      <input type="date" id="tdat-end">
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
       <span>&#128276; Rappel par d&#233;faut :</span>
@@ -614,19 +618,12 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <label>Titre</label>
     <input type="text" id="te-title" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:8px">
     <label>&#201;ch&#233;ance</label>
-    <input type="date" id="te-due" style="margin-bottom:4px">
-    <span class="day-picker-label">📆 Jours supplémentaires (optionnel)</span>
-    <div class="day-picker" id="te-day-picker">
-      <button type="button" class="day-pill" data-dow="1">Lun</button>
-      <button type="button" class="day-pill" data-dow="2">Mar</button>
-      <button type="button" class="day-pill" data-dow="3">Mer</button>
-      <button type="button" class="day-pill" data-dow="4">Jeu</button>
-      <button type="button" class="day-pill" data-dow="5">Ven</button>
-      <button type="button" class="day-pill" data-dow="6">Sam</button>
-      <button type="button" class="day-pill" data-dow="0">Dim</button>
+    <input type="date" id="te-due" style="margin-bottom:6px" oninput="onTeDueInput()">
+    <div class="date-end-row">
+      <label>📅 Fin :</label>
+      <input type="date" id="te-due-end">
     </div>
-    <div id="te-days-preview" style="font-size:11px;font-weight:700;color:var(--or);margin:3px 0 6px;min-height:16px;"></div>
-    <div style="display:flex;gap:6px;margin:4px 0 4px">
+    <div style="display:flex;gap:6px;margin:8px 0 4px">
       <button id="te-allday-btn" onclick="setTeAllDay(true)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128197; Journ&#233;e</button>
       <button id="te-timed-btn" onclick="setTeAllDay(false)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128336; Avec heure</button>
     </div>
@@ -2470,10 +2467,14 @@ function onTtimInput(){
 async function addTask(){
   const title=document.getElementById("ti").value.trim();if(!title)return;
   const due=document.getElementById("tdat").value||null;
+  const endRaw=document.getElementById("tdat-end").value||null;
+  const dueEnd=(endRaw&&endRaw!==due)?endRaw:null;
   const tim=document.getElementById("ttim").value||null;
   const timEnd=document.getElementById("ttim-end").value||null;
   const remind=parseInt(document.getElementById("default-remind").value)||0;
   document.getElementById("ti").value="";document.getElementById("tdat").value="";
+  document.getElementById("tdat-end").value="";
+  const endRow=document.getElementById("tdat-end-row");if(endRow)endRow.style.display="none";
   document.getElementById("ttim").value="";document.getElementById("ttim-end").value="";document.getElementById("ttim-end").style.display="none";
   /* Heure de fin : champ saisi > +1h auto */
   const timeEnd=timEnd||( tim?addOneHour(tim):null );
@@ -2482,19 +2483,20 @@ async function addTask(){
     const ev=await createGcalEv(title,"",due||ds(new Date()),tim,timeEnd,remind);
     hideSync();
     if(ev&&ev.id){
-      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,_createdHere:true});
+      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,dueEnd,_createdHere:true});
       lsSave();await fetchGcal();renderTasks();renderAg();
       let msg='📌 "'+title.slice(0,20)+'"';
       if(due)msg+=' → '+fD(due);else msg+=' (aujourd\'hui)';
+      if(dueEnd)msg+=' – '+fD(dueEnd);
       if(tim)msg+=' à '+tim;
       toast(msg);return;
     }
-    S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
+    S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
     lsSave();renderTasks();
     toast('⚠️ Erreur GCal — tâche sauvegardée localement');
     return;
   }
-  S.tasks.unshift({id:uid(),title,desc:"",due,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
+  S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
   lsSave();renderTasks();
   toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
 }
@@ -2837,7 +2839,7 @@ function buildTask(t){
     }else{
       dueLbl=overdue?"⚠️ En retard : ":"📅 Échéance : ";
     }
-    tg.textContent=dueLbl+fD(t.due);
+    tg.textContent=dueLbl+fD(t.due)+(t.dueEnd?" – "+fD(t.dueEnd):"");
     tags.appendChild(tg);
   }
   if(gcalEv){
@@ -3550,63 +3552,27 @@ async function parseVoiceTask(txt){
   if(curTab!=="todo")goTab("todo");
 }
 
-/* ══ DAY PICKER (sélection de jours multiples pour une tâche) ══
-   _pickedDays : Set de dates YYYY-MM-DD sélectionnées via les boutons de jour
-   Principe : on propose les 4 prochaines occurrences de chaque jour de la semaine
-   à partir de la date d'échéance (ou aujourd'hui si vide).
-   Chaque pill représente un jour de la semaine ; cliquer dessus toggle
-   la prochaine occurrence de ce jour dans _pickedDays.
-*/
-let _pickedDays=new Set(); // dates YYYY-MM-DD
-
-function _nextDateForDow(dow){
-  /* Prochaine date (>= demain) correspondant au jour de la semaine dow (0=dim) */
-  const base=document.getElementById("te-due").value;
-  const ref=base?new Date(base+"T00:00:00"):new Date();
-  /* On cherche la prochaine occurrence STRICTEMENT après ref */
-  const d=new Date(ref);
-  d.setDate(d.getDate()+1);
-  while(d.getDay()!==parseInt(dow))d.setDate(d.getDate()+1);
-  return ds(d);
+/* ── Sync date de fin quand date de début change ── */
+function onTeDueInput(){
+  const due=document.getElementById("te-due").value;
+  const end=document.getElementById("te-due-end");
+  if(end&&(!end.value||end.value<due))end.value=due;
+  /* contrainte min */
+  if(end)end.min=due||"";
 }
-
-function _refreshDayPicker(){
-  const pills=document.querySelectorAll("#te-day-picker .day-pill");
-  /* Recalculer quelle date correspond à chaque pill selon te-due */
-  pills.forEach(p=>{
-    const date=_nextDateForDow(p.dataset.dow);
-    p.dataset.date=date;
-    p.classList.toggle("on",_pickedDays.has(date));
-  });
-  /* Preview */
-  const prev=document.getElementById("te-days-preview");
-  if(!prev)return;
-  const sorted=[..._pickedDays].sort();
-  prev.textContent=sorted.length?sorted.map(fD).join(", "):"";
+function onTdatInput(){
+  const due=document.getElementById("tdat").value;
+  const endRow=document.getElementById("tdat-end-row");
+  const end=document.getElementById("tdat-end");
+  if(due){
+    if(endRow)endRow.style.display="flex";
+    if(end&&(!end.value||end.value<due))end.value=due;
+    if(end)end.min=due;
+  } else {
+    if(endRow)endRow.style.display="none";
+    if(end)end.value="";
+  }
 }
-
-(function(){
-  /* Toggle pill au clic */
-  document.addEventListener("click",function(e){
-    const pill=e.target.closest("#te-day-picker .day-pill");
-    if(!pill)return;
-    e.preventDefault();
-    const date=pill.dataset.date;
-    if(!date)return;
-    if(_pickedDays.has(date))_pickedDays.delete(date);
-    else _pickedDays.add(date);
-    pill.classList.toggle("on",_pickedDays.has(date));
-    const prev=document.getElementById("te-days-preview");
-    if(prev){const sorted=[..._pickedDays].sort();prev.textContent=sorted.length?sorted.map(fD).join(", "):"";}
-  });
-  /* Recalculer les dates cibles quand te-due change */
-  document.addEventListener("change",function(e){
-    if(e.target&&e.target.id==="te-due"){
-      _pickedDays.clear();
-      _refreshDayPicker();
-    }
-  });
-})();
 
 /* ══ ÉDITION TÂCHE LOCALE ══ */
 let _editTaskId=null;
@@ -3624,11 +3590,15 @@ function openTaskEdit(tid){
   document.getElementById("te-title").value=t.title||"";
   /* Date : priorité méta locale, sinon GCal */
   const gcalEv=gcal.find(e=>e.id===tid);
-  document.getElementById("te-due").value=t.due||(gcalEv?gcalEv.start.slice(0,10):"")||"";
+  const dueVal=t.due||(gcalEv?gcalEv.start.slice(0,10):"")||"";
+  document.getElementById("te-due").value=dueVal;
   document.getElementById("te-desc").value=t.desc||"";
-  /* Jours multiples */
-  _pickedDays=new Set(Array.isArray(t.days)?t.days:[]);
-  _refreshDayPicker();
+  /* Date de fin */
+  const endEl=document.getElementById("te-due-end");
+  if(endEl){
+    endEl.min=dueVal||"";
+    endEl.value=t.dueEnd||dueVal||"";
+  }
   /* Rappels multiples */
   const remList=document.getElementById('te-reminders-list');
   if(remList){
@@ -3669,7 +3639,7 @@ function openTaskEdit(tid){
   }
   document.getElementById("task-edit-overlay").classList.add("open");
 }
-function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;_pickedDays=new Set();_refreshDayPicker();}
+function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;}
 function onTeRemindChange(sel){/* legacy, not used */}
 function addTeReminder(){
   var list=document.getElementById('te-reminders-list');
@@ -3681,9 +3651,10 @@ function saveTaskEdit(){
   t.title=document.getElementById("te-title").value.trim()||t.title;
   t.due=document.getElementById("te-due").value||null;
   t.desc=document.getElementById("te-desc").value;
-  /* Jours multiples — filtrer la date d'échéance principale pour éviter doublon */
-  const extraDays=[..._pickedDays].filter(d=>d!==t.due).sort();
-  t.days=extraDays.length?extraDays:[];
+  /* Date de fin */
+  const endEl=document.getElementById("te-due-end");
+  const rawEnd=endEl?endEl.value:"";
+  t.dueEnd=(rawEnd&&rawEnd!==t.due)?rawEnd:null;
   /* Shopping list */
   t.shopping={active:document.getElementById("te-shop-toggle").checked,items:_shopItems.map(i=>({text:i.text,bought:i.bought}))};
   /* Rappels multiples */
@@ -3701,40 +3672,17 @@ function saveTaskEdit(){
     t._pendingTS=_ts;
     t._pendingTE=_te||addOneHour(_ts);
   } else {
-    /* Bascule vers journée entière : effacer les heures stockées */
     delete t._pendingTS;
     delete t._pendingTE;
   }
-  /* Créer des tâches séparées pour chaque jour supplémentaire */
-  extraDays.forEach(function(date){
-    /* Éviter les doublons : si une tâche liée existe déjà pour cette date, la mettre à jour */
-    const existKey=t.id+"__day__"+date;
-    let linked=S.tasks.find(x=>x.id===existKey);
-    if(!linked){
-      linked={id:existKey,title:t.title,desc:t.desc,due:date,done:false,archived:false,
-        remind:t.remind,reminders:t.reminders?t.reminders.slice():[],
-        recurrence:t.recurrence,_createdHere:true,_linkedTo:t.id};
-      S.tasks.push(linked);
-    } else {
-      linked.title=t.title;linked.desc=t.desc;linked.due=date;
-      linked.remind=t.remind;linked.recurrence=t.recurrence;
-    }
-  });
-  /* Supprimer les anciennes tâches liées qui ne sont plus dans la sélection */
-  S.tasks=S.tasks.filter(function(x){
-    if(x._linkedTo!==t.id)return true;
-    const d=x.due;
-    return extraDays.includes(d);
-  });
   lsSave();closeTaskEdit();
-  /* Synchroniser dans GCal : chercher par t.id ET par t.gcalId */
+  /* Synchroniser dans GCal */
   const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
   if(token&&gcalEv){
     const date=t.due||(gcalEv.start.slice(0,10));
     showSync("Mise à jour GCal…");
     updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
   } else if(token&&t.due&&isTimed&&_ts){
-    /* Tâche locale avec heure → planifier dans GCal */
     planTask(t.id,t.due,_ts,_te||addOneHour(_ts));
     return;
   } else {
@@ -3742,8 +3690,8 @@ function saveTaskEdit(){
   }
   const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
   const recurMsg=t.recurrence?(" · "+(recLbl[t.recurrence]||"↻ Récurrent")):"";
-  const daysMsg=extraDays.length?" · +"+extraDays.length+" jour"+(extraDays.length>1?"s":""):"";
-  toast("✓ Tâche modifiée"+recurMsg+daysMsg);
+  const endMsg=t.dueEnd?" · jusqu'au "+fD(new Date(t.dueEnd+"T00:00:00")):"";
+  toast("✓ Tâche modifiée"+recurMsg+endMsg);
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 
