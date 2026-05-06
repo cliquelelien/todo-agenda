@@ -1529,6 +1529,8 @@ async function fetchGcal(){
         if(t._createdHere)return true;   // toujours garder les tâches créées ici
         if(t.archived)return true;       // garder les archivées
         if(gcalIds.has(t.id))return true; // garder tous les metas d events GCal connus (done ou pas)
+        // Garder les entrées auxiliaires de cochage par jour (tâches multi-jours et récurrentes)
+        if(t.id.includes("__done__")||t.id.includes("__arch__")||t.id.includes("__recur__"))return true;
         return false; // purger les orphelins (events supprimés de GCal)
       });
       if(S.tasks.length!==before)lsSave();
