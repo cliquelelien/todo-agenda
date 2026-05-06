@@ -3898,7 +3898,7 @@ function saveTaskEdit(){
   }
   const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
   const recurMsg=t.recurrence?(" · "+(recLbl[t.recurrence]||"↻ Récurrent")):"";
-  const endMsg=t.dueEnd?" · jusqu'au "+fD(new Date(t.dueEnd+"T00:00:00")):"";
+  const endMsg=t.dueEnd?" · jusqu'au "+fD(t.dueEnd):"";
   toast("✓ Tâche modifiée"+recurMsg+endMsg);
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
