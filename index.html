@@ -447,12 +447,22 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <div class="card">
     <div class="ct">&#9999;&#65039; Nouvelle t&#226;che</div>
     <div class="ar">
-      <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
-      <input type="date" id="tdat" oninput="onTdatInput()">
-      <input type="date" id="tdat-end" style="display:none;" oninput="onTdatEndInput()">
-      <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure début (optionnel)" oninput="onTtimInput()">
-      <input type="time" id="ttim-end" style="display:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure de fin">
-      <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
+      <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100" style="width:100%;flex-basis:100%;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px;">
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <label style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;">Début</label>
+        <input type="date" id="tdat" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;width:100%;" oninput="onTdatInput()">
+        <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;width:100%;" title="Heure de début (optionnel)" oninput="onTtimInput()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <label style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;">Fin</label>
+        <input type="date" id="tdat-end" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;width:100%;" oninput="onTdatEndInput()">
+        <input type="time" id="ttim-end" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;width:100%;" title="Heure de fin">
+      </div>
+    </div>
+    <div style="margin-top:8px;">
+      <button class="btn btn-bl" onclick="addTask()" style="width:100%;">+ Ajouter</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
       <span>&#128276; Rappel par d&#233;faut :</span>
@@ -614,16 +624,28 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <h3>&#9999;&#65039; Modifier la t&#226;che</h3>
     <label>Titre</label>
     <input type="text" id="te-title" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:8px">
-    <label>&#201;ch&#233;ance</label>
-    <input type="date" id="te-due" style="margin-bottom:4px" oninput="onTeDueInput()">
-    <input type="date" id="te-due-end" style="margin-bottom:6px" oninput="onTeDueEndInput()">
-    <div style="display:flex;gap:6px;margin:4px 0 4px">
-      <button id="te-allday-btn" onclick="setTeAllDay(true)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128197; Journ&#233;e</button>
-      <button id="te-timed-btn" onclick="setTeAllDay(false)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128336; Avec heure</button>
+    <label style="margin-bottom:4px;display:block;">&#201;ch&#233;ance</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;">Début</span>
+        <input type="date" id="te-due" style="width:100%;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;" oninput="onTeDueInput()">
+        <div id="te-time-fields-start" style="">
+          <input type="time" id="te-tstart" oninput="onTeTstartInput()" style="width:100%;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;">
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <span style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;">Fin</span>
+        <input type="date" id="te-due-end" style="width:100%;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;" oninput="onTeDueEndInput()">
+        <div id="te-time-fields-end" style="">
+          <input type="time" id="te-tend" oninput="onTeTendInput()" style="width:100%;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;">
+        </div>
+      </div>
     </div>
-    <div id="te-time-fields" style="display:none;margin-bottom:6px">
-      <label>Heure d&#233;but</label><input type="time" id="te-tstart" oninput="onTeTstartInput()" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;color-scheme:light;margin-bottom:4px">
-      <label>Heure fin</label><input type="time" id="te-tend" oninput="onTeTendInput()" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;color-scheme:light;margin-bottom:4px">
+    <!-- Champs cachés pour compat avec setTeAllDay -->
+    <div id="te-time-fields" style="display:none"></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button id="te-allday-btn" onclick="setTeAllDay(true)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:6px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128197; Journ&#233;e enti&#232;re</button>
+      <button id="te-timed-btn" onclick="setTeAllDay(false)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:6px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128336; Avec heure</button>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
       <label style="margin:0">Descriptif</label>
@@ -2147,25 +2169,30 @@ function openEvModal(gcalId){
   document.getElementById("ev-overlay").classList.add("open");
 }
 function setTeAllDay(allDay){
-  const tf=document.getElementById("te-time-fields");
   const ab=document.getElementById("te-allday-btn");
   const tb=document.getElementById("te-timed-btn");
-  const on="background:var(--bl);color:#fff;border-color:var(--bl)";
-  const off="background:var(--blbg);color:var(--tx2);border-color:var(--blb)";
+  const tsWrap=document.getElementById("te-time-fields-start");
+  const teWrap=document.getElementById("te-time-fields-end");
+  /* Le div#te-time-fields est vide, gardé pour compat saveTaskEdit qui lit son style */
+  const tfCompat=document.getElementById("te-time-fields");
   if(allDay){
-    tf.style.display="none";
+    if(tsWrap)tsWrap.style.display="none";
+    if(teWrap)teWrap.style.display="none";
+    if(tfCompat)tfCompat.style.display="none";
     ab.style.background="var(--bl)";ab.style.color="#fff";ab.style.borderColor="var(--bl)";
     tb.style.background="var(--blbg)";tb.style.color="var(--tx2)";tb.style.borderColor="var(--blb)";
     document.getElementById("te-tstart").value="";
     document.getElementById("te-tend").value="";
   }else{
-    tf.style.display="block";
+    if(tsWrap)tsWrap.style.display="block";
+    if(teWrap)teWrap.style.display="block";
+    if(tfCompat)tfCompat.style.display="block";
     tb.style.background="var(--bl)";tb.style.color="#fff";tb.style.borderColor="var(--bl)";
     ab.style.background="var(--blbg)";ab.style.color="var(--tx2)";ab.style.borderColor="var(--blb)";
     const ts=document.getElementById("te-tstart");
     const te=document.getElementById("te-tend");
     if(!ts.value)ts.value="09:00";
-    te.value=addOneHour(ts.value);
+    if(!te.value)te.value=addOneHour(ts.value);
   }
 }
 function setEvAllDay(allDay){
@@ -2518,12 +2545,8 @@ async function retryPendingTasks(){
 function onTtimInput(){
   const ttim=document.getElementById("ttim");
   const ttimEnd=document.getElementById("ttim-end");
-  if(ttim.value){
-    ttimEnd.style.display="";
-    if(!ttimEnd.value)ttimEnd.value=addOneHour(ttim.value);
-  }else{
-    ttimEnd.style.display="none";
-    ttimEnd.value="";
+  if(ttim.value&&ttimEnd&&!ttimEnd.value){
+    ttimEnd.value=addOneHour(ttim.value);
   }
 }
 async function addTask(){
@@ -2537,7 +2560,7 @@ async function addTask(){
   document.getElementById("ti").value="";document.getElementById("tdat").value="";
   document.getElementById("tdat-end").value="";
   const endRow=document.getElementById("tdat-end-row");if(endRow)endRow.style.display="none";
-  document.getElementById("ttim").value="";document.getElementById("ttim-end").value="";document.getElementById("ttim-end").style.display="none";
+  document.getElementById("ttim").value="";document.getElementById("ttim-end").value="";
   /* Heure de fin : champ saisi > +1h auto */
   const timeEnd=timEnd||( tim?addOneHour(tim):null );
   if(token){
@@ -2553,12 +2576,12 @@ async function addTask(){
       if(tim)msg+=' à '+tim;
       toast(msg);return;
     }
-    S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
+    S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
     lsSave();renderTasks();
     toast('⚠️ Erreur GCal — tâche sauvegardée localement');
     return;
   }
-  S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_createdHere:true});
+  S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
   lsSave();renderTasks();
   toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
 }
@@ -3693,10 +3716,9 @@ function onTeDueEndInput(){
 function onTdatInput(){
   const due=document.getElementById("tdat").value;
   const endEl=document.getElementById("tdat-end");
-  if(due){
-    if(endEl){endEl.style.display="";endEl.min=due;if(!endEl.value||endEl.value<due)endEl.value=due;}
-  } else {
-    if(endEl){endEl.style.display="none";endEl.value="";}
+  if(due&&endEl){
+    endEl.min=due;
+    if(!endEl.value||endEl.value<due)endEl.value=due;
   }
 }
 function onTdatEndInput(){
@@ -3787,25 +3809,16 @@ function openTaskEdit(tid){
   document.getElementById("te-shop-body").classList.toggle("open",!!shop.active);
   renderShopList();
   /* Initialiser toggle journée/heure selon l'état GCal de la tâche */
-  const isAllDay=!gcalEv||gcalEv.allDay||!gcalEv.start.includes("T");
-  const ab=document.getElementById("te-allday-btn");
-  const tb=document.getElementById("te-timed-btn");
-  const tf=document.getElementById("te-time-fields");
-  const activeStyle="background:var(--bl);color:#fff;border-color:var(--bl)";
-  const inactiveStyle="background:var(--blbg);color:var(--tx2);border-color:var(--blb)";
+  const hasPendingTime=!!(t._pendingTS);
+  const isAllDay=!hasPendingTime&&(!gcalEv||gcalEv.allDay||!gcalEv.start.includes("T"));
   if(isAllDay){
-    tf.style.display="none";
-    ab.style.cssText=ab.style.cssText.replace(/background:[^;]+;?/g,"").replace(/color:[^;]+;?/g,"").replace(/border-color:[^;]+;?/g,"")+activeStyle;
-    tb.style.cssText=tb.style.cssText.replace(/background:[^;]+;?/g,"").replace(/color:[^;]+;?/g,"").replace(/border-color:[^;]+;?/g,"")+inactiveStyle;
-    document.getElementById("te-tstart").value="";
-    document.getElementById("te-tend").value="";
+    setTeAllDay(true);
   }else{
-    tf.style.display="block";
-    tb.style.cssText=tb.style.cssText.replace(/background:[^;]+;?/g,"").replace(/color:[^;]+;?/g,"").replace(/border-color:[^;]+;?/g,"")+activeStyle;
-    ab.style.cssText=ab.style.cssText.replace(/background:[^;]+;?/g,"").replace(/color:[^;]+;?/g,"").replace(/border-color:[^;]+;?/g,"")+inactiveStyle;
-    const _ts=gcalEv?fT(gcalEv.start):"09:00";
+    setTeAllDay(false);
+    const _ts=t._pendingTS||(gcalEv?fT(gcalEv.start):"09:00");
+    const _te=t._pendingTE||(gcalEv&&gcalEv.end&&gcalEv.end.includes("T")?fT(gcalEv.end):addOneHour(_ts));
     document.getElementById("te-tstart").value=_ts;
-    document.getElementById("te-tend").value=(gcalEv&&gcalEv.end&&gcalEv.end.includes("T"))?fT(gcalEv.end):addOneHour(_ts);
+    document.getElementById("te-tend").value=_te;
   }
   document.getElementById("task-edit-overlay").classList.add("open");
 }
