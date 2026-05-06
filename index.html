@@ -449,13 +449,10 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <div class="ar">
       <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100">
       <input type="date" id="tdat" oninput="onTdatInput()">
+      <input type="date" id="tdat-end" style="display:none;" oninput="onTdatEndInput()">
       <input type="time" id="ttim" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure début (optionnel)" oninput="onTtimInput()">
       <input type="time" id="ttim-end" style="display:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:9px 10px;outline:none;color-scheme:light;" title="Heure de fin">
       <button class="btn btn-bl" onclick="addTask()">+ Ajouter</button>
-    </div>
-    <div class="date-end-row" id="tdat-end-row" style="display:none;">
-      <label>📅 Fin :</label>
-      <input type="date" id="tdat-end">
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
       <span>&#128276; Rappel par d&#233;faut :</span>
@@ -552,8 +549,8 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <label>Titre</label>
     <input type="text" id="mo-title" maxlength="100" style="margin-bottom:6px" placeholder="Titre de la t&#226;che&#8230;">
     <label>Date</label><input type="date" id="mo-date">
-    <label>Heure de d&#233;but</label><input type="time" id="mo-start" value="09:00">
-    <label>Heure de fin</label><input type="time" id="mo-end" value="10:00">
+    <label>Heure de d&#233;but</label><input type="time" id="mo-start" value="09:00" oninput="onMoStartInput()">
+    <label>Heure de fin</label><input type="time" id="mo-end" value="10:00" oninput="onMoEndInput()">
     <label>&#128257; R&#233;currence</label>
     <select id="mo-recur" class="recur-select">
       <option value="">Aucune r&#233;currence</option>
@@ -584,8 +581,8 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
         <button id="ev-timed-btn" onclick="setEvAllDay(false)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128336; Avec heure</button>
       </div>
       <div id="ev-time-fields" style="display:none">
-        <label>Heure d&#233;but</label><input type="time" id="ev-tstart">
-        <label>Heure fin</label><input type="time" id="ev-tend">
+        <label>Heure d&#233;but</label><input type="time" id="ev-tstart" oninput="onEvTstartInput()">
+        <label>Heure fin</label><input type="time" id="ev-tend" oninput="onEvTendInput()">
       </div>
       <label>Descriptif</label>
       <textarea id="ev-descfield" rows="3" placeholder="Descriptif optionnel&#8230;"></textarea>
@@ -618,18 +615,15 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <label>Titre</label>
     <input type="text" id="te-title" maxlength="100" placeholder="Titre&#8230;" style="margin-bottom:8px">
     <label>&#201;ch&#233;ance</label>
-    <input type="date" id="te-due" style="margin-bottom:6px" oninput="onTeDueInput()">
-    <div class="date-end-row">
-      <label>📅 Fin :</label>
-      <input type="date" id="te-due-end">
-    </div>
-    <div style="display:flex;gap:6px;margin:8px 0 4px">
+    <input type="date" id="te-due" style="margin-bottom:4px" oninput="onTeDueInput()">
+    <input type="date" id="te-due-end" style="margin-bottom:6px" oninput="onTeDueEndInput()">
+    <div style="display:flex;gap:6px;margin:4px 0 4px">
       <button id="te-allday-btn" onclick="setTeAllDay(true)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128197; Journ&#233;e</button>
       <button id="te-timed-btn" onclick="setTeAllDay(false)" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 0;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s">&#128336; Avec heure</button>
     </div>
     <div id="te-time-fields" style="display:none;margin-bottom:6px">
-      <label>Heure d&#233;but</label><input type="time" id="te-tstart" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;color-scheme:light;margin-bottom:4px">
-      <label>Heure fin</label><input type="time" id="te-tend" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;color-scheme:light;margin-bottom:4px">
+      <label>Heure d&#233;but</label><input type="time" id="te-tstart" oninput="onTeTstartInput()" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;color-scheme:light;margin-bottom:4px">
+      <label>Heure fin</label><input type="time" id="te-tend" oninput="onTeTendInput()" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;color-scheme:light;margin-bottom:4px">
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
       <label style="margin:0">Descriptif</label>
@@ -935,13 +929,21 @@ function evCls(e,prefix,forDate){
     const done=S.tasks.find(x=>x.id===doneKey)?.done||false;
     return done?(prefix+"-dn"):(prefix+"-gc");
   }
-  /* Tâche locale récurrente (date de base = date affichée) */
   if(e._local&&forDate){
     const baseTask=S.tasks.find(x=>x.id===e.id);
-    if(baseTask&&baseTask.recurrence){
-      const doneKey=e.id+"__done__"+forDate;
-      const done=S.tasks.find(x=>x.id===doneKey)?.done||false;
-      if(done)return prefix+"-dn";
+    if(baseTask){
+      /* Tâche multi-jours : cochage par jour */
+      if(baseTask.dueEnd&&baseTask.dueEnd!==baseTask.due){
+        const doneKey=e.id+"__done__"+forDate;
+        const done=S.tasks.find(x=>x.id===doneKey)?.done||false;
+        return done?(prefix+"-dn"):(prefix+"-gc");
+      }
+      /* Tâche récurrente */
+      if(baseTask.recurrence){
+        const doneKey=e.id+"__done__"+forDate;
+        const done=S.tasks.find(x=>x.id===doneKey)?.done||false;
+        if(done)return prefix+"-dn";
+      }
     }
   }
   return isDoneForDate(e.id,forDate)?(prefix+"-dn"):(prefix+"-gc");
@@ -1197,7 +1199,21 @@ function renderWeekQuick(){
     hdr.style.cssText='font-size:11px;font-weight:800;color:'+(isToday?'var(--bl)':'var(--tx3)')+';text-transform:uppercase;letter-spacing:.06em;padding:12px 0 5px;';
     hdr.textContent=(isToday?'✦ ':'')+dayLbl;
     body.appendChild(hdr);
-    dayTasks.forEach(function(t){body.appendChild(makeWeekRow(t,true,date));});
+    dayTasks.forEach(function(t){
+      /* Construire un event-like pour buildDetRow afin d'avoir le cochage par jour */
+      var allGcalIds2=new Set(gcal.map(function(e){return e.id;}));
+      if(!allGcalIds2.has(t.id)){
+        var end=t.dueEnd||t.due;
+        var isFirst=date===t.due;
+        var isLast=date===end;
+        var isMulti=!!(t.dueEnd&&t.dueEnd!==t.due);
+        var ts2=isFirst?(t._pendingTS||null):null;
+        var fakeEv={id:t.id,title:t.title,start:ts2?(t.due+"T"+ts2):date,end:date,allDay:!ts2,_local:true,_recurrence:t.recurrence||null,_isMulti:isMulti,_isFirst:isFirst,_isLast:isLast,_due:t.due,_dueEnd:end};
+        body.appendChild(buildDetRow(fakeEv,date));
+      } else {
+        body.appendChild(makeWeekRow(t,true,date));
+      }
+    });
     dayGcal.forEach(function(e){
       var row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--card-bg,#fff);border:1.5px solid var(--blb);border-radius:10px;margin-bottom:5px;cursor:pointer;';
@@ -3664,22 +3680,68 @@ async function parseVoiceTask(txt){
 function onTeDueInput(){
   const due=document.getElementById("te-due").value;
   const end=document.getElementById("te-due-end");
-  if(end&&(!end.value||end.value<due))end.value=due;
-  /* contrainte min */
-  if(end)end.min=due||"";
+  if(end){
+    end.min=due||"";
+    if(!end.value||end.value<due)end.value=due||"";
+  }
+}
+function onTeDueEndInput(){
+  const due=document.getElementById("te-due").value;
+  const end=document.getElementById("te-due-end");
+  if(end&&due&&end.value&&end.value<due)end.value=due;
 }
 function onTdatInput(){
   const due=document.getElementById("tdat").value;
-  const endRow=document.getElementById("tdat-end-row");
-  const end=document.getElementById("tdat-end");
+  const endEl=document.getElementById("tdat-end");
   if(due){
-    if(endRow)endRow.style.display="flex";
-    if(end&&(!end.value||end.value<due))end.value=due;
-    if(end)end.min=due;
+    if(endEl){endEl.style.display="";endEl.min=due;if(!endEl.value||endEl.value<due)endEl.value=due;}
   } else {
-    if(endRow)endRow.style.display="none";
-    if(end)end.value="";
+    if(endEl){endEl.style.display="none";endEl.value="";}
   }
+}
+function onTdatEndInput(){
+  const due=document.getElementById("tdat").value;
+  const endEl=document.getElementById("tdat-end");
+  if(endEl&&due&&endEl.value&&endEl.value<due)endEl.value=due;
+}
+function onTeTstartInput(){
+  const ts=document.getElementById("te-tstart").value;
+  const te=document.getElementById("te-tend");
+  if(ts&&te&&(!te.value||te.value<=ts)){
+    const[h,m]=ts.split(":").map(Number);
+    te.value=z((h+1)%24)+":"+z(m);
+  }
+}
+function onTeTendInput(){
+  const ts=document.getElementById("te-tstart").value;
+  const te=document.getElementById("te-tend");
+  if(ts&&te&&te.value&&te.value<ts)te.value=ts;
+}
+function onMoStartInput(){
+  const ts=document.getElementById("mo-start").value;
+  const te=document.getElementById("mo-end");
+  if(ts&&te&&(!te.value||te.value<=ts)){
+    const[h,m]=ts.split(":").map(Number);
+    te.value=z((h+1)%24)+":"+z(m);
+  }
+}
+function onMoEndInput(){
+  const ts=document.getElementById("mo-start").value;
+  const te=document.getElementById("mo-end");
+  if(ts&&te&&te.value&&te.value<ts)te.value=ts;
+}
+function onEvTstartInput(){
+  const ts=document.getElementById("ev-tstart").value;
+  const te=document.getElementById("ev-tend");
+  if(ts&&te&&(!te.value||te.value<=ts)){
+    const[h,m]=ts.split(":").map(Number);
+    te.value=z((h+1)%24)+":"+z(m);
+  }
+}
+function onEvTendInput(){
+  const ts=document.getElementById("ev-tstart").value;
+  const te=document.getElementById("ev-tend");
+  if(ts&&te&&te.value&&te.value<ts)te.value=ts;
 }
 
 /* ══ ÉDITION TÂCHE LOCALE ══ */
