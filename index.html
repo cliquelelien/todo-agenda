@@ -895,6 +895,13 @@ function eventsOn(d){
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_archived:true}));
   const gcalDatesOnD=new Set(gcalEvs.map(e=>e.id));
   const localIdsOnD=new Set(localEvs.map(e=>e.id));
+  /* Tâches GCal avec dueEnd local : générer les jours supplémentaires (J2, J3…) */
+  const gcalMultiEvs=[];
+  S.tasks.filter(t=>!t.archived&&t.dueEnd&&t.dueEnd!==t.due&&allGcalIds.has(t.id)&&t.due).forEach(t=>{
+    if(d<=t.due||d>t.dueEnd)return; // seuls les jours APRÈS le premier (couvert par GCal)
+    const isLast=d===t.dueEnd;
+    gcalMultiEvs.push({id:t.id+"__multi__"+d,_baseId:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_isMulti:true,_isFirst:false,_isLast:isLast,_due:t.due,_dueEnd:t.dueEnd});
+  });
   const recurEvs=[];
   S.tasks.filter(t=>!t.archived&&t.recurrence&&t.due&&!allGcalIds.has(t.id)).forEach(t=>{
     if(t.due===d)return;
@@ -904,7 +911,7 @@ function eventsOn(d){
       recurEvs.push({id:virtId,_baseId:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_virtual:true,_recurrence:t.recurrence});
     }
   });
-  return [...gcalEvs,...localEvs,...archivedEvs,...recurEvs];
+  return [...gcalEvs,...localEvs,...archivedEvs,...recurEvs,...gcalMultiEvs];
 }
 
 /* Vérifie si targetDate est une occurrence récurrente de baseDate */
@@ -2975,7 +2982,9 @@ function buildTask(t){
   if(gcalEv){
     const tg=mk("div","tg tg-p");let label="📌 ";
     if(!gcalEv.allDay&&gcalEv.start.includes("T"))label+=fT(gcalEv.start)+(gcalEv.end&&gcalEv.end.includes("T")?" – "+fT(gcalEv.end):"")+" ";
-    label+=fD(gcalEv.start.slice(0,10));tg.textContent=label;tags.appendChild(tg);
+    label+=fD(gcalEv.start.slice(0,10));
+    if(t.dueEnd&&t.dueEnd!==gcalEv.start.slice(0,10))label+=" – "+fD(t.dueEnd);
+    tg.textContent=label;tags.appendChild(tg);
   }
   if(t.recurrence){
     const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
@@ -2985,7 +2994,7 @@ function buildTask(t){
   body.append(name,tags);
 
   /* ── Lignes par jour pour tâches multi-jours ── */
-  if(!gcalEv&&t.dueEnd&&t.dueEnd!==t.due&&!t.recurrence){
+  if(t.dueEnd&&t.dueEnd!==t.due&&!t.recurrence){
     const dayRows=mk("div");dayRows.style.cssText="display:flex;flex-direction:column;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid var(--blb);";
     const allDays=[];
     const cur=new Date(t.due+"T00:00:00");
