@@ -281,15 +281,20 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   body{overflow:hidden;height:100vh;}
   #desktop-body{display:flex;flex:1;overflow:hidden;min-height:0;}
 
-  /* FORCER les deux panneaux visibles indépendamment de .active */
-  #panel-todo,#panel-week,#panel-agenda{
+  /* FORCER les panneaux visibles indépendamment de .active */
+  #panel-todo,#panel-agenda{
     display:flex!important;
     max-width:none!important;
     margin:0!important;
   }
 
+  /* Masquer panel-week en desktop — son contenu n'est pas utile ici */
+  #panel-week{
+    display:none!important;
+  }
+
   /* ── Colonne tâches (gauche) ── */
-  #panel-todo,#panel-week{
+  #panel-todo{
     flex-direction:column;
     width:340px;min-width:280px;flex-shrink:0;
     overflow-y:auto;padding:14px 12px;
@@ -297,10 +302,10 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     background:#f8fbff;height:100%;
     scrollbar-width:thin;scrollbar-color:var(--blb) transparent;
   }
-  #panel-todo::-webkit-scrollbar,#panel-week::-webkit-scrollbar{width:5px;}
-  #panel-todo::-webkit-scrollbar-thumb,#panel-week::-webkit-scrollbar-thumb{background:var(--blb);border-radius:3px;}
-  #panel-todo .mini-cal-wrap,#panel-week .mini-cal-wrap{display:none!important;}
-  #panel-todo .card,#panel-week .card{padding:10px 12px;margin-bottom:10px;}
+  #panel-todo::-webkit-scrollbar{width:5px;}
+  #panel-todo::-webkit-scrollbar-thumb{background:var(--blb);border-radius:3px;}
+  #panel-todo .mini-cal-wrap{display:none!important;}
+  #panel-todo .card{padding:10px 12px;margin-bottom:10px;}
 
   /* ── Colonne agenda (droite) ── */
   #panel-agenda{
