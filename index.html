@@ -857,12 +857,34 @@ function eventsOn(d){
       const isFirst=d===t.due;
       const isLast=d===(t.dueEnd||t.due);
       const isMulti=!!(t.dueEnd&&t.dueEnd!==t.due);
-      /* Heure début uniquement le premier jour, heure fin uniquement le dernier */
-      const ts=isFirst?(t._pendingTS||null):null;
-      const te=isLast?(t._pendingTE||null):null;
-      const startStr=ts?(t.due+"T"+ts):d;
-      const endStr=te?(t.dueEnd+"T"+te):d;
-      return {id:t.id,title:t.title,start:startStr,end:endStr,allDay:!ts,_local:true,_recurrence:t.recurrence||null,_isMulti:isMulti,_isFirst:isFirst,_isLast:isLast,_due:t.due,_dueEnd:t.dueEnd||t.due};
+      const ts=t._pendingTS||null;
+      const te=t._pendingTE||null;
+      let startStr,endStr,allDay;
+      if(!isMulti){
+        /* Tâche sur un seul jour */
+        startStr=ts?(d+"T"+ts):d;
+        endStr=te?(d+"T"+te):d;
+        allDay=!ts;
+      } else if(isFirst&&!isLast){
+        /* Premier jour d'une plage multi-jours */
+        startStr=ts?(d+"T"+ts):d;
+        endStr=ts?(d+"T23:59"):d;
+        allDay=!ts;
+      } else if(isLast&&!isFirst){
+        /* Dernier jour */
+        startStr=te?(d+"T00:00"):d;
+        endStr=te?(d+"T"+te):d;
+        allDay=!te;
+      } else if(!isFirst&&!isLast){
+        /* Jour intermédiaire : journée entière */
+        startStr=d;endStr=d;allDay=true;
+      } else {
+        /* Même jour début et fin (ne devrait pas arriver pour isMulti) */
+        startStr=ts?(d+"T"+ts):d;
+        endStr=te?(d+"T"+te):d;
+        allDay=!ts;
+      }
+      return {id:t.id,title:t.title,start:startStr,end:endStr,allDay:allDay,_local:true,_recurrence:t.recurrence||null,_isMulti:isMulti,_isFirst:isFirst,_isLast:isLast,_due:t.due,_dueEnd:t.dueEnd||t.due};
     });
   const archivedEvs=S.tasks
     .filter(t=>{
@@ -2075,7 +2097,7 @@ function buildDetRow(e,forDate){
       meta.done=!meta.done;
       meta._colorSynced=null;
       lsSave();row.classList.toggle("done",meta.done);chk.classList.toggle("on",meta.done);
-      renderTasks();
+      renderTasks();renderAg();
       /* Patcher la couleur de l event parent GCal selon l etat de cette occurrence */
       if(!isLocal&&token){
         const parentId=isVirtual?e._baseId:e.id;
@@ -2982,9 +3004,10 @@ function buildTask(t){
           dayChk.style.background=m.done?"var(--or)":"transparent";
           dayChk.style.borderColor=m.done?"var(--or)":"var(--blb)";
           dayRow.style.opacity=m.done?"0.5":"1";
-          lsSave();renderAg();
+          lsSave();
           const allDone2=allDays.every(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
-          if(allDone2!==t.done){t.done=allDone2;lsSave();renderTasks();}
+          if(allDone2!==t.done){t.done=allDone2;lsSave();}
+          renderAg();renderTasks();
         };
       })(key,row,dc);
       const dlbl=mk("span");
