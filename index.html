@@ -831,16 +831,36 @@ function eventsOn(d){
   });
   const allGcalIds=new Set(gcal.map(e=>e.id));
   const localEvs=S.tasks
-    .filter(t=>!t.archived&&t.due===d&&!allGcalIds.has(t.id))
-    .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_recurrence:t.recurrence||null}));
+    .filter(t=>{
+      if(t.archived||allGcalIds.has(t.id))return false;
+      if(!t.due)return false;
+      const end=t.dueEnd||t.due;
+      return d>=t.due&&d<=end;
+    })
+    .map(t=>{
+      const isFirst=d===t.due;
+      const isLast=d===(t.dueEnd||t.due);
+      const isMulti=!!(t.dueEnd&&t.dueEnd!==t.due);
+      /* Heure début uniquement le premier jour, heure fin uniquement le dernier */
+      const ts=isFirst?(t._pendingTS||null):null;
+      const te=isLast?(t._pendingTE||null):null;
+      const startStr=ts?(t.due+"T"+ts):d;
+      const endStr=te?(t.dueEnd+"T"+te):d;
+      return {id:t.id,title:t.title,start:startStr,end:endStr,allDay:!ts,_local:true,_recurrence:t.recurrence||null,_isMulti:isMulti,_isFirst:isFirst,_isLast:isLast,_due:t.due,_dueEnd:t.dueEnd||t.due};
+    });
   const archivedEvs=S.tasks
-    .filter(t=>t.archived&&t.due===d&&!allGcalIds.has(t.id))
+    .filter(t=>{
+      if(!t.archived||allGcalIds.has(t.id)||!t.due)return false;
+      const end=t.dueEnd||t.due;
+      return d>=t.due&&d<=end;
+    })
     .map(t=>({id:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_archived:true}));
   const gcalDatesOnD=new Set(gcalEvs.map(e=>e.id));
+  const localIdsOnD=new Set(localEvs.map(e=>e.id));
   const recurEvs=[];
   S.tasks.filter(t=>!t.archived&&t.recurrence&&t.due&&!allGcalIds.has(t.id)).forEach(t=>{
     if(t.due===d)return;
-    if(gcalDatesOnD.has(t.id))return;
+    if(gcalDatesOnD.has(t.id)||localIdsOnD.has(t.id))return;
     if(matchesRecurrence(t.due,d,t.recurrence)){
       const virtId=t.id+"__recur__"+d;
       recurEvs.push({id:virtId,_baseId:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_virtual:true,_recurrence:t.recurrence});
@@ -1159,7 +1179,13 @@ function renderWeekQuick(){
   var hasAny=false;
   var today=ds(new Date());
   days.forEach(function(date){
-    var dayTasks=S.tasks.filter(function(t){return !t.archived&&(t.due===date||t.plannedDate===date);});
+    var dayTasks=S.tasks.filter(function(t){
+      if(t.archived)return false;
+      if(t.plannedDate===date)return true;
+      if(!t.due)return false;
+      var end=t.dueEnd||t.due;
+      return date>=t.due&&date<=end;
+    });
     var dayGcal=gcal.filter(function(e){return (e.start||'').startsWith(date)&&!e.allDay&&!S.tasks.find(function(t){return t.id===e.id;});});
     if(!dayTasks.length&&!dayGcal.length)return;
     hasAny=true;
@@ -1982,7 +2008,11 @@ function buildDetRow(e,forDate){
     checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
   } else {
     const baseTask=isLocal?S.tasks.find(x=>x.id===e.id):null;
-    if(baseTask&&baseTask.recurrence&&baseTask.due===displayDate){
+    if(baseTask&&baseTask.dueEnd&&baseTask.dueEnd!==baseTask.due){
+      /* Tâche multi-jours locale : cochage indépendant par jour */
+      doneKey=e.id+"__done__"+displayDate;
+      checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
+    } else if(baseTask&&baseTask.recurrence&&baseTask.due===displayDate){
       doneKey=e.id+"__done__"+displayDate;
       checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
     } else {
@@ -2041,7 +2071,23 @@ function buildDetRow(e,forDate){
     name.appendChild(document.createTextNode(" "));name.appendChild(badge);
   }
   const time=mk("div","det-time");
-  time.textContent=e.allDay?"Journée":(fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):""));
+  if(e._isMulti){
+    /* Tâche multi-jours : afficher l'heure seulement si premier ou dernier jour */
+    const baseTask=S.tasks.find(x=>x.id===e.id);
+    let timeTxt="";
+    if(e._isFirst&&baseTask&&baseTask._pendingTS)timeTxt="▶ "+baseTask._pendingTS;
+    else if(e._isLast&&baseTask&&baseTask._pendingTE)timeTxt="⏹ "+baseTask._pendingTE;
+    else timeTxt="·";
+    /* Badge jour N/total */
+    const start=new Date((e._due||displayDate)+"T00:00:00");
+    const cur=new Date(displayDate+"T00:00:00");
+    const end=new Date((e._dueEnd||displayDate)+"T00:00:00");
+    const dayN=Math.round((cur-start)/(864e5))+1;
+    const dayTotal=Math.round((end-start)/(864e5))+1;
+    time.textContent=timeTxt+" J"+dayN+"/"+dayTotal;
+  } else {
+    time.textContent=e.allDay?"Journée":(fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):""));
+  }
   const del=mk("button","det-del");del.textContent="×";del.title="Supprimer";
   del.onclick=async()=>{
     if(isVirtual){
@@ -2644,6 +2690,12 @@ function renderTasks(){
       const occKey=t.id+"__done__"+due;
       isDoneOcc=S.tasks.find(x=>x.id===occKey)?.done||false;
     }
+    /* Pour tâche multi-jours : terminée seulement si TOUS les jours cochés */
+    if(!t.recurrence&&t.dueEnd&&t.dueEnd!==t.due&&!gcalEv){
+      const allDays=[];const c=new Date(t.due+"T00:00:00");const e2=new Date(t.dueEnd+"T00:00:00");
+      while(c<=e2){allDays.push(ds(c));c.setDate(c.getDate()+1);}
+      isDoneOcc=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
+    }
     /* Archivage de l'occurrence courante */
     let isArchOcc=false;
     if(t.recurrence&&due&&!gcalEv){
@@ -2786,7 +2838,8 @@ function buildTask(t){
      - date = aujourd'hui ET heure définie ET heure déjà passée → overdue aussi */
   let overdue=false;
   if(!isDoneNow){
-    if(t.due&&t.due<today){
+    const overdueDate=t.dueEnd||t.due;
+    if(overdueDate&&overdueDate<today){
       overdue=true;
     } else if(gcalEv&&!gcalEv.allDay&&gcalEv.start.includes("T")){
       overdue=new Date(gcalEv.start)<NOW;
@@ -2808,14 +2861,26 @@ function buildTask(t){
       const occKey=t.id+"__done__"+t.due;
       const alreadyDone=S.tasks.find(x=>x.id===occKey)?.done||false;
       if(alreadyDone){
-        /* Décocher directement sans dialogue */
         const occMeta=S.tasks.find(x=>x.id===occKey);
         if(occMeta)occMeta.done=false;
         lsSave();renderTasks();renderAg();
       } else {
-        /* Cocher : proposer cette occurrence ou toutes */
         showRecurCheckDialog(t,t.due,()=>{renderTasks();renderAg();});
       }
+    } else if(t.dueEnd&&t.dueEnd!==t.due){
+      /* Multi-jours : le clic global coche/décoche tous les jours */
+      const allDays=[];
+      const cur=new Date(t.due+"T00:00:00");
+      const endD=new Date(t.dueEnd+"T00:00:00");
+      while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
+      const allDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
+      allDays.forEach(d=>{
+        const key=t.id+"__done__"+d;
+        let m=S.tasks.find(x=>x.id===key);
+        if(!m){m={id:key,done:false,archived:false};S.tasks.push(m);}
+        m.done=!allDone;
+      });
+      lsSave();renderTasks();renderAg();
     } else {
       t.done=!t.done;
       lsSave();renderTasks();
@@ -2853,6 +2918,49 @@ function buildTask(t){
     tgR.textContent=recLbl[t.recurrence]||"↻ Récurrent";tags.appendChild(tgR);
   }
   body.append(name,tags);
+
+  /* ── Lignes par jour pour tâches multi-jours ── */
+  if(!gcalEv&&t.dueEnd&&t.dueEnd!==t.due&&!t.recurrence){
+    const dayRows=mk("div");dayRows.style.cssText="display:flex;flex-direction:column;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid var(--blb);";
+    const allDays=[];
+    const cur=new Date(t.due+"T00:00:00");
+    const endD=new Date(t.dueEnd+"T00:00:00");
+    while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
+    const total=allDays.length;
+    allDays.forEach(function(d,i){
+      const key=t.id+"__done__"+d;
+      const meta=S.tasks.find(x=>x.id===key);
+      const done=meta?.done||false;
+      const row=mk("div");row.style.cssText="display:flex;align-items:center;gap:8px;"+(done?"opacity:0.5;":"");
+      const dc=mk("div");
+      dc.style.cssText="width:18px;height:18px;min-width:18px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:2px solid "+(done?"var(--or)":"var(--blb)")+";background:"+(done?"var(--or)":"transparent")+";transition:all .15s;flex-shrink:0;";
+      dc.innerHTML='<svg width="9" height="7" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
+      (function(dayKey,dayRow,dayChk){
+        dayChk.onclick=function(){
+          let m=S.tasks.find(x=>x.id===dayKey);
+          if(!m){m={id:dayKey,done:false,archived:false};S.tasks.push(m);}
+          m.done=!m.done;
+          dayChk.style.background=m.done?"var(--or)":"transparent";
+          dayChk.style.borderColor=m.done?"var(--or)":"var(--blb)";
+          dayRow.style.opacity=m.done?"0.5":"1";
+          lsSave();renderAg();
+          const allDone2=allDays.every(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
+          if(allDone2!==t.done){t.done=allDone2;lsSave();renderTasks();}
+        };
+      })(key,row,dc);
+      const dlbl=mk("span");
+      const dd=new Date(d+"T00:00:00");
+      const dayName=dd.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"});
+      let extra="";
+      if(i===0&&t._pendingTS)extra=" ▶ "+t._pendingTS;
+      else if(i===total-1&&t._pendingTE)extra=" ⏹ "+t._pendingTE;
+      dlbl.textContent="J"+(i+1)+"/"+total+" · "+dayName+extra;
+      dlbl.style.cssText="font-size:11px;font-weight:700;color:var(--tx2);";
+      row.append(dc,dlbl);
+      dayRows.appendChild(row);
+    });
+    body.appendChild(dayRows);
+  }
 
   /* ── 4 boutons d'action ── */
   const actions=mk("div","task-actions");
