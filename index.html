@@ -2545,7 +2545,7 @@ async function planTask(tid,date,tS,tE){
     /* Appliquer la récurrence si définie */
     if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==tid);
-    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0,recurrence:recur,_createdHere:true});
+    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0,recurrence:recur,dueEnd:t.dueEnd||null,_createdHere:true});
     lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();
     const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
     toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:"")+" · "+fD(date)+(recur?" · "+(recLbl[recur]||"↻"):""));
@@ -2791,6 +2791,8 @@ function renderTasks(){
     const due=t.due||(t._gcalEv?t._gcalEv.start.slice(0,10):null);
     if(!due)return true;           // sans date : toujours visible
     if(due<=in7s)return true;      // passé ou dans les 7 prochains jours
+    /* Tâche multi-jours : visible si la plage chevauche la semaine courante */
+    if(t.dueEnd&&t.dueEnd>=today&&due<=in7s)return true;
     return false;
   }):todo;
 
@@ -3814,7 +3816,7 @@ function openTaskEdit(tid){
   const endEl=document.getElementById("te-due-end");
   if(endEl){
     endEl.min=dueVal||"";
-    endEl.value=t.dueEnd||dueVal||"";
+    endEl.value=t.dueEnd||"";
   }
   /* Rappels multiples */
   const remList=document.getElementById('te-reminders-list');
@@ -3892,7 +3894,7 @@ function saveTaskEdit(){
     updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
   } else if(token&&t.due&&isTimed&&_ts){
     planTask(t.id,t.due,_ts,_te||addOneHour(_ts));
-    return;
+    renderTasks();renderAg();
   } else {
     renderTasks();renderAg();
   }
