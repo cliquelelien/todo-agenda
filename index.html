@@ -905,7 +905,12 @@ function eventsOn(d){
   S.tasks.filter(t=>!t.archived&&t.dueEnd&&t.dueEnd!==t.due&&allGcalIds.has(t.id)&&t.due).forEach(t=>{
     if(d<=t.due||d>t.dueEnd)return; // seuls les jours APRÈS le premier (couvert par GCal)
     const isLast=d===t.dueEnd;
-    gcalMultiEvs.push({id:t.id+"__multi__"+d,_baseId:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_isMulti:true,_isFirst:false,_isLast:isLast,_due:t.due,_dueEnd:t.dueEnd});
+    const te=t._pendingTE||null;
+    /* Dernier jour horodaté : afficher 00:00 → heure de fin */
+    const startStr=(isLast&&te)?(d+"T00:00"):d;
+    const endStr=(isLast&&te)?(d+"T"+te):d;
+    const allDay=!(isLast&&te);
+    gcalMultiEvs.push({id:t.id+"__multi__"+d,_baseId:t.id,title:t.title,start:startStr,end:endStr,allDay:allDay,_local:true,_isMulti:true,_isFirst:false,_isLast:isLast,_due:t.due,_dueEnd:t.dueEnd});
   });
   const recurEvs=[];
   S.tasks.filter(t=>!t.archived&&t.recurrence&&t.due&&!allGcalIds.has(t.id)).forEach(t=>{
@@ -2632,7 +2637,7 @@ async function addTask(){
     const ev=await createGcalEv(title,"",due||ds(new Date()),tim,timeEnd,remind,null,dueEnd);
     hideSync();
     if(ev&&ev.id){
-      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,dueEnd,_createdHere:true});
+      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,dueEnd,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
       lsSave();await fetchGcal();renderTasks();renderAg();
       let msg='📌 "'+title.slice(0,20)+'"';
       if(due)msg+=' → '+fD(due);else msg+=' (aujourd\'hui)';
@@ -3798,6 +3803,10 @@ function onTdatEndInput(){
 function onTeTstartInput(){
   const ts=document.getElementById("te-tstart").value;
   const te=document.getElementById("te-tend");
+  const due=document.getElementById("te-due").value;
+  const dueEnd=document.getElementById("te-due-end").value;
+  const isMulti=dueEnd&&dueEnd!==due;
+  if(isMulti)return;
   if(ts&&te&&(!te.value||te.value<=ts)){
     const[h,m]=ts.split(":").map(Number);
     te.value=z((h+1)%24)+":"+z(m);
@@ -3806,6 +3815,10 @@ function onTeTstartInput(){
 function onTeTendInput(){
   const ts=document.getElementById("te-tstart").value;
   const te=document.getElementById("te-tend");
+  const due=document.getElementById("te-due").value;
+  const dueEnd=document.getElementById("te-due-end").value;
+  const isMulti=dueEnd&&dueEnd!==due;
+  if(isMulti)return;
   if(ts&&te&&te.value&&te.value<ts)te.value=ts;
 }
 function onMoStartInput(){
