@@ -2897,7 +2897,7 @@ function renderArchives(){
 }
 
 function buildArchivedTask(t){
-  const gcalEv=gcal.find(e=>e.id===t.id);
+  const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
   const item=mk("div","ti done");
   item.style.opacity="0.7";
   const top=mk("div","ti-top");
@@ -2921,7 +2921,7 @@ function buildArchivedTask(t){
   const del=mk("button","td-btn");del.innerHTML="×";
   del.onclick=async()=>{
     if(!confirm("Supprimer définitivement ?"))return;
-    if(gcalEv){showSync("Suppression…");await delGcalEv(t.id);hideSync();}
+    if(gcalEv){showSync("Suppression…");await delGcalEv(gcalEv.id);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==t.id);
     lsSave();renderArchives();renderTasks();
     if(gcalEv)await fetchGcal();
@@ -2931,7 +2931,7 @@ function buildArchivedTask(t){
 }
 function buildTask(t){
   const item=mk("div","ti");item.dataset.id=t.id;
-  const gcalEv=t._gcalEv||gcal.find(e=>e.id===t.id);
+  const gcalEv=t._gcalEv||gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
   const today=ds(NOW);
 
   /* État coché : utilise _isDoneOcc si enrichi, sinon t.done */
@@ -3162,7 +3162,7 @@ function buildTask(t){
   del.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   del.onclick=async()=>{
     if(!confirm('Supprimer "'+t.title+'" ?'))return;
-    if(gcalEv){showSync("Suppression…");await delGcalEv(t.id);hideSync();}
+    if(gcalEv){showSync("Suppression…");await delGcalEv(gcalEv.id);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==t.id);lsSave();if(gcalEv)await fetchGcal();renderTasks();if(curTab==="agenda")renderAg();
   };
 
