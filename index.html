@@ -1570,30 +1570,54 @@ async function patchGcalColor(gcalId){
       if(meta){meta._colorSynced=colorId;lsSave();}
     });
 }
-async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId){
+async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
   if(!token)return null;
   tS=tS||null; tE=tE||null;
   remindMin=remindMin||0;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
   var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
-  var endObj=tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date};
+  /* Pour les événements multi-jours allDay, GCal attend une date de fin EXCLUSIVE (J+1).
+     Si une heure de fin est précisée, on utilise la date de fin directement avec l'heure. */
+  var endDate=date;
+  if(dueEnd&&dueEnd!==date){
+    if(tE){
+      /* Événement avec heure : fin = dueEnd à l'heure de fin */
+      endDate=dueEnd;
+    } else {
+      /* Événement journée entière : fin exclusive = dueEnd + 1 jour */
+      var d=new Date(dueEnd+"T00:00:00");
+      d.setDate(d.getDate()+1);
+      endDate=d.toISOString().slice(0,10);
+    }
+  }
+  var endObj=tE?{dateTime:endDate+"T"+tE+":00",timeZone:tz}:(dueEnd&&dueEnd!==date?{date:endDate}:{date:date});
   var colorId=taskId?gcalColorId(taskId):"6";
   return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId});
 }
-async function updateGcalEv(gcalId,title,desc,date,tS,tE){
+async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd){
   if(!token||!gcalId)return;
   tS=tS||null; tE=tE||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var colorId=gcalColorId(gcalId);
-  await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date},colorId});
+  var endDate=date;
+  if(dueEnd&&dueEnd!==date){
+    if(tE){endDate=dueEnd;}
+    else{var d=new Date(dueEnd+"T00:00:00");d.setDate(d.getDate()+1);endDate=d.toISOString().slice(0,10);}
+  }
+  await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:endDate+"T"+tE+":00",timeZone:tz}:(dueEnd&&dueEnd!==date?{date:endDate}:{date:date}),colorId});
 }
-async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence){
+async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd){
   if(!token||!gcalId)return;
   tS=tS||null; tE=tE||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var colorId=gcalColorId(gcalId);
-  var body={summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:date+"T"+tE+":00",timeZone:tz}:{date:date},colorId};
+  var endDate=date;
+  if(dueEnd&&dueEnd!==date){
+    if(tE){endDate=dueEnd;}
+    else{var d=new Date(dueEnd+"T00:00:00");d.setDate(d.getDate()+1);endDate=d.toISOString().slice(0,10);}
+  }
+  var body={summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:tE?{dateTime:endDate+"T"+tE+":00",timeZone:tz}:(dueEnd&&dueEnd!==date?{date:endDate}:{date:date}),colorId};
   if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
   else{body.recurrence=[];}
   await calFetch('PATCH','/calendars/primary/events/'+gcalId,body);
@@ -2601,7 +2625,7 @@ async function addTask(){
   const timeEnd=timEnd||( tim?addOneHour(tim):null );
   if(token){
     showSync("Ajout dans Google Agenda…");
-    const ev=await createGcalEv(title,"",due||ds(new Date()),tim,timeEnd,remind);
+    const ev=await createGcalEv(title,"",due||ds(new Date()),tim,timeEnd,remind,null,dueEnd);
     hideSync();
     if(ev&&ev.id){
       S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,dueEnd,_createdHere:true});
@@ -3905,7 +3929,7 @@ function saveTaskEdit(){
   if(token&&gcalEv){
     const date=t.due||(gcalEv.start.slice(0,10));
     showSync("Mise à jour GCal…");
-    updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
+    updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
   } else if(token&&t.due&&isTimed&&_ts){
     planTask(t.id,t.due,_ts,_te||addOneHour(_ts));
     renderTasks();renderAg();
