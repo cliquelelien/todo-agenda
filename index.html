@@ -1579,15 +1579,15 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
   var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
   var endObj;
   if(tS&&tE){
-    /* Evenement horodate : date de fin = dueEnd si multi-jours, sinon date de debut */
-    var endDate=dueEnd||date;
-    endObj={dateTime:endDate+"T"+tE+":00",timeZone:tz};
+    /* Timed event: end dateTime uses dueEnd date if multi-day, else start date */
+    var endDateTimed=dueEnd||date;
+    endObj={dateTime:endDateTimed+"T"+tE+":00",timeZone:tz};
   } else {
-    /* Evenement journee entiere : GCal exige fin EXCLUSIVE (dernier jour + 1) */
+    /* All-day event: GCal end date is EXCLUSIVE so add 1 day to include the last day */
     var lastDay=dueEnd||date;
-    var dEnd=new Date(lastDay+"T00:00:00");
-    dEnd.setDate(dEnd.getDate()+1);
-    endObj={date:dEnd.toISOString().slice(0,10)};
+    var dExcl=new Date(lastDay+"T00:00:00");
+    dExcl.setDate(dExcl.getDate()+1);
+    endObj={date:dExcl.toISOString().slice(0,10)};
   }
   var colorId=taskId?gcalColorId(taskId):"6";
   return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId});
@@ -1597,22 +1597,22 @@ async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd){
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var colorId=gcalColorId(gcalId);
-  var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
-  var endObj;
-  if(tS&&tE){var endDate=dueEnd||date;endObj={dateTime:endDate+"T"+tE+":00",timeZone:tz};}
-  else{var lastDay=dueEnd||date;var dEnd=new Date(lastDay+"T00:00:00");dEnd.setDate(dEnd.getDate()+1);endObj={date:dEnd.toISOString().slice(0,10)};}
-  await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:startObj,end:endObj,colorId});
+  var startObj2=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
+  var endObj2;
+  if(tS&&tE){var edt=dueEnd||date;endObj2={dateTime:edt+"T"+tE+":00",timeZone:tz};}
+  else{var ld=dueEnd||date;var de=new Date(ld+"T00:00:00");de.setDate(de.getDate()+1);endObj2={date:de.toISOString().slice(0,10)};}
+  await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:startObj2,end:endObj2,colorId});
 }
 async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd){
   if(!token||!gcalId)return;
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var colorId=gcalColorId(gcalId);
-  var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
-  var endObj;
-  if(tS&&tE){var endDate=dueEnd||date;endObj={dateTime:endDate+"T"+tE+":00",timeZone:tz};}
-  else{var lastDay=dueEnd||date;var dEnd=new Date(lastDay+"T00:00:00");dEnd.setDate(dEnd.getDate()+1);endObj={date:dEnd.toISOString().slice(0,10)};}
-  var body={summary:title,description:desc||"",start:startObj,end:endObj,colorId};
+  var startObj3=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
+  var endObj3;
+  if(tS&&tE){var edt3=dueEnd||date;endObj3={dateTime:edt3+"T"+tE+":00",timeZone:tz};}
+  else{var ld3=dueEnd||date;var de3=new Date(ld3+"T00:00:00");de3.setDate(de3.getDate()+1);endObj3={date:de3.toISOString().slice(0,10)};}
+  var body={summary:title,description:desc||"",start:startObj3,end:endObj3,colorId};
   if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
   else{body.recurrence=[];}
   await calFetch('PATCH','/calendars/primary/events/'+gcalId,body);
