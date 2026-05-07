@@ -1586,7 +1586,7 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
   } else {
     var gcalEndExcl=new Date(gcalEndDate+"T00:00:00");
     gcalEndExcl.setDate(gcalEndExcl.getDate()+1);
-    endObj={date:gcalEndExcl.toISOString().slice(0,10)};
+    endObj={date:ds(gcalEndExcl)};
   }
   var colorId=taskId?gcalColorId(taskId):"6";
   return await calFetch('POST','/calendars/primary/events',{summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId});
@@ -1603,7 +1603,7 @@ async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd){
   } else {
     var excl2=new Date(gcalEndDate2+"T00:00:00");
     excl2.setDate(excl2.getDate()+1);
-    endObj2={date:excl2.toISOString().slice(0,10)};
+    endObj2={date:ds(excl2)};
   }
   await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:endObj2,colorId});
 }
@@ -1619,7 +1619,7 @@ async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,due
   } else {
     var excl3=new Date(gcalEndDate3+"T00:00:00");
     excl3.setDate(excl3.getDate()+1);
-    endObj3={date:excl3.toISOString().slice(0,10)};
+    endObj3={date:ds(excl3)};
   }
   var body={summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:endObj3,colorId};
   if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
