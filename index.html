@@ -2110,25 +2110,29 @@ function buildDetRow(e,forDate){
      - sinon : meta.done */
   let doneKey=null;
   let checkDone=false;
+  /* Résoudre le vrai ID de base (gcalMultiEvs ont un id contenant "__multi__") */
+  const baseId=e._baseId||e.id;
   if(isVirtual){
-    doneKey=e._baseId+"__done__"+displayDate;
+    doneKey=baseId+"__done__"+displayDate;
     checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
   } else {
-    const baseTask=isLocal?S.tasks.find(x=>x.id===e.id):null;
-    if(baseTask&&baseTask.dueEnd&&baseTask.dueEnd!==baseTask.due){
-      /* Tâche multi-jours locale : cochage indépendant par jour */
-      doneKey=e.id+"__done__"+displayDate;
+    /* Chercher la tâche de base via baseId (gère les __multi__ de gcalMultiEvs) */
+    const baseTask=S.tasks.find(x=>x.id===baseId);
+    const isMultiDay=baseTask?(baseTask.dueEnd&&baseTask.dueEnd!==baseTask.due):false;
+    if(isMultiDay){
+      /* Multi-jours (locale ou GCal avec méta) : cochage indépendant par jour */
+      doneKey=baseId+"__done__"+displayDate;
       checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
     } else if(baseTask&&baseTask.recurrence&&baseTask.due===displayDate){
-      doneKey=e.id+"__done__"+displayDate;
+      doneKey=baseId+"__done__"+displayDate;
       checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
     } else {
-      const isMultiDay=e.allDay&&e.start.slice(0,10)!==(e.end?e.end.slice(0,10):"");
-      if(isMultiDay){
-        doneKey=e.id+"__"+displayDate;
+      const isGcalMultiDay=e.allDay&&e.start.slice(0,10)!==(e.end?e.end.slice(0,10):"");
+      if(isGcalMultiDay){
+        doneKey=baseId+"__"+displayDate;
         checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
       } else {
-        checkDone=isDone(e.id);
+        checkDone=isDone(baseId);
       }
     }
   }
@@ -2145,12 +2149,26 @@ function buildDetRow(e,forDate){
       meta._colorSynced=null;
       lsSave();row.classList.toggle("done",meta.done);chk.classList.toggle("on",meta.done);
       renderTasks();renderAg();
-      /* Patcher la couleur de l event parent GCal selon l etat de cette occurrence */
-      if(!isLocal&&token){
-        const parentId=isVirtual?e._baseId:e.id;
+      /* Patcher la couleur GCal de l'événement parent selon l'état du jour coché.
+         Pour une tâche multi-jours : bleu si TOUS les jours sont cochés, orange sinon.
+         Fonctionne aussi pour les tâches locales qui ont un événement GCal correspondant. */
+      if(token){
+        const parentId=isVirtual?e._baseId:baseId;
         const parentEv=gcal.find(x=>x.id===parentId);
         if(parentEv&&parentEv.eventType!=="birthday"&&parentEv.eventType!=="fromGmail"&&!parentEv.readOnly){
-          const colorId=meta.done?"7":"6";
+          /* Calculer si tous les jours de la tâche multi-jours sont cochés */
+          const parentTask=S.tasks.find(x=>x.id===parentId);
+          let colorId;
+          if(parentTask&&parentTask.dueEnd&&parentTask.dueEnd!==parentTask.due){
+            const allDays=[];
+            const cur=new Date(parentTask.due+"T00:00:00");
+            const endD=new Date(parentTask.dueEnd+"T00:00:00");
+            while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
+            const allDone=allDays.every(d=>S.tasks.find(x=>x.id===parentId+"__done__"+d)?.done);
+            colorId=allDone?"7":"6";
+          } else {
+            colorId=meta.done?"7":"6";
+          }
           const calId=parentEv.calendarId||'primary';
           calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+parentId,{colorId})
             .then(()=>{
@@ -2798,8 +2816,8 @@ function renderTasks(){
       const occKey=t.id+"__done__"+due;
       isDoneOcc=S.tasks.find(x=>x.id===occKey)?.done||false;
     }
-    /* Pour tâche multi-jours : terminée seulement si TOUS les jours cochés */
-    if(!t.recurrence&&t.dueEnd&&t.dueEnd!==t.due&&!gcalEv){
+    /* Pour tâche multi-jours (locale ou GCal) : terminée seulement si TOUS les jours cochés */
+    if(!t.recurrence&&t.dueEnd&&t.dueEnd!==t.due){
       const allDays=[];const c=new Date(t.due+"T00:00:00");const e2=new Date(t.dueEnd+"T00:00:00");
       while(c<=e2){allDays.push(ds(c));c.setDate(c.getDate()+1);}
       isDoneOcc=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
@@ -2965,7 +2983,29 @@ function buildTask(t){
   chk.innerHTML='<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
 
   chk.onclick=()=>{
-    if(gcalEv){
+    if(gcalEv&&t.dueEnd&&t.dueEnd!==t.due){
+      /* Tâche multi-jours GCal : cochage par jour avec clé __done__ + sync couleur */
+      const allDays=[];
+      const cur=new Date(t.due+"T00:00:00");
+      const endD=new Date(t.dueEnd+"T00:00:00");
+      while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
+      const allDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
+      allDays.forEach(d=>{
+        const key=t.id+"__done__"+d;
+        let m=S.tasks.find(x=>x.id===key);
+        if(!m){m={id:key,done:false,archived:false};S.tasks.push(m);}
+        m.done=!allDone;
+      });
+      lsSave();renderTasks();renderAg();
+      /* Patcher la couleur GCal : bleu si tous cochés, orange sinon */
+      if(token&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
+        const newAllDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
+        const colorId=newAllDone?"7":"6";
+        const calId=gcalEv.calendarId||'primary';
+        calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalEv.id,{colorId})
+          .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=colorId;lsSave();}}).catch(()=>{});
+      }
+    } else if(gcalEv){
       toggleEvDone(t.id);
     } else if(t.recurrence&&t.due){
       const occKey=t.id+"__done__"+t.due;
