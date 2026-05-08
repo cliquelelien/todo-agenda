@@ -2225,8 +2225,9 @@ function buildDetRow(e,forDate){
             const cur=new Date(rangeStart+"T00:00:00");
             const endD=new Date(rangeEnd+"T00:00:00");
             while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
-            const allDone=allDays.every(d=>S.tasks.find(x=>x.id===parentId+"__done__"+d)?.done);
-            colorId=allDone?"7":"6";
+            /* Bleu dès qu'au moins un jour est coché, orange si aucun */
+            const anyDone=allDays.some(d=>S.tasks.find(x=>x.id===parentId+"__done__"+d)?.done);
+            colorId=anyDone?"7":"6";
           } else {
             colorId=meta.done?"7":"6";
           }
@@ -3178,9 +3179,10 @@ function buildTask(t){
           lsSave();
           const allDone2=allDays.every(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
           if(allDone2!==t.done){t.done=allDone2;lsSave();}
-          /* Patcher la couleur GCal : bleu si tous les jours cochés, orange sinon */
+          /* Patcher la couleur GCal : bleu dès qu'au moins un jour est coché, orange si aucun */
           if(token&&gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
-            const colorId2=allDone2?"7":"6";
+            const anyDone=allDays.some(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
+            const colorId2=anyDone?"7":"6";
             const calId2=gcalEv.calendarId||'primary';
             calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:colorId2})
               .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=colorId2;lsSave();}}).catch(()=>{});
