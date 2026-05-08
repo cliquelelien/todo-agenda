@@ -905,15 +905,18 @@ function eventsOn(d){
   const localIdsOnD=new Set(localEvs.map(e=>e.id));
   /* Tâches GCal avec dueEnd local : générer les jours supplémentaires (J2, J3…) */
   const gcalMultiEvs=[];
-  S.tasks.filter(t=>!t.archived&&t.dueEnd&&t.dueEnd!==t.due&&allGcalIds.has(t.id)&&t.due).forEach(t=>{
-    if(d<=t.due||d>t.dueEnd)return; // seuls les jours APRÈS le premier (couvert par GCal)
+  S.tasks.filter(t=>!t.archived&&t.dueEnd&&allGcalIds.has(t.id)).forEach(t=>{
+    /* Récupérer la date de début depuis la méta ou depuis l'événement GCal */
+    const tDue=t.due||(gcal.find(e=>e.id===t.id)?.start||'').slice(0,10)||null;
+    if(!tDue||t.dueEnd===tDue)return; // pas multi-jours ou pas de date de début
+    if(d<=tDue||d>t.dueEnd)return; // seuls les jours APRÈS le premier (couvert par GCal)
     const isLast=d===t.dueEnd;
     const te=t._pendingTE||null;
     /* Dernier jour horodaté : afficher 00:00 → heure de fin */
     const startStr=(isLast&&te)?(d+"T00:00"):d;
     const endStr=(isLast&&te)?(d+"T"+te):d;
     const allDay=!(isLast&&te);
-    gcalMultiEvs.push({id:t.id+"__multi__"+d,_baseId:t.id,title:t.title,start:startStr,end:endStr,allDay:allDay,_local:true,_isMulti:true,_isFirst:false,_isLast:isLast,_due:t.due,_dueEnd:t.dueEnd});
+    gcalMultiEvs.push({id:t.id+"__multi__"+d,_baseId:t.id,title:t.title,start:startStr,end:endStr,allDay:allDay,_local:true,_isMulti:true,_isFirst:false,_isLast:isLast,_due:tDue,_dueEnd:t.dueEnd});
   });
   const recurEvs=[];
   S.tasks.filter(t=>!t.archived&&t.recurrence&&t.due&&!allGcalIds.has(t.id)).forEach(t=>{
@@ -2642,7 +2645,7 @@ async function planTask(tid,date,tS,tE){
     /* Appliquer la récurrence si définie */
     if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==tid);
-    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",done:false,archived:false,remind:t.remind||0,recurrence:recur,dueEnd:t.dueEnd||null,_createdHere:true});
+    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",due:date,done:false,archived:false,remind:t.remind||0,recurrence:recur,dueEnd:t.dueEnd||null,_pendingTS:tS||null,_pendingTE:tE||null,_createdHere:true});
     lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();
     const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
     toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:"")+" · "+fD(date)+(recur?" · "+(recLbl[recur]||"↻"):""));
@@ -2689,7 +2692,7 @@ async function addTask(){
     const ev=await createGcalEv(title,"",due||ds(new Date()),tim,timeEnd,remind,null,dueEnd);
     hideSync();
     if(ev&&ev.id){
-      S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,dueEnd,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
+      S.tasks.push({id:ev.id,title,desc:"",due:due||ds(new Date()),done:false,archived:false,remind,dueEnd,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
       lsSave();await fetchGcal();renderTasks();renderAg();
       let msg='📌 "'+title.slice(0,20)+'"';
       if(due)msg+=' → '+fD(due);else msg+=' (aujourd\'hui)';
@@ -2852,9 +2855,13 @@ function renderTasks(){
     }
     /* Pour tâche multi-jours (locale ou GCal) : terminée seulement si TOUS les jours cochés */
     if(!t.recurrence&&t.dueEnd&&t.dueEnd!==t.due){
-      const allDays=[];const c=new Date(t.due+"T00:00:00");const e2=new Date(t.dueEnd+"T00:00:00");
-      while(c<=e2){allDays.push(ds(c));c.setDate(c.getDate()+1);}
-      isDoneOcc=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
+      const startDate=t.due||(gcalEv?gcalEv.start.slice(0,10):null);
+      if(!startDate){isDoneOcc=false;}
+      else{
+        const allDays=[];const c=new Date(startDate+"T00:00:00");const e2=new Date(t.dueEnd+"T00:00:00");
+        while(c<=e2){allDays.push(ds(c));c.setDate(c.getDate()+1);}
+        isDoneOcc=allDays.length>0&&allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
+      }
     }
     /* Archivage de l'occurrence courante */
     let isArchOcc=false;
@@ -2880,8 +2887,11 @@ function renderTasks(){
       return t.due<=in14s;
     }
     /* Tâche multi-jours : visible dans "À faire" tant que tous les jours ne sont pas cochés */
-    if(t.dueEnd&&t.dueEnd!==t.due&&!t.recurrence){
-      return !t._isDoneOcc&&!t.done;
+    if(t.dueEnd&&!t.recurrence){
+      const startDate=t.due||(t._gcalEv?t._gcalEv.start.slice(0,10):null);
+      if(startDate&&t.dueEnd!==startDate){
+        return !t._isDoneOcc&&!t.done;
+      }
     }
     return !t.done;
   }).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
@@ -3025,10 +3035,12 @@ function buildTask(t){
   chk.innerHTML='<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
 
   chk.onclick=()=>{
-    if(gcalEv&&t.dueEnd&&t.dueEnd!==t.due){
+    if(gcalEv&&t.dueEnd){
       /* Tâche multi-jours GCal : cochage par jour avec clé __done__ + sync couleur */
+      const startDate=t.due||gcalEv.start.slice(0,10);
+      if(t.dueEnd===startDate){toggleEvDone(t.id);return;}
       const allDays=[];
-      const cur=new Date(t.due+"T00:00:00");
+      const cur=new Date(startDate+"T00:00:00");
       const endD=new Date(t.dueEnd+"T00:00:00");
       while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
       const allDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
@@ -3115,9 +3127,11 @@ function buildTask(t){
 
   /* ── Lignes par jour pour tâches multi-jours ── */
   if(t.dueEnd&&t.dueEnd!==t.due&&!t.recurrence){
+    const startDate=t.due||(gcalEv?gcalEv.start.slice(0,10):null);
+    if(startDate&&startDate!==t.dueEnd){
     const dayRows=mk("div");dayRows.style.cssText="display:flex;flex-direction:column;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid var(--blb);";
     const allDays=[];
-    const cur=new Date(t.due+"T00:00:00");
+    const cur=new Date(startDate+"T00:00:00");
     const endD=new Date(t.dueEnd+"T00:00:00");
     while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
     const total=allDays.length;
@@ -3155,6 +3169,7 @@ function buildTask(t){
       dayRows.appendChild(row);
     });
     body.appendChild(dayRows);
+    } // end if(startDate)
   }
 
   /* ── 4 boutons d'action ── */
