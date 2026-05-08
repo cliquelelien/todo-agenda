@@ -1983,7 +1983,26 @@ function renderWeek(){
     });
     scrollBox.scrollTop=7*slotH;
   });
-  if(selDay)showDet(selDay);
+  /* Afficher le détail pour un jour pertinent de la semaine :
+     1. selDay s'il est dans la semaine courante
+     2. sinon aujourd'hui s'il est dans la semaine
+     3. sinon le premier jour de la semaine qui a des événements */
+  {
+    const weekDates=days.map(d=>d.date);
+    let detDate=null;
+    if(selDay&&weekDates.includes(selDay)){
+      detDate=selDay;
+    } else if(weekDates.includes(today)){
+      detDate=today;
+    } else {
+      detDate=weekDates.find(d=>eventsOn(d).length>0)||null;
+    }
+    if(detDate){
+      showDet(detDate);
+    } else {
+      document.getElementById("detail").style.display="none";
+    }
+  }
 }
 
 /* ══ DAY VIEW ══ */
@@ -2860,6 +2879,10 @@ function renderTasks(){
       /* Toujours visible si échéance passée (en retard) ou dans les 14 jours à venir */
       return t.due<=in14s;
     }
+    /* Tâche multi-jours : visible dans "À faire" tant que tous les jours ne sont pas cochés */
+    if(t.dueEnd&&t.dueEnd!==t.due&&!t.recurrence){
+      return !t._isDoneOcc&&!t.done;
+    }
     return !t.done;
   }).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
 
@@ -2878,6 +2901,10 @@ function renderTasks(){
     if(t._isArchOcc)return false;
     if(t.recurrence&&!gcal.find(e=>e.id===t.id)){
       return t._isDoneOcc===true;
+    }
+    /* Tâche multi-jours : terminée seulement si TOUS les jours sont cochés (_isDoneOcc) */
+    if(t.dueEnd&&t.dueEnd!==t.due&&!t.recurrence){
+      return t._isDoneOcc===true&&!t.archived;
     }
     return t.done&&!t.archived;
   }).sort((a,b)=>taskSortKeyDesc(b).localeCompare(taskSortKeyDesc(a)));
