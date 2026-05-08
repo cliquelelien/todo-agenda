@@ -848,6 +848,9 @@ function eventsOn(d){
     const eStart=e.start.slice(0,10);
     const eEnd=e.end?e.end.slice(0,10):eStart;
     const eEndAdj=e.allDay&&eEnd>eStart?(()=>{const x=new Date(eEnd+"T00:00:00");x.setDate(x.getDate()-1);return ds(x);})():eEnd;
+    /* Événement GCal horodaté multi-jours : n'afficher que sur le jour de début.
+       Les jours suivants sont gérés par gcalMultiEvs pour éviter les doublons. */
+    if(!e.allDay&&eStart!==eEnd&&d!==eStart)return false;
     return d>=eStart&&d<=eEndAdj;
   });
   const allGcalIds=new Set(gcal.map(e=>e.id));
@@ -1953,8 +1956,14 @@ function renderWeek(){
         let durMin=60;
         if(e.end&&e.end.includes("T")){
           const pe=e.end.split("T")[1].split(":");
+          const peDate=e.end.slice(0,10);
           const hE=parseInt(pe[0]),mE=parseInt(pe[1]||"0");
-          durMin=Math.max((hE*60+mE)-(hS*60+mS),15);
+          /* Si la fin est sur un autre jour, clipper à minuit (23:59) */
+          if(peDate!==day.date){
+            durMin=Math.max((24*60)-(hS*60+mS),15);
+          } else {
+            durMin=Math.max((hE*60+mE)-(hS*60+mS),15);
+          }
         }
         /* topPx ancré sur le slot réel de l'heure hS + fraction de minute */
         const topPx=(hourTops[hS]??hS*slotH)+(mS/60)*slotH+2;
@@ -2065,8 +2074,14 @@ function renderDay(){
       let durMin=60;
       if(e.end&&e.end.includes("T")){
         const pe=e.end.split("T")[1].split(":");
+        const peDate=e.end.slice(0,10);
         const hE=parseInt(pe[0]),mE=parseInt(pe[1]||"0");
-        durMin=Math.max((hE*60+mE)-(hS*60+mS),15);
+        /* Si la fin est sur un autre jour, clipper à minuit */
+        if(peDate!==cDay){
+          durMin=Math.max((24*60)-(hS*60+mS),15);
+        } else {
+          durMin=Math.max((hE*60+mE)-(hS*60+mS),15);
+        }
       }
       const topPx=(hS+mS/60)*slotH+2;
       const heightPx=Math.max(durMin/60*slotH-3,16);
