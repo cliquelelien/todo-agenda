@@ -1273,25 +1273,38 @@ function renderWeekQuick(){
 
   var hasAny=false;
   var today=ds(new Date());
-  /* Tâches multijours : ne les afficher qu'une seule fois (au premier jour visible de la semaine) */
-  var shownMultiIds=new Set();
   days.forEach(function(date){
+    /* Index des sous-événements GCal (_dayEventIds) pour ce jour */
+    var dayEvItems=[];
+    S.tasks.filter(function(t){return t._dayEventIds&&t._dayEventIds.length;}).forEach(function(t){
+      t._dayEventIds.forEach(function(eid,i){
+        var gcalDayEv=gcal.find(function(e){return e.id===eid;});
+        if(gcalDayEv&&gcalDayEv.start.slice(0,10)===date){
+          dayEvItems.push({task:t,eid:eid,dayIdx:i,total:t._dayEventIds.length});
+        }
+      });
+    });
+    /* IDs à exclure (gérés via dayEvItems ou via tâche principale) */
+    var dayEvGcalIds=new Set(dayEvItems.map(function(x){return x.eid;}));
+    /* IDs de tâches dont _dayEventIds couvre ce jour (éviter doublon via dayTasks) */
+    var dayEventParentIds=new Set(dayEvItems.map(function(x){return x.task.id;}));
+    var allGcalIds2=new Set(gcal.map(function(e){return e.id;}));
     var dayTasks=S.tasks.filter(function(t){
       if(t.archived)return false;
+      if(t._dayEventIds)return false; // gérées via dayEvItems
       if(t.plannedDate===date)return true;
       if(!t.due)return false;
       var end=t.dueEnd||t.due;
-      if(!(date>=t.due&&date<=end))return false;
-      /* Tâche multijours : ne l'afficher qu'au premier jour visible de la semaine */
-      if(t.dueEnd&&t.dueEnd!==t.due){
-        if(shownMultiIds.has(t.id))return false;
-      }
+      return date>=t.due&&date<=end;
+    });
+    /* Événements GCal purs (sans méta dans S.tasks ni sous-événements déjà gérés) */
+    var dayGcal=gcal.filter(function(e){
+      if(!(e.start||'').startsWith(date)||e.allDay)return false;
+      if(S.tasks.find(function(t){return t.id===e.id;}))return false;
+      if(dayEvGcalIds.has(e.id))return false;
       return true;
     });
-    /* Marquer les tâches multijours comme déjà affichées */
-    dayTasks.forEach(function(t){if(t.dueEnd&&t.dueEnd!==t.due)shownMultiIds.add(t.id);});
-    var dayGcal=gcal.filter(function(e){return (e.start||'').startsWith(date)&&!e.allDay&&!S.tasks.find(function(t){return t.id===e.id;});});
-    if(!dayTasks.length&&!dayGcal.length)return;
+    if(!dayTasks.length&&!dayEvItems.length&&!dayGcal.length)return;
     hasAny=true;
     var d2=new Date(date+'T00:00:00');
     var dayLbl=d2.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'});
@@ -1303,7 +1316,6 @@ function renderWeekQuick(){
     body.appendChild(hdr);
     dayTasks.forEach(function(t){
       /* Construire un event-like pour buildDetRow afin d'avoir le cochage par jour */
-      var allGcalIds2=new Set(gcal.map(function(e){return e.id;}));
       if(!allGcalIds2.has(t.id)){
         var end=t.dueEnd||t.due;
         var isFirst=date===t.due;
@@ -1315,6 +1327,18 @@ function renderWeekQuick(){
       } else {
         body.appendChild(makeWeekRow(t,true,date));
       }
+    });
+    /* Afficher les sous-événements _dayEventIds avec cochage par jour */
+    dayEvItems.forEach(function(item){
+      var gcalDayEv=gcal.find(function(e){return e.id===item.eid;});
+      if(!gcalDayEv)return;
+      var enriched=Object.assign({},gcalDayEv,{
+        _baseId:item.task.id,_isMulti:true,
+        _isFirst:item.dayIdx===0,_isLast:item.dayIdx===item.total-1,
+        _due:item.task.due,_dueEnd:item.task.dueEnd,
+        _dayIdx:item.dayIdx,_dayTotal:item.total,_isDayEvent:true
+      });
+      body.appendChild(buildDetRow(enriched,date));
     });
     dayGcal.forEach(function(e){
       var row=document.createElement('div');
@@ -4212,7 +4236,19 @@ function saveTaskEdit(){
   lsSave();closeTaskEdit();
   /* Synchroniser dans GCal */
   const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
-  if(token&&gcalEv){
+  if(token&&t._dayEventIds&&t._dayEventIds.length){
+    /* Tâche multijours avec sous-événements GCal : mettre à jour le titre de chaque sous-événement */
+    showSync("Mise à jour GCal…");
+    const total=t._dayEventIds.length;
+    Promise.all(t._dayEventIds.map((eid,i)=>{
+      const dayEv=gcal.find(e=>e.id===eid);if(!dayEv)return Promise.resolve();
+      const dayDate=dayEv.start.slice(0,10);
+      const dayTitle=t.title+(total>1?" (J"+(i+1)+"/"+total+")":"");
+      const dayTS=(i===0&&_ts)?_ts:null;
+      const dayTE=(i===total-1&&_te)?_te:null;
+      return calFetch('PATCH','/calendars/'+(dayEv.calendarId||'primary')+'/events/'+eid,{summary:dayTitle}).catch(()=>{});
+    })).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
+  } else if(token&&gcalEv){
     const date=t.due||(gcalEv.start.slice(0,10));
     showSync("Mise à jour GCal…");
     updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
