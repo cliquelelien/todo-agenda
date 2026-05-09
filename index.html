@@ -3127,10 +3127,16 @@ function buildArchivedTask(t){
   const del=mk("button","td-btn");del.innerHTML="×";
   del.onclick=async()=>{
     if(!confirm("Supprimer définitivement ?"))return;
-    if(gcalEv){showSync("Suppression…");await delGcalEv(gcalEv.id);hideSync();}
-    S.tasks=S.tasks.filter(x=>x.id!==t.id);
+    showSync("Suppression…");
+    if(t._dayEventIds&&t._dayEventIds.length){
+      for(const eid of t._dayEventIds){await delGcalEv(eid);}
+    } else if(gcalEv){
+      await delGcalEv(gcalEv.id);
+    }
+    hideSync();
+    S.tasks=S.tasks.filter(x=>x.id!==t.id&&!x.id.startsWith(t.id+"__"));
     lsSave();renderArchives();renderTasks();
-    if(gcalEv)await fetchGcal();
+    if(t._dayEventIds||gcalEv)await fetchGcal();
   };
   top.append(icon,body,unarch,del);item.appendChild(top);
   return item;
@@ -3272,29 +3278,53 @@ function buildTask(t){
       const done=meta?.done||false;
       const row=mk("div");row.style.cssText="display:flex;align-items:center;gap:8px;"+(done?"opacity:0.5;":"");
       const dc=mk("div");
-      dc.style.cssText="width:18px;height:18px;min-width:18px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:2px solid "+(done?"var(--or)":"var(--blb)")+";background:"+(done?"var(--or)":"transparent")+";transition:all .15s;flex-shrink:0;";
+      dc.style.cssText="width:18px;height:18px;min-width:18px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:2px solid "+(done?"var(--bl)":"var(--blb)")+";background:"+(done?"var(--bl)":"transparent")+";transition:all .15s;flex-shrink:0;";
       dc.innerHTML='<svg width="9" height="7" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
-      (function(dayKey,dayRow,dayChk){
+      (function(dayKey,dayRow,dayChk,dayDate){
         dayChk.onclick=function(){
           let m=S.tasks.find(x=>x.id===dayKey);
           if(!m){m={id:dayKey,done:false,archived:false};S.tasks.push(m);}
           m.done=!m.done;
-          dayChk.style.background=m.done?"var(--or)":"transparent";
-          dayChk.style.borderColor=m.done?"var(--or)":"var(--blb)";
+          dayChk.style.background=m.done?"var(--bl)":"transparent";
+          dayChk.style.borderColor=m.done?"var(--bl)":"var(--blb)";
           dayRow.style.opacity=m.done?"0.5":"1";
           lsSave();
           const allDone2=allDays.every(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
           if(allDone2!==t.done){t.done=allDone2;lsSave();}
-          /* Patcher la couleur GCal : bleu si TOUS les jours sont cochés, orange sinon */
-          if(token&&gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
-            const colorId2=allDone2?"7":"6";
-            const calId2=gcalEv.calendarId||'primary';
-            calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:colorId2})
-              .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=colorId2;lsSave();}}).catch(()=>{});
+          /* Patcher la couleur GCal :
+             - Si la tâche a des sous-événements (_dayEventIds), patcher le sous-événement du jour
+             - Sinon patcher l'événement principal
+             Bleu (7) si ce jour est coché, orange (6) sinon ; event principal : bleu si TOUS cochés */
+          if(token){
+            const thisColorId=m.done?"7":"6";
+            const mainColorId=allDone2?"7":"6";
+            if(t._dayEventIds&&t._dayEventIds.length){
+              /* Trouver l'index du jour pour retrouver le bon sous-événement GCal */
+              const dayIdx=allDays.indexOf(dayDate);
+              const dayEvId=dayIdx>=0?t._dayEventIds[dayIdx]:null;
+              if(dayEvId){
+                const dayGcalEv=gcal.find(e=>e.id===dayEvId);
+                if(dayGcalEv&&dayGcalEv.eventType!=="birthday"&&dayGcalEv.eventType!=="fromGmail"&&!dayGcalEv.readOnly){
+                  const calId2=dayGcalEv.calendarId||'primary';
+                  calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+dayEvId,{colorId:thisColorId})
+                    .then(()=>{const pm=S.tasks.find(x=>x.id===dayEvId);if(pm){pm._colorSynced=thisColorId;lsSave();}}).catch(()=>{});
+                }
+              }
+              /* Patcher aussi l'événement principal (1er sous-événement) avec la couleur globale */
+              if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
+                const calId3=gcalEv.calendarId||'primary';
+                calFetch('PATCH','/calendars/'+encodeURIComponent(calId3)+'/events/'+gcalEv.id,{colorId:mainColorId})
+                  .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=mainColorId;lsSave();}}).catch(()=>{});
+              }
+            } else if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
+              const calId2=gcalEv.calendarId||'primary';
+              calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:mainColorId})
+                .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=mainColorId;lsSave();}}).catch(()=>{});
+            }
           }
           renderAg();renderTasks();
         };
-      })(key,row,dc);
+      })(key,row,dc,d);
       const dlbl=mk("span");
       const dd=new Date(d+"T00:00:00");
       const dayName=dd.toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"});
@@ -4189,7 +4219,30 @@ function saveTaskEdit(){
   lsSave();closeTaskEdit();
   /* Synchroniser dans GCal */
   const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
-  if(token&&gcalEv){
+  if(token&&t._dayEventIds&&t._dayEventIds.length){
+    /* Tâche multi-jours avec sous-événements GCal : mettre à jour chacun en une passe */
+    showSync("Mise à jour GCal…");
+    const total=t._dayEventIds.length;
+    (async function(){
+      for(let i=0;i<t._dayEventIds.length;i++){
+        const eid=t._dayEventIds[i];
+        const dayGcalEv=gcal.find(e=>e.id===eid);
+        if(!dayGcalEv)continue;
+        const dayDate=dayGcalEv.start.slice(0,10);
+        const dayTs=(i===0)?_ts:null;
+        const dayTe=(i===total-1)?_te:null;
+        const dayTitle=t.title+" (J"+(i+1)+"/"+total+")";
+        const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+        let startObj=dayTs?{dateTime:dayDate+"T"+dayTs+":00",timeZone:tz}:{date:dayDate};
+        let endObj;
+        if(dayTe){endObj={dateTime:dayDate+"T"+dayTe+":00",timeZone:tz};}
+        else{const ex=new Date(dayDate+"T00:00:00");ex.setDate(ex.getDate()+1);endObj={date:ds(ex)};}
+        await calFetch('PATCH','/calendars/'+encodeURIComponent(dayGcalEv.calendarId||'primary')+'/events/'+eid,
+          {summary:dayTitle,description:t.desc||"",start:startObj,end:endObj});
+      }
+      hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});
+    })();
+  } else if(token&&gcalEv){
     const date=t.due||(gcalEv.start.slice(0,10));
     showSync("Mise à jour GCal…");
     updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
