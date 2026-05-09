@@ -1565,10 +1565,27 @@ async function fetchGcal(){
       /* Resync couleurs : on patche uniquement les events dont le meta a change
          depuis la derniere sync (_colorSynced !== etat actuel done) */
       if(token){
-        /* Calcule la couleur attendue pour un event, en tenant compte des taches multi-jours */
-        function expectedColor(meta){
+        /* Calcule la couleur attendue pour un event GCal donné :
+           - Sous-événement d'une tâche _dayEventIds : bleu si CE jour est coché
+           - Tâche multi-jours classique : bleu si TOUS les jours sont cochés
+           - Tâche normale : bleu si done */
+        function expectedColorForEvent(gcalEvent){
+          /* Chercher si cet event est un sous-événement (_dayEventIds) */
+          const parentTask=S.tasks.find(function(t){
+            return t._dayEventIds&&t._dayEventIds.includes(gcalEvent.id);
+          });
+          if(parentTask){
+            const dayIdx=parentTask._dayEventIds.indexOf(gcalEvent.id);
+            /* Reconstruire la date du jour à partir du start GCal */
+            const dayDate=gcalEvent.start.slice(0,10);
+            const doneKey=parentTask.id+"__done__"+dayDate;
+            const isDayDone=S.tasks.find(function(x){return x.id===doneKey;})?.done||false;
+            return isDayDone?"7":"6";
+          }
+          /* Tâche principale avec dueEnd (multi-jours sans _dayEventIds) */
+          const meta=S.tasks.find(function(t){return t.id===gcalEvent.id;});
+          if(!meta)return null; /* pas de méta → ne pas toucher */
           if(meta.dueEnd&&meta.dueEnd!==meta.due){
-            /* Multi-jours : bleu seulement si TOUS les jours sont coches */
             const _start=new Date((meta.due||meta.dueEnd)+"T00:00:00");
             const _end=new Date(meta.dueEnd+"T00:00:00");
             const _days=[];const _c=new Date(_start);
@@ -1580,21 +1597,39 @@ async function fetchGcal(){
         }
         const toSync=gcal.filter(function(e){
           if(e.eventType==="birthday"||e.eventType==="fromGmail")return false;
-          const meta=S.tasks.find(t=>t.id===e.id);
+          const expected=expectedColorForEvent(e);
+          if(expected===null)return false;
+          /* Comparer avec la couleur stockée : dans _colorSynced sur la méta ou sur l'entrée __done__ */
+          const parentTask=S.tasks.find(function(t){return t._dayEventIds&&t._dayEventIds.includes(e.id);});
+          if(parentTask){
+            /* Utiliser colorId actuel de l'event GCal comme référence */
+            return e.colorId!==expected;
+          }
+          const meta=S.tasks.find(function(t){return t.id===e.id;});
           if(!meta)return false;
-          return meta._colorSynced!==expectedColor(meta);
+          return meta._colorSynced!==expected;
         });
         toSync.reduce(function(p,e){
           return p.then(function(){
-            const meta=S.tasks.find(t=>t.id===e.id);
-            if(!meta)return;
-            const colorId=expectedColor(meta);
+            const expected=expectedColorForEvent(e);
+            if(expected===null)return;
             const calId2=e.calendarId||'primary';
-            return calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+e.id,{colorId:colorId})
+            return calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+e.id,{colorId:expected})
               .then(function(){
-                meta._colorSynced=colorId;
+                /* Mettre à jour la référence */
+                const parentTask=S.tasks.find(function(t){return t._dayEventIds&&t._dayEventIds.includes(e.id);});
+                if(parentTask){
+                  /* Stocker sur une entrée auxiliaire _colsync__ pour éviter de polluer la méta principale */
+                  let cs=S.tasks.find(function(x){return x.id===e.id+"__colsync__";});
+                  if(!cs){cs={id:e.id+"__colsync__"};S.tasks.push(cs);}
+                  cs._colorSynced=expected;
+                } else {
+                  const meta=S.tasks.find(function(t){return t.id===e.id;});
+                  if(meta){meta._colorSynced=expected;}
+                }
+                e.colorId=expected;
                 lsSave();
-                return new Promise(function(r){setTimeout(r,350);});
+                return new Promise(function(r){setTimeout(r,200);});
               })
               .catch(function(){});
           });
@@ -1609,7 +1644,7 @@ async function fetchGcal(){
         if(t.archived)return true;       // garder les archivées
         if(gcalIds.has(t.id))return true; // garder tous les metas d events GCal connus (done ou pas)
         // Garder les entrées auxiliaires de cochage par jour (tâches multi-jours et récurrentes)
-        if(t.id.includes("__done__")||t.id.includes("__arch__")||t.id.includes("__recur__"))return true;
+        if(t.id.includes("__done__")||t.id.includes("__arch__")||t.id.includes("__recur__")||t.id.includes("__colsync__"))return true;
         return false; // purger les orphelins (events supprimés de GCal)
       });
       if(S.tasks.length!==before)lsSave();
@@ -3299,23 +3334,45 @@ function buildTask(t){
             const thisColorId=m.done?"7":"6";
             const mainColorId=allDone2?"7":"6";
             if(t._dayEventIds&&t._dayEventIds.length){
-              /* Trouver l'index du jour pour retrouver le bon sous-événement GCal */
+              /* Patcher chaque sous-événement GCal individuellement :
+                 bleu (7) si ce jour est coché, orange (6) sinon.
+                 On utilise l'ID directement — pas besoin que l'event soit dans gcal[] */
               const dayIdx=allDays.indexOf(dayDate);
               const dayEvId=dayIdx>=0?t._dayEventIds[dayIdx]:null;
               if(dayEvId){
                 const dayGcalEv=gcal.find(e=>e.id===dayEvId);
-                if(dayGcalEv&&dayGcalEv.eventType!=="birthday"&&dayGcalEv.eventType!=="fromGmail"&&!dayGcalEv.readOnly){
-                  const calId2=dayGcalEv.calendarId||'primary';
-                  calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+dayEvId,{colorId:thisColorId})
-                    .then(()=>{const pm=S.tasks.find(x=>x.id===dayEvId);if(pm){pm._colorSynced=thisColorId;lsSave();}}).catch(()=>{});
-                }
+                const calId2=(dayGcalEv&&dayGcalEv.calendarId)||'primary';
+                calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+dayEvId,{colorId:thisColorId})
+                  .then(()=>{
+                    if(dayGcalEv)dayGcalEv.colorId=thisColorId;
+                    let cs=S.tasks.find(x=>x.id===dayEvId+"__colsync__");
+                    if(!cs){cs={id:dayEvId+"__colsync__"};S.tasks.push(cs);}
+                    cs._colorSynced=thisColorId;
+                    lsSave();
+                  }).catch(()=>{});
               }
-              /* Patcher aussi l'événement principal (1er sous-événement) avec la couleur globale */
-              if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
-                const calId3=gcalEv.calendarId||'primary';
-                calFetch('PATCH','/calendars/'+encodeURIComponent(calId3)+'/events/'+gcalEv.id,{colorId:mainColorId})
-                  .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=mainColorId;lsSave();}}).catch(()=>{});
-              }
+              /* Patcher tous les autres sous-événements dont l'état a changé (allDone2) */
+              t._dayEventIds.forEach(function(eid,ei){
+                if(ei===dayIdx)return; /* déjà patché ci-dessus */
+                const eDate=allDays[ei];
+                if(!eDate)return;
+                const eDoneKey=t.id+"__done__"+eDate;
+                const eDone=S.tasks.find(x=>x.id===eDoneKey)?.done||false;
+                const eColorId=eDone?"7":"6";
+                const eGcalEv=gcal.find(e=>e.id===eid);
+                const eCalId=(eGcalEv&&eGcalEv.calendarId)||'primary';
+                /* Ne patcher que si la couleur stockée est différente */
+                const cs=S.tasks.find(x=>x.id===eid+"__colsync__");
+                if(cs&&cs._colorSynced===eColorId)return;
+                calFetch('PATCH','/calendars/'+encodeURIComponent(eCalId)+'/events/'+eid,{colorId:eColorId})
+                  .then(()=>{
+                    if(eGcalEv)eGcalEv.colorId=eColorId;
+                    let cs2=S.tasks.find(x=>x.id===eid+"__colsync__");
+                    if(!cs2){cs2={id:eid+"__colsync__"};S.tasks.push(cs2);}
+                    cs2._colorSynced=eColorId;
+                    lsSave();
+                  }).catch(()=>{});
+              });
             } else if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
               const calId2=gcalEv.calendarId||'primary';
               calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:mainColorId})
