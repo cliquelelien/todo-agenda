@@ -3338,16 +3338,16 @@ function buildTask(t){
           if(token){
             const thisColorId=m.done?"7":"6";
             const mainColorId=allDone2?"7":"6";
+            console.log("[PFY DAY CLICK] t.id=",t.id,"dayDate=",dayDate,"m.done=",m.done,"thisColorId=",thisColorId);
+            console.log("[PFY DAY CLICK] t._dayEventIds=",t._dayEventIds,"allDays=",allDays);
             if(t._dayEventIds&&t._dayEventIds.length){
-              /* Patcher chaque sous-événement GCal individuellement :
-                 bleu (7) si ce jour est coché, orange (6) sinon.
-                 On utilise l'ID directement — pas besoin que l'event soit dans gcal[] */
               const dayIdx=allDays.indexOf(dayDate);
               const dayEvId=dayIdx>=0?t._dayEventIds[dayIdx]:null;
+              console.log("[PFY DAY CLICK] dayIdx=",dayIdx,"dayEvId=",dayEvId);
               if(dayEvId){
-                /* Toujours patcher via /primary : c'est là que createGcalEv crée les events */
                 calFetch('PATCH','/calendars/primary/events/'+dayEvId,{colorId:thisColorId})
-                  .then(()=>{
+                  .then((res)=>{
+                    console.log("[PFY DAY CLICK] PATCH ok, res=",res);
                     const dayGcalEv=gcal.find(e=>e.id===dayEvId);
                     if(dayGcalEv)dayGcalEv.colorId=thisColorId;
                     let cs=S.tasks.find(x=>x.id===dayEvId+"__colsync__");
@@ -3355,11 +3355,16 @@ function buildTask(t){
                     cs._colorSynced=thisColorId;
                     lsSave();
                   });
+              } else {
+                console.warn("[PFY DAY CLICK] dayEvId introuvable ! dayIdx=",dayIdx,"_dayEventIds=",t._dayEventIds);
               }
-            } else if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
-              const calId2=gcalEv.calendarId||'primary';
-              calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:mainColorId})
-                .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=mainColorId;lsSave();}}).catch(()=>{});
+            } else {
+              console.log("[PFY DAY CLICK] pas de _dayEventIds → patch gcalEv principal",gcalEv?.id,"colorId=",mainColorId);
+              if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
+                const calId2=gcalEv.calendarId||'primary';
+                calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:mainColorId})
+                  .then((res)=>{console.log("[PFY DAY CLICK] patch principal ok",res);const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=mainColorId;lsSave();}}).catch((e)=>{console.error("[PFY DAY CLICK] patch principal erreur",e);});
+              }
             }
           }
           renderAg();renderTasks();
