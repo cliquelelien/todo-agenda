@@ -1595,37 +1595,42 @@ async function fetchGcal(){
           }
           return meta.done?"7":"6";
         }
+        /* Pour chaque event GCal, calculer la couleur attendue et ne patcher
+           que si elle diffère de la valeur confirmée localement (_colorSynced).
+           On n'utilise PAS e.colorId retourné par GCal car il est null quand
+           l'event a la couleur par défaut du calendrier (≠ "6"). */
+        function getColorSynced(gcalEvent){
+          /* Chercher d'abord une entrée __colsync__ (sous-événements _dayEventIds) */
+          const cs=S.tasks.find(function(x){return x.id===gcalEvent.id+"__colsync__";});
+          if(cs)return cs._colorSynced||null;
+          /* Sinon méta principale */
+          const meta=S.tasks.find(function(t){return t.id===gcalEvent.id;});
+          return meta?meta._colorSynced||null:null;
+        }
         const toSync=gcal.filter(function(e){
           if(e.eventType==="birthday"||e.eventType==="fromGmail")return false;
           const expected=expectedColorForEvent(e);
           if(expected===null)return false;
-          /* Comparer avec la couleur stockée : dans _colorSynced sur la méta ou sur l'entrée __done__ */
-          const parentTask=S.tasks.find(function(t){return t._dayEventIds&&t._dayEventIds.includes(e.id);});
-          if(parentTask){
-            /* Utiliser colorId actuel de l'event GCal comme référence */
-            return e.colorId!==expected;
-          }
-          const meta=S.tasks.find(function(t){return t.id===e.id;});
-          if(!meta)return false;
-          return meta._colorSynced!==expected;
+          /* Ne patcher que si la couleur confirmée localement est différente */
+          return getColorSynced(e)!==expected;
         });
         toSync.reduce(function(p,e){
           return p.then(function(){
             const expected=expectedColorForEvent(e);
             if(expected===null)return;
-            const calId2=e.calendarId||'primary';
-            return calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+e.id,{colorId:expected})
+            return calFetch('PATCH','/calendars/primary/events/'+e.id,{colorId:expected})
               .then(function(){
-                /* Mettre à jour la référence */
-                const parentTask=S.tasks.find(function(t){return t._dayEventIds&&t._dayEventIds.includes(e.id);});
-                if(parentTask){
-                  /* Stocker sur une entrée auxiliaire _colsync__ pour éviter de polluer la méta principale */
-                  let cs=S.tasks.find(function(x){return x.id===e.id+"__colsync__";});
-                  if(!cs){cs={id:e.id+"__colsync__"};S.tasks.push(cs);}
+                /* Stocker la couleur confirmée */
+                const cs=S.tasks.find(function(x){return x.id===e.id+"__colsync__";});
+                if(cs){
                   cs._colorSynced=expected;
                 } else {
                   const meta=S.tasks.find(function(t){return t.id===e.id;});
                   if(meta){meta._colorSynced=expected;}
+                  else {
+                    /* Sous-événement sans méta : créer une entrée __colsync__ */
+                    S.tasks.push({id:e.id+"__colsync__",_colorSynced:expected});
+                  }
                 }
                 e.colorId=expected;
                 lsSave();
@@ -3340,39 +3345,17 @@ function buildTask(t){
               const dayIdx=allDays.indexOf(dayDate);
               const dayEvId=dayIdx>=0?t._dayEventIds[dayIdx]:null;
               if(dayEvId){
-                const dayGcalEv=gcal.find(e=>e.id===dayEvId);
-                const calId2=(dayGcalEv&&dayGcalEv.calendarId)||'primary';
-                calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+dayEvId,{colorId:thisColorId})
+                /* Toujours patcher via /primary : c'est là que createGcalEv crée les events */
+                calFetch('PATCH','/calendars/primary/events/'+dayEvId,{colorId:thisColorId})
                   .then(()=>{
+                    const dayGcalEv=gcal.find(e=>e.id===dayEvId);
                     if(dayGcalEv)dayGcalEv.colorId=thisColorId;
                     let cs=S.tasks.find(x=>x.id===dayEvId+"__colsync__");
                     if(!cs){cs={id:dayEvId+"__colsync__"};S.tasks.push(cs);}
                     cs._colorSynced=thisColorId;
                     lsSave();
-                  }).catch(()=>{});
+                  });
               }
-              /* Patcher tous les autres sous-événements dont l'état a changé (allDone2) */
-              t._dayEventIds.forEach(function(eid,ei){
-                if(ei===dayIdx)return; /* déjà patché ci-dessus */
-                const eDate=allDays[ei];
-                if(!eDate)return;
-                const eDoneKey=t.id+"__done__"+eDate;
-                const eDone=S.tasks.find(x=>x.id===eDoneKey)?.done||false;
-                const eColorId=eDone?"7":"6";
-                const eGcalEv=gcal.find(e=>e.id===eid);
-                const eCalId=(eGcalEv&&eGcalEv.calendarId)||'primary';
-                /* Ne patcher que si la couleur stockée est différente */
-                const cs=S.tasks.find(x=>x.id===eid+"__colsync__");
-                if(cs&&cs._colorSynced===eColorId)return;
-                calFetch('PATCH','/calendars/'+encodeURIComponent(eCalId)+'/events/'+eid,{colorId:eColorId})
-                  .then(()=>{
-                    if(eGcalEv)eGcalEv.colorId=eColorId;
-                    let cs2=S.tasks.find(x=>x.id===eid+"__colsync__");
-                    if(!cs2){cs2={id:eid+"__colsync__"};S.tasks.push(cs2);}
-                    cs2._colorSynced=eColorId;
-                    lsSave();
-                  }).catch(()=>{});
-              });
             } else if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
               const calId2=gcalEv.calendarId||'primary';
               calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:mainColorId})
