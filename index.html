@@ -3337,6 +3337,7 @@ function buildTask(t){
       const key=t.id+"__done__"+d;
       const meta=S.tasks.find(x=>x.id===key);
       const done=meta?.done||false;
+      if(i>0)console.log("[DBG buildTask] J"+(i+1)+" key=",key,"done=",done,"meta=",meta);
       const row=mk("div");row.style.cssText="display:flex;align-items:center;gap:8px;"+(done?"opacity:0.5;":"");
       const dc=mk("div");
       dc.style.cssText="width:18px;height:18px;min-width:18px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:2px solid "+(done?"var(--bl)":"var(--blb)")+";background:"+(done?"var(--bl)":"transparent")+";transition:all .15s;flex-shrink:0;";
@@ -3383,6 +3384,10 @@ function buildTask(t){
               }
             }
           }
+          /* Vérification avant render */
+          const _dbgKey=key;
+          const _dbgMeta=S.tasks.find(x=>x.id===_dbgKey);
+          console.log("[DBG] avant renderTasks key=",_dbgKey,"done=",_dbgMeta?.done);
           renderAg();renderTasks();
         };
       })(key,row,dc,d);
