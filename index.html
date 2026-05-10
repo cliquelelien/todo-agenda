@@ -384,12 +384,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 </style>
 </head>
 <body>
-<div id="pfy-dbg" style="display:none;position:fixed;bottom:0;left:0;right:0;max-height:45vh;overflow-y:auto;background:#111;color:#0f0;font-size:11px;font-family:monospace;z-index:99999;padding:8px;border-top:3px solid lime;">
-  <div style="display:flex;gap:8px;margin-bottom:4px;"><b style="color:#ff0;flex:1">DEBUG</b>
-  <button onclick="document.getElementById('pfy-dbg-log').innerHTML=''" style="background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;">Clear</button>
-  <button onclick="document.getElementById('pfy-dbg').style.display='none'" style="background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;">×</button></div>
-  <div id="pfy-dbg-log"></div>
-</div>
+
 <div id="auth-overlay">
   <div class="auth-logo">📅</div>
   <div class="auth-app-name">Planify</div>
@@ -760,7 +755,6 @@ function lsSave(){localStorage.setItem(LS_KEY,JSON.stringify(S));}
   }catch(e){}
 })();
 
-(function(){var _cl=console.log.bind(console);console.log=function(){_cl.apply(console,arguments);var s=String(arguments[0]);if(s.startsWith('[DET')||s.startsWith('[DBG')){var el=document.getElementById('pfy-dbg-log');if(!el)return;document.getElementById('pfy-dbg').style.display='block';var line=document.createElement('div');line.style.cssText='border-bottom:1px solid #333;padding:2px 0;word-break:break-all;';line.textContent=Array.from(arguments).map(function(a){return typeof a==='object'?JSON.stringify(a):String(a);}).join(' ');el.appendChild(line);el.scrollTop=el.scrollHeight;}};})();
 let S=lsLoad(), gcal=[], token=null;
 let allCalendars=[], selectedCals=new Set(JSON.parse(localStorage.getItem('pfy_sel_cals')||'null')||[]);
 let curTab="todo", view="month";
@@ -2273,7 +2267,6 @@ function buildDetRow(e,forDate){
       /* Multi-jours (locale ou GCal avec méta) : cochage indépendant par jour */
       doneKey=baseId+"__done__"+displayDate;
       checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
-      console.log("[DET] baseId=",baseId,"displayDate=",displayDate,"doneKey=",doneKey,"checkDone=",checkDone);
     } else if(baseTask&&baseTask.recurrence&&baseTask.due===displayDate){
       doneKey=baseId+"__done__"+displayDate;
       checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
@@ -2300,12 +2293,25 @@ function buildDetRow(e,forDate){
       if(!meta){meta={id:doneKey,title:e.title,done:false,archived:false};S.tasks.push(meta);}
       meta.done=!meta.done;
       lsSave();
-      /* Mise à jour visuelle directe — pas de renderAg() qui déclencherait un fetchGcal
-         et écraserait l'état avant le prochain rendu */
+      /* Mise à jour visuelle directe uniquement — aucun re-render qui causerait des races */
       row.classList.toggle("done",meta.done);
       chk.classList.toggle("on",meta.done);
-      /* Mettre à jour aussi la ligne dans l'onglet Tâches */
-      renderTasks();
+      /* Mettre à jour la case correspondante dans l'onglet Tâches sans tout reconstruire */
+      (function(){
+        var taskEl=document.querySelector('.ti[data-id="'+baseId+'"]');
+        if(!taskEl)return;
+        var dayRows=taskEl.querySelectorAll('.day-row');
+        dayRows.forEach(function(dr){
+          if(dr.dataset.date===displayDate){
+            var dc=dr.querySelector('.day-ck');
+            if(dc){
+              dc.style.background=meta.done?'var(--bl)':'transparent';
+              dc.style.borderColor=meta.done?'var(--bl)':'var(--blb)';
+            }
+            dr.style.opacity=meta.done?'0.5':'1';
+          }
+        });
+      })();
       if(token){
         const parentId=isVirtual?e._baseId:baseId;
         const parentTask=S.tasks.find(x=>x.id===parentId);
@@ -3350,8 +3356,8 @@ function buildTask(t){
       const key=t.id+"__done__"+d;
       const meta=S.tasks.find(x=>x.id===key);
       const done=meta?.done||false;
-      const row=mk("div");row.style.cssText="display:flex;align-items:center;gap:8px;"+(done?"opacity:0.5;":"");
-      const dc=mk("div");
+      const row=mk("div","day-row");row.dataset.date=d;row.style.cssText="display:flex;align-items:center;gap:8px;"+(done?"opacity:0.5;":"");
+      const dc=mk("div","day-ck");
       dc.style.cssText="width:18px;height:18px;min-width:18px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:2px solid "+(done?"var(--bl)":"var(--blb)")+";background:"+(done?"var(--bl)":"transparent")+";transition:all .15s;flex-shrink:0;";
       dc.innerHTML='<svg width="9" height="7" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
       (function(dayKey,dayRow,dayChk,dayDate){
