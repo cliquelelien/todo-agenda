@@ -1613,26 +1613,24 @@ async function fetchGcal(){
           if(e.eventType==="birthday"||e.eventType==="fromGmail")return false;
           const expected=expectedColorForEvent(e);
           if(expected===null)return false;
-          /* Ne patcher que si la couleur confirmée localement est différente */
           return getColorSynced(e)!==expected;
         });
         toSync.reduce(function(p,e){
           return p.then(function(){
+            /* Recalculer au moment du PATCH pour avoir l'état le plus récent
+               (l'utilisateur a pu cocher/décocher entre le début du toSync et maintenant) */
             const expected=expectedColorForEvent(e);
             if(expected===null)return;
+            /* Si déjà synced entretemps (ex: clic utilisateur), ne pas repatcher */
+            if(getColorSynced(e)===expected)return;
             return calFetch('PATCH','/calendars/primary/events/'+e.id,{colorId:expected})
               .then(function(){
-                /* Stocker la couleur confirmée */
                 const cs=S.tasks.find(function(x){return x.id===e.id+"__colsync__";});
-                if(cs){
-                  cs._colorSynced=expected;
-                } else {
+                if(cs){cs._colorSynced=expected;}
+                else{
                   const meta=S.tasks.find(function(t){return t.id===e.id;});
                   if(meta){meta._colorSynced=expected;}
-                  else {
-                    /* Sous-événement sans méta : créer une entrée __colsync__ */
-                    S.tasks.push({id:e.id+"__colsync__",_colorSynced:expected});
-                  }
+                  else{S.tasks.push({id:e.id+"__colsync__",_colorSynced:expected});}
                 }
                 e.colorId=expected;
                 lsSave();
