@@ -384,6 +384,12 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 </style>
 </head>
 <body>
+<div id="pfy-dbg" style="display:none;position:fixed;bottom:0;left:0;right:0;max-height:45vh;overflow-y:auto;background:#111;color:#0f0;font-size:11px;font-family:monospace;z-index:99999;padding:8px;border-top:3px solid lime;">
+  <div style="display:flex;gap:8px;margin-bottom:4px;"><b style="color:#ff0;flex:1">DEBUG</b>
+  <button onclick="document.getElementById('pfy-dbg-log').innerHTML=''" style="background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;">Clear</button>
+  <button onclick="document.getElementById('pfy-dbg').style.display='none'" style="background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;">×</button></div>
+  <div id="pfy-dbg-log"></div>
+</div>
 <div id="auth-overlay">
   <div class="auth-logo">📅</div>
   <div class="auth-app-name">Planify</div>
@@ -754,6 +760,7 @@ function lsSave(){localStorage.setItem(LS_KEY,JSON.stringify(S));}
   }catch(e){}
 })();
 
+(function(){var _cl=console.log.bind(console);console.log=function(){_cl.apply(console,arguments);var s=String(arguments[0]);if(s.startsWith('[DET')||s.startsWith('[DBG')){var el=document.getElementById('pfy-dbg-log');if(!el)return;document.getElementById('pfy-dbg').style.display='block';var line=document.createElement('div');line.style.cssText='border-bottom:1px solid #333;padding:2px 0;word-break:break-all;';line.textContent=Array.from(arguments).map(function(a){return typeof a==='object'?JSON.stringify(a):String(a);}).join(' ');el.appendChild(line);el.scrollTop=el.scrollHeight;}};})();
 let S=lsLoad(), gcal=[], token=null;
 let allCalendars=[], selectedCals=new Set(JSON.parse(localStorage.getItem('pfy_sel_cals')||'null')||[]);
 let curTab="todo", view="month";
@@ -2266,6 +2273,7 @@ function buildDetRow(e,forDate){
       /* Multi-jours (locale ou GCal avec méta) : cochage indépendant par jour */
       doneKey=baseId+"__done__"+displayDate;
       checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
+      console.log("[DET] baseId=",baseId,"displayDate=",displayDate,"doneKey=",doneKey,"checkDone=",checkDone);
     } else if(baseTask&&baseTask.recurrence&&baseTask.due===displayDate){
       doneKey=baseId+"__done__"+displayDate;
       checkDone=S.tasks.find(x=>x.id===doneKey)?.done||false;
