@@ -2293,25 +2293,8 @@ function buildDetRow(e,forDate){
       if(!meta){meta={id:doneKey,title:e.title,done:false,archived:false};S.tasks.push(meta);}
       meta.done=!meta.done;
       lsSave();
-      /* Mise à jour visuelle directe uniquement — aucun re-render qui causerait des races */
       row.classList.toggle("done",meta.done);
       chk.classList.toggle("on",meta.done);
-      /* Mettre à jour la case correspondante dans l'onglet Tâches sans tout reconstruire */
-      (function(){
-        var taskEl=document.querySelector('.ti[data-id="'+baseId+'"]');
-        if(!taskEl)return;
-        var dayRows=taskEl.querySelectorAll('.day-row');
-        dayRows.forEach(function(dr){
-          if(dr.dataset.date===displayDate){
-            var dc=dr.querySelector('.day-ck');
-            if(dc){
-              dc.style.background=meta.done?'var(--bl)':'transparent';
-              dc.style.borderColor=meta.done?'var(--bl)':'var(--blb)';
-            }
-            dr.style.opacity=meta.done?'0.5':'1';
-          }
-        });
-      })();
       if(token){
         const parentId=isVirtual?e._baseId:baseId;
         const parentTask=S.tasks.find(x=>x.id===parentId);
