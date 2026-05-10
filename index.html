@@ -384,6 +384,14 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 </style>
 </head>
 <body>
+<div id="pfy-dbg" style="display:none;position:fixed;bottom:0;left:0;right:0;max-height:45vh;overflow-y:auto;background:#111;color:#0f0;font-size:11px;font-family:monospace;z-index:99999;padding:8px;border-top:3px solid lime;">
+  <div style="display:flex;gap:8px;margin-bottom:4px;">
+    <b style="color:#ff0;flex:1">🔍 DEBUG</b>
+    <button onclick="document.getElementById('pfy-dbg-log').innerHTML=''" style="background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;">Clear</button>
+    <button onclick="document.getElementById('pfy-dbg').style.display='none'" style="background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;">×</button>
+  </div>
+  <div id="pfy-dbg-log"></div>
+</div>
 <div id="auth-overlay">
   <div class="auth-logo">📅</div>
   <div class="auth-app-name">Planify</div>
@@ -754,6 +762,24 @@ function lsSave(){localStorage.setItem(LS_KEY,JSON.stringify(S));}
   }catch(e){}
 })();
 
+(function(){
+  function pfyLog(color,args){
+    var el=document.getElementById('pfy-dbg-log');
+    if(!el)return;
+    document.getElementById('pfy-dbg').style.display='block';
+    var line=document.createElement('div');
+    line.style.cssText='border-bottom:1px solid #222;padding:2px 0;color:'+color+';word-break:break-all;';
+    line.textContent=Array.from(args).map(function(a){
+      if(a===null)return'null';
+      if(typeof a==='object'){try{return JSON.stringify(a);}catch(e){return String(a);}}
+      return String(a);
+    }).join(' ');
+    el.appendChild(line);
+    el.scrollTop=el.scrollHeight;
+  }
+  var _cl=console.log.bind(console);
+  console.log=function(){_cl.apply(console,arguments);if(String(arguments[0]).startsWith('[DBG'))pfyLog('#0f0',arguments);};
+})();
 let S=lsLoad(), gcal=[], token=null;
 let allCalendars=[], selectedCals=new Set(JSON.parse(localStorage.getItem('pfy_sel_cals')||'null')||[]);
 let curTab="todo", view="month";
