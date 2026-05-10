@@ -384,14 +384,6 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 </style>
 </head>
 <body>
-<div id="pfy-debug" style="display:none;position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow-y:auto;background:#111;color:#0f0;font-size:10px;font-family:monospace;z-index:99999;padding:8px;border-top:2px solid #0f0;">
-  <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-    <b style="color:#ff0">🔍 DEBUG LOG</b>
-    <button onclick="document.getElementById('pfy-debug-log').innerHTML=''" style="background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;">Clear</button>
-    <button onclick="document.getElementById('pfy-debug').style.display='none'" style="background:#333;color:#fff;border:none;padding:2px 8px;border-radius:4px;">Fermer</button>
-  </div>
-  <div id="pfy-debug-log"></div>
-</div>
 <div id="auth-overlay">
   <div class="auth-logo">📅</div>
   <div class="auth-app-name">Planify</div>
@@ -762,29 +754,6 @@ function lsSave(){localStorage.setItem(LS_KEY,JSON.stringify(S));}
   }catch(e){}
 })();
 
-/* ===== DEBUG PANEL ===== */
-(function(){
-  const _log=console.log.bind(console);
-  const _warn=console.warn.bind(console);
-  const _err=console.error.bind(console);
-  function pfyLog(color,args){
-    const el=document.getElementById('pfy-debug-log');
-    if(!el)return;
-    const line=document.createElement('div');
-    line.style.cssText='border-bottom:1px solid #222;padding:2px 0;color:'+color+';word-break:break-all;';
-    line.textContent=Array.from(args).map(a=>{
-      if(typeof a==='object'){try{return JSON.stringify(a);}catch(e){return String(a);}}
-      return String(a);
-    }).join(' ');
-    el.appendChild(line);
-    el.scrollTop=el.scrollHeight;
-    document.getElementById('pfy-debug').style.display='block';
-  }
-  console.log=function(){_log.apply(console,arguments);if(arguments[0]&&String(arguments[0]).startsWith('[PFY'))pfyLog('#0f0',arguments);};
-  console.warn=function(){_warn.apply(console,arguments);if(arguments[0]&&String(arguments[0]).startsWith('[PFY'))pfyLog('#ff0',arguments);};
-  console.error=function(){_err.apply(console,arguments);if(arguments[0]&&String(arguments[0]).startsWith('[PFY'))pfyLog('#f44',arguments);};
-})();
-/* ===== END DEBUG PANEL ===== */
 let S=lsLoad(), gcal=[], token=null;
 let allCalendars=[], selectedCals=new Set(JSON.parse(localStorage.getItem('pfy_sel_cals')||'null')||[]);
 let curTab="todo", view="month";
@@ -1613,7 +1582,7 @@ async function fetchGcal(){
             const isDayDone=S.tasks.find(function(x){return x.id===doneKey;})?.done||false;
             return isDayDone?"7":"6";
           }
-          /* Tâche principale avec dueEnd (multi-jours sans _dayEventIds) */
+          /* Tâche principale avec dueEnd (multi-jours sur un seul event GCal) */
           const meta=S.tasks.find(function(t){return t.id===gcalEvent.id;});
           if(!meta)return null; /* pas de méta → ne pas toucher */
           if(meta.dueEnd&&meta.dueEnd!==meta.due){
@@ -1621,8 +1590,9 @@ async function fetchGcal(){
             const _end=new Date(meta.dueEnd+"T00:00:00");
             const _days=[];const _c=new Date(_start);
             while(_c<=_end){_days.push(ds(_c));_c.setDate(_c.getDate()+1);}
-            const _allDone=_days.length>0&&_days.every(function(d){return S.tasks.find(function(x){return x.id===meta.id+"__done__"+d;})?.done;});
-            return _allDone?"7":"6";
+            /* Bleu dès qu'AU MOINS UN jour est coché */
+            const _anyDone=_days.some(function(d){return S.tasks.find(function(x){return x.id===meta.id+"__done__"+d;})?.done;});
+            return _anyDone?"7":"6";
           }
           return meta.done?"7":"6";
         }
@@ -3362,38 +3332,34 @@ function buildTask(t){
           lsSave();
           const allDone2=allDays.every(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
           if(allDone2!==t.done){t.done=allDone2;lsSave();}
-          console.log("[PFY CLICK] token=",!!token,"t.id=",t.id,"dayDate=",dayDate,"done=",m.done);
-          console.log("[PFY CLICK] _dayEventIds=",JSON.stringify(t._dayEventIds));
-          console.log("[PFY CLICK] gcalEv=",gcalEv?gcalEv.id:"null");
           if(token){
-            const thisColorId=m.done?"7":"6";
-            const mainColorId=allDone2?"7":"6";
-            console.log("[PFY DAY CLICK] t.id=",t.id,"dayDate=",dayDate,"m.done=",m.done,"thisColorId=",thisColorId);
-            console.log("[PFY DAY CLICK] t._dayEventIds=",t._dayEventIds,"allDays=",allDays);
             if(t._dayEventIds&&t._dayEventIds.length){
+              /* Tâche créée avec plusieurs sous-événements GCal séparés :
+                 chaque jour a son propre event → on le patche individuellement */
               const dayIdx=allDays.indexOf(dayDate);
               const dayEvId=dayIdx>=0?t._dayEventIds[dayIdx]:null;
-              console.log("[PFY DAY CLICK] dayIdx=",dayIdx,"dayEvId=",dayEvId);
               if(dayEvId){
+                const thisColorId=m.done?"7":"6";
                 calFetch('PATCH','/calendars/primary/events/'+dayEvId,{colorId:thisColorId})
-                  .then((res)=>{
-                    console.log("[PFY DAY CLICK] PATCH ok, res=",res);
+                  .then(()=>{
                     const dayGcalEv=gcal.find(e=>e.id===dayEvId);
                     if(dayGcalEv)dayGcalEv.colorId=thisColorId;
                     let cs=S.tasks.find(x=>x.id===dayEvId+"__colsync__");
                     if(!cs){cs={id:dayEvId+"__colsync__"};S.tasks.push(cs);}
                     cs._colorSynced=thisColorId;
                     lsSave();
-                  });
-              } else {
-                console.warn("[PFY DAY CLICK] dayEvId introuvable ! dayIdx=",dayIdx,"_dayEventIds=",t._dayEventIds);
+                  }).catch(()=>{});
               }
-            } else {
-              console.log("[PFY DAY CLICK] pas de _dayEventIds → patch gcalEv principal",gcalEv?.id,"colorId=",mainColorId);
-              if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
-                const calId2=gcalEv.calendarId||'primary';
-                calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:mainColorId})
-                  .then((res)=>{console.log("[PFY DAY CLICK] patch principal ok",res);const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=mainColorId;lsSave();}}).catch((e)=>{console.error("[PFY DAY CLICK] patch principal erreur",e);});
+            } else if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
+              /* Tâche multi-jours sur un seul event GCal (start→end étendu) :
+                 bleu dès qu'AU MOINS UN jour est coché, orange seulement si AUCUN jour n'est coché */
+              const anyDone=allDays.some(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
+              const targetColor=anyDone?"7":"6";
+              const calId2=gcalEv.calendarId||'primary';
+              const pm=S.tasks.find(x=>x.id===gcalEv.id);
+              if(!pm||pm._colorSynced!==targetColor){
+                calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:targetColor})
+                  .then(()=>{if(pm)pm._colorSynced=targetColor;else S.tasks.push({id:gcalEv.id,_colorSynced:targetColor});lsSave();}).catch(()=>{});
               }
             }
           }
@@ -3515,8 +3481,18 @@ function buildTask(t){
       await delGcalEv(gcalEv.id);
     }
     hideSync();
-    /* Purger aussi les entrées __done__ liées */
-    S.tasks=S.tasks.filter(x=>x.id!==t.id&&!x.id.startsWith(t.id+"__"));
+    /* Purger les entrées __done__ et __colsync__ liées + les colsync des sous-événements */
+    const idsToClean=new Set(t._dayEventIds||[]);
+    S.tasks=S.tasks.filter(x=>{
+      if(x.id===t.id)return false;
+      if(x.id.startsWith(t.id+"__"))return false;
+      /* Supprimer les __colsync__ des sous-événements GCal */
+      if(idsToClean.size&&x.id.endsWith("__colsync__")){
+        const base=x.id.replace("__colsync__","");
+        if(idsToClean.has(base))return false;
+      }
+      return true;
+    });
     lsSave();
     if(t._dayEventIds||gcalEv)await fetchGcal();
     renderTasks();if(curTab==="agenda")renderAg();
@@ -4295,27 +4271,51 @@ function saveTaskEdit(){
   /* Synchroniser dans GCal */
   const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
   if(token&&t._dayEventIds&&t._dayEventIds.length){
-    /* Tâche multi-jours avec sous-événements GCal : mettre à jour chacun en une passe */
+    /* Tâche multi-jours avec sous-événements GCal :
+       Supprimer les anciens events et recréer N nouveaux avec les nouvelles dates/titre */
     showSync("Mise à jour GCal…");
-    const total=t._dayEventIds.length;
     (async function(){
-      for(let i=0;i<t._dayEventIds.length;i++){
-        const eid=t._dayEventIds[i];
-        const dayGcalEv=gcal.find(e=>e.id===eid);
-        if(!dayGcalEv)continue;
-        const dayDate=dayGcalEv.start.slice(0,10);
-        const dayTs=(i===0)?_ts:null;
-        const dayTe=(i===total-1)?_te:null;
-        const dayTitle=t.title+" (J"+(i+1)+"/"+total+")";
-        const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-        let startObj=dayTs?{dateTime:dayDate+"T"+dayTs+":00",timeZone:tz}:{date:dayDate};
-        let endObj;
-        if(dayTe){endObj={dateTime:dayDate+"T"+dayTe+":00",timeZone:tz};}
-        else{const ex=new Date(dayDate+"T00:00:00");ex.setDate(ex.getDate()+1);endObj={date:ds(ex)};}
-        await calFetch('PATCH','/calendars/'+encodeURIComponent(dayGcalEv.calendarId||'primary')+'/events/'+eid,
-          {summary:dayTitle,description:t.desc||"",start:startObj,end:endObj});
+      /* 1. Supprimer tous les anciens sous-événements */
+      for(const eid of t._dayEventIds){await delGcalEv(eid);}
+      /* 2. Reconstruire la liste des jours avec les nouvelles dates */
+      const newStart=t.due||t.dueEnd;
+      const newEnd=t.dueEnd||t.due;
+      const newDays=[];
+      {const c=new Date(newStart+"T00:00:00"),eD=new Date(newEnd+"T00:00:00");
+       while(c<=eD){newDays.push(ds(c));c.setDate(c.getDate()+1);}}
+      const newTotal=newDays.length;
+      const newIds=[];
+      /* 3. Récupérer les couleurs cochées pour les reporter sur les nouveaux events */
+      const checkedDates=new Set(
+        S.tasks.filter(x=>x.id.startsWith(t.id+"__done__")&&x.done).map(x=>x.id.replace(t.id+"__done__",""))
+      );
+      for(let i=0;i<newTotal;i++){
+        const d=newDays[i];
+        const dayTS=(i===0)?_ts:null;
+        const dayTE=(i===newTotal-1)?(_te||(_ts?addOneHour(_ts):null)):null;
+        const dayTitle=t.title+" (J"+(i+1)+"/"+newTotal+")";
+        const colorId=checkedDates.has(d)?"7":"6";
+        const ev=await createGcalEv(dayTitle,t.desc||"",d,dayTS,dayTE,t.remind||0,null,null);
+        if(ev&&ev.id){
+          newIds.push(ev.id);
+          /* Appliquer la couleur si ce jour était coché */
+          if(colorId==="7"){
+            await calFetch('PATCH','/calendars/primary/events/'+ev.id,{colorId:"7"});
+          }
+        }
       }
-      hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});
+      /* 4. Mettre à jour la tâche Planify avec les nouveaux IDs */
+      t._dayEventIds=newIds;
+      if(newIds.length)t.id=newIds[0];
+      /* Purger les __done__ obsolètes (dates hors nouvelle plage) */
+      S.tasks=S.tasks.filter(x=>{
+        if(!x.id.startsWith(t.id+"__done__"))return true;
+        const d=x.id.replace(t.id+"__done__","");
+        return newDays.includes(d);
+      });
+      lsSave();
+      hideSync();
+      await fetchGcal();renderTasks();renderAg();
     })();
   } else if(token&&gcalEv){
     const date=t.due||(gcalEv.start.slice(0,10));
