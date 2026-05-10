@@ -1004,6 +1004,15 @@ function evCls(e,prefix,forDate){
     const done=S.tasks.find(x=>x.id===doneKey)?.done||false;
     return done?(prefix+"-dn"):(prefix+"-gc");
   }
+  /* Sous-événement GCal d'une tâche _dayEventIds : vérifier baseId__done__date */
+  if(e._baseId&&forDate){
+    const parentTask=S.tasks.find(x=>x.id===e._baseId);
+    if(parentTask&&parentTask._dayEventIds){
+      const doneKey=e._baseId+"__done__"+forDate;
+      const done=S.tasks.find(x=>x.id===doneKey)?.done||false;
+      return done?(prefix+"-dn"):(prefix+"-td");
+    }
+  }
   if(e._local&&forDate){
     /* Résoudre le vrai ID de base (gcalMultiEvs ont un _baseId) */
     const realId=e._baseId||e.id;
