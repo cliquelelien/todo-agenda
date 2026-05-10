@@ -1760,7 +1760,10 @@ function goTab(t,skipRender){
   if(t==="agenda"&&!skipRender){
     renderAg();
     if(token){
-      var doAg=function(){fetchGcal().then(function(){renderAg();});};
+      var doAg=function(){fetchGcal().then(function(){
+        /* Ne pas écraser un rendu récent déclenché par un clic utilisateur */
+        if(Date.now()-(window._lastDayClick||0)>2000)renderAg();
+      });};
       if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doAg).catch(doAg);}else doAg();
     }
   }
@@ -2302,6 +2305,7 @@ function buildDetRow(e,forDate){
       lsSave();
       row.classList.toggle("done",meta.done);
       chk.classList.toggle("on",meta.done);
+      window._lastDayClick=Date.now();
       renderTasks();renderAg();
       if(token){
         const parentId=isVirtual?e._baseId:baseId;
@@ -3362,7 +3366,10 @@ function buildTask(t){
           lsSave();
           const allDone2=allDays.every(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
           if(allDone2!==t.done){t.done=allDone2;lsSave();}
+          /* Rendu immédiat depuis S.tasks — couleurs correctes via evCls */
           renderTasks();renderAg();
+          /* Marquer l'instant du clic pour bloquer les re-renders GCal pendant 2s */
+          window._lastDayClick=Date.now();
           if(token){
             if(t._dayEventIds&&t._dayEventIds.length){
               /* Tâche créée avec plusieurs sous-événements GCal séparés :
@@ -3503,20 +3510,21 @@ function buildTask(t){
   del.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   del.onclick=async()=>{
     if(!confirm('Supprimer "'+t.title+'" ?'))return;
+    /* Recharger la tâche depuis S.tasks pour avoir _dayEventIds à jour */
+    const tFresh=S.tasks.find(x=>x.id===t.id)||t;
     showSync("Suppression…");
-    if(t._dayEventIds&&t._dayEventIds.length){
-      /* Tâche multijours : supprimer tous les sous-événements GCal */
-      for(const eid of t._dayEventIds){await delGcalEv(eid);}
+    if(tFresh._dayEventIds&&tFresh._dayEventIds.length){
+      for(const eid of tFresh._dayEventIds){
+        if(eid)await delGcalEv(eid);
+      }
     } else if(gcalEv){
       await delGcalEv(gcalEv.id);
     }
     hideSync();
-    /* Purger les entrées __done__ et __colsync__ liées + les colsync des sous-événements */
-    const idsToClean=new Set(t._dayEventIds||[]);
+    const idsToClean=new Set(tFresh._dayEventIds||[]);
     S.tasks=S.tasks.filter(x=>{
-      if(x.id===t.id)return false;
-      if(x.id.startsWith(t.id+"__"))return false;
-      /* Supprimer les __colsync__ des sous-événements GCal */
+      if(x.id===tFresh.id)return false;
+      if(x.id.startsWith(tFresh.id+"__"))return false;
       if(idsToClean.size&&x.id.endsWith("__colsync__")){
         const base=x.id.replace("__colsync__","");
         if(idsToClean.has(base))return false;
@@ -3524,8 +3532,8 @@ function buildTask(t){
       return true;
     });
     lsSave();
-    if(t._dayEventIds||gcalEv)await fetchGcal();
-    renderTasks();if(curTab==="agenda")renderAg();
+    if(tFresh._dayEventIds||gcalEv)await fetchGcal();
+    renderTasks();renderAg();
   };
 
   actions.append(remWrap,dragBtn,del);
