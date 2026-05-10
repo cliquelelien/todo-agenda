@@ -2298,19 +2298,26 @@ function buildDetRow(e,forDate){
         const parentTask=S.tasks.find(x=>x.id===parentId);
         /* Cas tâche multijours avec sous-événements GCal séparés (_dayEventIds) */
         if(parentTask&&parentTask._dayEventIds&&parentTask._dayEventIds.length){
-          /* Calculer si TOUS les jours sont cochés */
+          /* Patcher UNIQUEMENT le sous-événement GCal du jour coché */
           const allDays=[];
           const c=new Date(parentTask.due+"T00:00:00"),eD=new Date(parentTask.dueEnd+"T00:00:00");
           while(c<=eD){allDays.push(ds(c));c.setDate(c.getDate()+1);}
+          const dayIdx=allDays.indexOf(displayDate);
+          const dayEvId=dayIdx>=0?parentTask._dayEventIds[dayIdx]:null;
+          if(dayEvId){
+            const thisDayColorId=meta.done?"7":"6";
+            calFetch('PATCH','/calendars/primary/events/'+dayEvId,{colorId:thisDayColorId})
+              .then(()=>{
+                const dayGcalEv=gcal.find(x=>x.id===dayEvId);
+                if(dayGcalEv)dayGcalEv.colorId=thisDayColorId;
+                let cs=S.tasks.find(x=>x.id===dayEvId+"__colsync__");
+                if(!cs){cs={id:dayEvId+"__colsync__"};S.tasks.push(cs);}
+                cs._colorSynced=thisDayColorId;lsSave();
+              }).catch(()=>{});
+          }
+          /* Mettre à jour done global si tous cochés */
           const allDone=allDays.every(d2=>S.tasks.find(x=>x.id===parentId+"__done__"+d2)?.done);
-          const colorId=allDone?"7":"6";
-          /* Patcher chaque sous-événement GCal avec la couleur globale */
-          parentTask._dayEventIds.forEach(eid=>{
-            const dayEv=gcal.find(x=>x.id===eid);
-            if(!dayEv||dayEv.readOnly)return;
-            calFetch('PATCH','/calendars/'+(dayEv.calendarId||'primary')+'/events/'+eid,{colorId}).catch(()=>{});
-          });
-          parentTask._colorSynced=colorId;lsSave();
+          if(allDone!==parentTask.done){parentTask.done=allDone;lsSave();}
         } else {
           /* Tâche multijours classique (un seul event GCal multi-jours) */
           const parentEv=gcal.find(x=>x.id===parentId);
@@ -2367,15 +2374,21 @@ function buildDetRow(e,forDate){
   if(e._isMulti){
     const baseTask2=S.tasks.find(x=>x.id===(e._baseId||e.id));
     let timeTxt="";
-    if(e._isFirst&&baseTask2&&baseTask2._pendingTS)timeTxt="▶ "+baseTask2._pendingTS;
-    else if(e._isLast&&baseTask2&&baseTask2._pendingTE)timeTxt="⏹ "+baseTask2._pendingTE;
-    else timeTxt="·";
+    if(e._isFirst&&baseTask2&&baseTask2._pendingTS){
+      timeTxt="▶ "+baseTask2._pendingTS+" – 23:59";
+    } else if(e._isLast&&baseTask2&&baseTask2._pendingTE){
+      timeTxt="00:00 – "+baseTask2._pendingTE+" ⏹";
+    } else if(!e.allDay&&e.start&&e.start.includes("T")){
+      timeTxt=fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):"");
+    } else {
+      timeTxt="Journée entière";
+    }
     const start=new Date((e._due||displayDate)+"T00:00:00");
     const cur=new Date(displayDate+"T00:00:00");
     const end=new Date((e._dueEnd||displayDate)+"T00:00:00");
     const dayN=Math.round((cur-start)/(864e5))+1;
     const dayTotal=Math.round((end-start)/(864e5))+1;
-    time.textContent=timeTxt+" J"+dayN+"/"+dayTotal;
+    time.textContent=timeTxt+" · J"+dayN+"/"+dayTotal;
   } else {
     time.textContent=e.allDay?"Journée":(fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):""));
   }
@@ -2840,9 +2853,16 @@ async function addTask(){
       const dayEventIds=[];
       for(let i=0;i<total;i++){
         const d=allDays[i];
-        const dayTS=(i===0)?tim:null;
-        const dayTE=(i===total-1)?timeEnd:null;
-        /* Titre avec badge J1/N pour retrouver facilement dans GCal */
+        /* Heures :
+           J1          → heure début (tim) jusqu'à 23:59
+           J intermédiaires → journée entière (all-day)
+           J dernier   → 00:00 jusqu'à heure fin (timeEnd) */
+        let dayTS=null,dayTE=null;
+        if(tim){
+          if(i===0){dayTS=tim;dayTE="23:59";}
+          else if(i===total-1&&timeEnd){dayTS="00:00";dayTE=timeEnd;}
+          /* jours intermédiaires : all-day (pas d'heure) */
+        }
         const dayTitle=title+" (J"+(i+1)+"/"+total+")";
         const ev=await createGcalEv(dayTitle,"",d,dayTS,dayTE,remind,null,null);
         if(ev&&ev.id)dayEventIds.push(ev.id);
@@ -4291,14 +4311,17 @@ function saveTaskEdit(){
       );
       for(let i=0;i<newTotal;i++){
         const d=newDays[i];
-        const dayTS=(i===0)?_ts:null;
-        const dayTE=(i===newTotal-1)?(_te||(_ts?addOneHour(_ts):null)):null;
+        /* Mêmes règles d'heures que à la création */
+        let dayTS=null,dayTE=null;
+        if(_ts){
+          if(i===0){dayTS=_ts;dayTE="23:59";}
+          else if(i===newTotal-1&&_te){dayTS="00:00";dayTE=_te;}
+        }
         const dayTitle=t.title+" (J"+(i+1)+"/"+newTotal+")";
         const colorId=checkedDates.has(d)?"7":"6";
         const ev=await createGcalEv(dayTitle,t.desc||"",d,dayTS,dayTE,t.remind||0,null,null);
         if(ev&&ev.id){
           newIds.push(ev.id);
-          /* Appliquer la couleur si ce jour était coché */
           if(colorId==="7"){
             await calFetch('PATCH','/calendars/primary/events/'+ev.id,{colorId:"7"});
           }
