@@ -2291,8 +2291,13 @@ function buildDetRow(e,forDate){
       let meta=S.tasks.find(x=>x.id===doneKey);
       if(!meta){meta={id:doneKey,title:e.title,done:false,archived:false};S.tasks.push(meta);}
       meta.done=!meta.done;
-      lsSave();row.classList.toggle("done",meta.done);chk.classList.toggle("on",meta.done);
-      renderTasks();renderAg();
+      lsSave();
+      /* Mise à jour visuelle directe — pas de renderAg() qui déclencherait un fetchGcal
+         et écraserait l'état avant le prochain rendu */
+      row.classList.toggle("done",meta.done);
+      chk.classList.toggle("on",meta.done);
+      /* Mettre à jour aussi la ligne dans l'onglet Tâches */
+      renderTasks();
       if(token){
         const parentId=isVirtual?e._baseId:baseId;
         const parentTask=S.tasks.find(x=>x.id===parentId);
