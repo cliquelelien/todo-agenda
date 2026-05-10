@@ -2302,6 +2302,7 @@ function buildDetRow(e,forDate){
       lsSave();
       row.classList.toggle("done",meta.done);
       chk.classList.toggle("on",meta.done);
+      renderTasks();renderAg();
       if(token){
         const parentId=isVirtual?e._baseId:baseId;
         const parentTask=S.tasks.find(x=>x.id===parentId);
@@ -3361,6 +3362,7 @@ function buildTask(t){
           lsSave();
           const allDone2=allDays.every(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
           if(allDone2!==t.done){t.done=allDone2;lsSave();}
+          renderTasks();renderAg();
           if(token){
             if(t._dayEventIds&&t._dayEventIds.length){
               /* Tâche créée avec plusieurs sous-événements GCal séparés :
