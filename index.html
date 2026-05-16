@@ -1756,7 +1756,6 @@ async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,due
   var method=(wasAllDay!==isNowAllDay)?'PUT':'PATCH';
   await calFetch(method,'/calendars/primary/events/'+gcalId,body);
 }
-}
 async function delGcalEv(gcalId){
   if(!token||!gcalId)return;
   await calFetch('DELETE','/calendars/primary/events/'+gcalId);
