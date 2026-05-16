@@ -1713,15 +1713,22 @@ async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd){
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var colorId=gcalColorId(gcalId);
   var gcalEndDate2=dueEnd||date;
-  var endObj2;
-  if(tS&&tE){
-    endObj2={dateTime:gcalEndDate2+"T"+tE+":00",timeZone:tz};
+  var startObj2,endObj2;
+  if(tS){
+    startObj2={dateTime:date+"T"+tS+":00",timeZone:tz};
+    endObj2={dateTime:gcalEndDate2+"T"+(tE||addOneHour(tS))+":00",timeZone:tz};
   } else {
+    startObj2={date:date};
     var excl2=new Date(gcalEndDate2+"T00:00:00");
     excl2.setDate(excl2.getDate()+1);
     endObj2={date:ds(excl2)};
   }
-  await calFetch('PATCH','/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:endObj2,colorId});
+  /* Utiliser PUT pour forcer le changement de type allDay↔timed (PATCH peut retourner 400) */
+  var existingEv=gcal.find(e=>e.id===gcalId);
+  var wasAllDay=existingEv?existingEv.allDay:true;
+  var isNowAllDay=!tS;
+  var method=(wasAllDay!==isNowAllDay)?'PUT':'PATCH';
+  await calFetch(method,'/calendars/primary/events/'+gcalId,{summary:title,description:desc||"",start:startObj2,end:endObj2,colorId});
 }
 async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd){
   if(!token||!gcalId)return;
@@ -1729,18 +1736,26 @@ async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,due
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var colorId=gcalColorId(gcalId);
   var gcalEndDate3=dueEnd||date;
-  var endObj3;
-  if(tS&&tE){
-    endObj3={dateTime:gcalEndDate3+"T"+tE+":00",timeZone:tz};
+  var startObj3,endObj3;
+  if(tS){
+    startObj3={dateTime:date+"T"+tS+":00",timeZone:tz};
+    endObj3={dateTime:gcalEndDate3+"T"+(tE||addOneHour(tS))+":00",timeZone:tz};
   } else {
+    startObj3={date:date};
     var excl3=new Date(gcalEndDate3+"T00:00:00");
     excl3.setDate(excl3.getDate()+1);
     endObj3={date:ds(excl3)};
   }
-  var body={summary:title,description:desc||"",start:tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date},end:endObj3,colorId};
+  var body={summary:title,description:desc||"",start:startObj3,end:endObj3,colorId};
   if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
   else{body.recurrence=[];}
-  await calFetch('PATCH','/calendars/primary/events/'+gcalId,body);
+  /* Utiliser PUT pour forcer le changement de type allDay->timed (PATCH retourne 400) */
+  var existingEv=gcal.find(e=>e.id===gcalId);
+  var wasAllDay=existingEv?existingEv.allDay:true;
+  var isNowAllDay=!tS;
+  var method=(wasAllDay!==isNowAllDay)?'PUT':'PATCH';
+  await calFetch(method,'/calendars/primary/events/'+gcalId,body);
+}
 }
 async function delGcalEv(gcalId){
   if(!token||!gcalId)return;
@@ -4293,8 +4308,10 @@ function saveTaskEdit(){
   t.remind=rems.length?rems[0].min:0; /* compat cloche */
   t.recurrence=document.getElementById("te-recur").value||null;
   /* Lire les heures ET détecter le mode (journée vs avec heure) AVANT closeTaskEdit */
-  const tf=document.getElementById("te-time-fields");
-  const isTimed=tf&&tf.style.display!=="none";
+  /* Utiliser te-time-fields-start (le vrai wrapper visible) plutôt que le div compat vide */
+  const tf=document.getElementById("te-time-fields-start");
+  const tfCompat=document.getElementById("te-time-fields");
+  const isTimed=(tf&&tf.style.display!=="none")||(tfCompat&&tfCompat.style.display!=="none");
   const _ts=isTimed?(document.getElementById("te-tstart").value||null):null;
   const _te=isTimed?(document.getElementById("te-tend").value||null):null;
   /* Stocker les heures dans la tâche locale pour qu'elles persistent */
