@@ -2713,7 +2713,14 @@ function evArchive(){
 }
 
 /* ══ META ══ */
-function ensureMeta(gcalId,title){if(!S.tasks.find(t=>t.id===gcalId))S.tasks.push({id:gcalId,title:title||"",desc:"",done:false,archived:false});}
+function ensureMeta(gcalId,title){
+  if(!S.tasks.find(t=>t.id===gcalId)){
+    /* Récupérer le titre depuis l'event GCal si non fourni */
+    const gcalEv=gcal.find(e=>e.id===gcalId);
+    const resolvedTitle=title||( gcalEv?gcalEv.title:"")||"";
+    S.tasks.push({id:gcalId,title:resolvedTitle,desc:"",done:false,archived:false,_createdHere:!!resolvedTitle});
+  }
+}
 function removeMeta(gcalId){S.tasks=S.tasks.filter(t=>t.id!==gcalId);lsSave();}
 
 /* Calcule la prochaine occurrence après baseDate selon la fréquence */
@@ -3196,7 +3203,14 @@ function renderTasks(){
   */
   const today=ds(NOW);
 
-  const appTasks=S.tasks.filter(t=>!t.archived&&t._createdHere&&!t.id.includes("__done__")&&!t.id.includes("__recur__")&&!t.id.includes("__arch__"));
+  const appTasks=S.tasks.filter(t=>{
+    if(t.archived)return false;
+    if(!t._createdHere)return false;
+    if(t.id.includes("__done__")||t.id.includes("__recur__")||t.id.includes("__arch__"))return false;
+    /* Exclure les tâches sans titre qui ne sont que des fantômes GCal */
+    if(!t.title&&!gcal.find(e=>e.id===t.id))return false;
+    return true;
+  });
 
   /* Enrichir : pour les récurrentes, calculer la prochaine occurrence à partir d'aujourd'hui.
      Si la tâche a démarré dans le passé, on avance jusqu'à la prochaine occurrence >= aujourd'hui.
@@ -3476,7 +3490,9 @@ function buildTask(t){
     }
   };
   const body=mk("div","tb");
-  const name=mk("div","tn");name.textContent=t.title;
+  const name=mk("div","tn");
+  /* Fallback sur le titre GCal si la tâche locale n'a pas de titre */
+  name.textContent=t.title||(gcalEv?gcalEv.title:"")||"(sans titre)";
   /* Le clic sur le titre ouvre toujours l'édition locale (récurrence, rappel, etc.)
      Pour les tâches GCal on ouvre aussi openTaskEdit qui synchronise ensuite */
   name.onclick=()=>openTaskEdit(t.id);
