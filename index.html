@@ -193,7 +193,7 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .day-grid-wrap{position:relative;}
 .day-grid{display:grid;grid-template-columns:44px 1fr 54px;}
 .day-lbl{font-size:12px;font-weight:800;color:var(--tx2);text-align:right;padding-right:6px;height:50px;display:flex;align-items:flex-start;justify-content:flex-end;padding-top:4px;flex-shrink:0;}
-.day-lbl-weather{font-size:15px;font-weight:700;color:var(--tx2);white-space:nowrap;height:50px;display:flex;align-items:flex-start;padding-top:3px;padding-left:5px;flex-shrink:0;line-height:1.2;}
+.day-lbl-weather{font-size:15px;font-weight:700;color:var(--tx2);white-space:nowrap;height:50px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:3px;padding-left:5px;flex-shrink:0;line-height:1.2;gap:1px;}
 .day-sl{height:50px;background:var(--card-bg);border:1px solid var(--blb);border-top:none;position:relative;transition:background .10s;}
 .day-sl.first{border-top:1px solid var(--blb);}
 .day-sl.drag-ov{background:var(--orbg)!important;border-color:var(--or)!important;box-shadow:inset 0 0 0 2px rgba(245,166,35,.25);}
@@ -359,7 +359,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 @media(min-width:900px){#app-content.visible{display:flex!important;flex-direction:column;height:100vh;}}
 
 /* ══ RECHERCHE GLOBALE ══ */
-#search-bar-wrap{position:relative;margin-bottom:12px;}
+#search-bar-wrap{position:relative;margin-top:8px;}
 #search-bar{width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--card-bg);border:1.5px solid var(--blb);border-radius:12px;padding:10px 40px 10px 14px;outline:none;transition:border-color .15s;box-shadow:var(--sh);}
 #search-bar:focus{border-color:var(--bl);box-shadow:0 0 0 3px rgba(42,125,225,.10);}
 #search-bar::placeholder{color:var(--tx3);}
@@ -448,10 +448,6 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 
 <!-- TACHES -->
 <div class="panel active" id="panel-todo">
-  <div id="search-bar-wrap">
-    <input type="text" id="search-bar" placeholder="🔍 Rechercher dans les tâches et événements…" oninput="onSearchInput(this.value)">
-    <button id="search-clear" onclick="clearSearch()" title="Effacer">✕</button>
-  </div>
   <div id="search-results"></div>
   <div id="main-task-content">
   <div class="card">
@@ -531,6 +527,10 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     </div>
   </div>
 </div><!-- /main-task-content -->
+  <div id="search-bar-wrap" style="position:sticky;bottom:0;z-index:10;padding:8px 0 4px;background:var(--bg);">
+    <input type="text" id="search-bar" placeholder="🔍 Rechercher dans les tâches et événements…" oninput="onSearchInput(this.value)">
+    <button id="search-clear" onclick="clearSearch()" title="Effacer">✕</button>
+  </div>
 </div><!-- /panel-todo -->
 
 <!-- VUE SEMAINE -->
@@ -1241,31 +1241,34 @@ async function patchGcalMeta(gcalId){
 }
 
 function restoreMetaFromGcal(rawItems){
-  /* Appelée après fetchGcal : lit planify JSON et réinjecte dans S.tasks */
+  /* Appelée après fetchGcal : lit planify JSON et réinjecte dans S.tasks.
+     IMPORTANT : on ne crée jamais de tâche nouvelle ici (évite les titres vides).
+     On ne met à jour que les tâches qui existent déjà dans S.tasks. */
   let changed=false;
   (rawItems||[]).forEach(function(rawEv){
     const priv=rawEv.extendedProperties&&rawEv.extendedProperties.private;
     if(!priv||!priv.planify)return;
     let meta;
     try{meta=JSON.parse(priv.planify);}catch(e){return;}
-    let t=S.tasks.find(x=>x.id===rawEv.id);
-    if(!t){t={id:rawEv.id,title:rawEv.summary||""};S.tasks.push(t);changed=true;}
+    /* Ne mettre à jour que les tâches existantes — ne jamais en créer */
+    const t=S.tasks.find(x=>x.id===rawEv.id);
+    if(!t)return;
+    /* Ne jamais écraser le titre local */
     t.done=!!meta.done;
     t.archived=!!meta.archived;
-    t.desc=meta.desc||"";
-    t.remind=meta.remind||0;
+    if(meta.desc)t.desc=meta.desc;
+    if(meta.remind)t.remind=meta.remind;
     if(meta.reminders&&meta.reminders.length)t.reminders=meta.reminders;
-    t.recurrence=meta.recurrence||null;
-    t.dueEnd=meta.dueEnd||null;
+    if(meta.recurrence)t.recurrence=meta.recurrence;
+    if(meta.dueEnd)t.dueEnd=meta.dueEnd;
     if(meta.pendingTS)t._pendingTS=meta.pendingTS;
     if(meta.pendingTE)t._pendingTE=meta.pendingTE;
-    t._createdHere=true;
     if(meta.shopping)t.shopping=meta.shopping;
     if(meta.doneKeys&&meta.doneKeys.length){
       meta.doneKeys.forEach(function(dk){
-        let occ=S.tasks.find(x=>x.id===dk.id);
-        if(!occ){occ={id:dk.id,done:!!dk.done,archived:false};S.tasks.push(occ);changed=true;}
-        else occ.done=!!dk.done;
+        const occ=S.tasks.find(x=>x.id===dk.id);
+        if(occ)occ.done=!!dk.done;
+        /* Ne pas créer d'occurrences inexistantes */
       });
     }
     changed=true;
