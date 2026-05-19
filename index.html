@@ -1203,21 +1203,21 @@ function toggleSettings(){
 
 function buildPlanifyMeta(taskId){
   const t=S.tasks.find(x=>x.id===taskId);
-  if(!t)return null;
+  /* Même sans tâche locale, on crée une méta minimale avec l'état actuel */
   const meta={
     v:1,
-    done:!!t.done,
-    archived:!!t.archived,
-    desc:t.desc||"",
-    remind:t.remind||0,
-    reminders:t.reminders||[],
-    recurrence:t.recurrence||null,
-    dueEnd:t.dueEnd||null,
-    pendingTS:t._pendingTS||null,
-    pendingTE:t._pendingTE||null,
-    createdHere:true
+    done:t?!!t.done:false,
+    archived:t?!!t.archived:false,
+    desc:t?t.desc||"":"",
+    remind:t?t.remind||0:0,
+    reminders:t&&t.reminders?t.reminders:[],
+    recurrence:t?t.recurrence||null:null,
+    dueEnd:t?t.dueEnd||null:null,
+    pendingTS:t?t._pendingTS||null:null,
+    pendingTE:t?t._pendingTE||null:null,
+    createdHere:t?!!t._createdHere:false
   };
-  if(t.shopping&&(t.shopping.active||t.shopping.items&&t.shopping.items.length)){
+  if(t&&t.shopping&&(t.shopping.active||t.shopping.items&&t.shopping.items.length)){
     meta.shopping=t.shopping;
   }
   /* Entrées __done__date pour occurrences récurrentes */
@@ -1234,7 +1234,6 @@ async function patchGcalMeta(gcalId){
   const ev=gcal.find(e=>e.id===gcalId);
   if(!ev||ev.eventType==="birthday"||ev.eventType==="fromGmail"||ev.readOnly)return;
   const metaStr=buildPlanifyMeta(gcalId);
-  if(!metaStr)return;
   const calId=ev.calendarId||'primary';
   await calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalId,{
     extendedProperties:{private:{planify:metaStr}}
@@ -1276,26 +1275,41 @@ function restoreMetaFromGcal(rawItems){
 
 async function migrateAllMetaToGcal(){
   if(!token){toast('🔒 Connectez-vous à Google Calendar d\'abord');return;}
+  /* Toutes les tâches qui ont un événement GCal correspondant,
+     qu'elles aient _createdHere ou non, et qui ne sont pas des entrées auxiliaires */
+  const gcalIds=new Set(gcal.map(function(e){return e.id;}));
   const toSync=S.tasks.filter(function(t){
-    return t._createdHere
-      &&!t.id.includes("__done__")
-      &&!t.id.includes("__recur__")
-      &&!t.id.includes("__arch__")
-      &&!t.id.includes("__colsync__")
-      &&gcal.find(function(e){return e.id===t.id;});
+    if(t.id.includes("__done__"))return false;
+    if(t.id.includes("__recur__"))return false;
+    if(t.id.includes("__arch__"))return false;
+    if(t.id.includes("__colsync__"))return false;
+    return gcalIds.has(t.id);
   });
-  if(!toSync.length){toast('✅ Rien à synchroniser');return;}
-  showSync('☁️ Migration (0/'+toSync.length+')…');
-  let n=0;
-  for(var i=0;i<toSync.length;i++){
-    await patchGcalMeta(toSync[i].id);
+  /* Aussi synchroniser les events GCal qui ont des métadonnées dans S.tasks
+     même via gcalId indirect */
+  const extraIds=new Set();
+  gcal.forEach(function(e){
+    if(e.eventType==="birthday"||e.eventType==="fromGmail"||e.readOnly)return;
+    /* S'il y a une tâche avec un titre qui pointe vers cet event via gcalId */
+    const byGcalId=S.tasks.find(function(t){return t.gcalId===e.id;});
+    if(byGcalId&&!gcalIds.has(byGcalId.id))extraIds.add(e.id);
+  });
+  const allToSync=[...toSync.map(function(t){return t.id;}),...extraIds];
+  if(!allToSync.length){
+    toast('ℹ️ '+gcalIds.size+' events GCal, '+S.tasks.length+' tâches locales — aucune correspondance trouvée. Rechargez d\'abord l\'agenda (↻).');
+    return;
+  }
+  showSync('☁️ Sync (0/'+allToSync.length+')…');
+  let n=0,err=0;
+  for(var i=0;i<allToSync.length;i++){
+    const result=await patchGcalMeta(allToSync[i]).catch(function(){return null;});
     n++;
     var syncEl=document.getElementById('sync-msg');
-    if(syncEl)syncEl.textContent='☁️ Migration ('+n+'/'+toSync.length+')…';
-    await new Promise(function(r){setTimeout(r,200);});
+    if(syncEl)syncEl.textContent='☁️ Sync ('+n+'/'+allToSync.length+')…';
+    await new Promise(function(r){setTimeout(r,150);});
   }
   hideSync();
-  toast('✅ '+n+' tâche'+(n>1?'s':'')+' synchronisée'+(n>1?'s':'')+' dans Google Agenda');
+  toast('✅ '+n+' événement'+(n>1?'s':'')+' synchronisé'+(n>1?'s':'')+' vers Google Agenda');
 }
 
 function saveRecapSettings(){
