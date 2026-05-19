@@ -2696,7 +2696,17 @@ async function saveEvEdit(){
 }
 async function evToggleDone(){if(!evPending)return;toggleEvDone(evPending);closeEvModal();renderAg();renderTasks();}
 async function evDelete(){if(!evPending)return;showSync("Suppression…");await delGcalEv(evPending);removeMeta(evPending);hideSync();closeEvModal();await fetchGcal();renderAg();renderTasks();toast("🗑 Supprimé");}
-function evArchive(){if(!evPending)return;ensureMeta(evPending,"");const meta=metaOf(evPending);if(meta)meta.archived=true;lsSave();closeEvModal();renderAg();renderTasks();toast("🗄 Archivé");
+function evArchive(){
+  if(!evPending)return;
+  ensureMeta(evPending,"");
+  const meta=metaOf(evPending);
+  if(meta){meta.archived=true;meta.done=true;meta._colorSynced=null;}
+  lsSave();closeEvModal();renderAg();renderTasks();toast("🗄 Archivé");
+  /* Sync couleur (bleu=fait) + métadonnées vers GCal */
+  if(token&&evPending){
+    patchGcalColor(evPending).catch(()=>{});
+    patchGcalMeta(evPending);
+  }
 }
 
 /* ══ META ══ */
@@ -3148,9 +3158,11 @@ function showRecurArchiveDialog(t,dueDate,cb){
   btnAll.innerHTML="<strong>Toutes les occurrences</strong><br><span style='font-size:11px;opacity:.75;font-weight:600;'>Archiver et supprimer la récurrence</span>";
   btnAll.onclick=()=>{
     const real=S.tasks.find(x=>x.id===t.id);
-    if(real){real.archived=true;real.done=true;real.recurrence=null;}
+    if(real){real.archived=true;real.done=true;real.recurrence=null;real._colorSynced=null;}
     lsSave();document.body.removeChild(ov);
     toast("🗄 Tâche archivée — récurrence supprimée");
+    /* Sync couleur + méta vers GCal */
+    if(token&&t.id){patchGcalColor(t.id).catch(()=>{});patchGcalMeta(t.id);}
     if(cb)cb();
   };
 
@@ -3349,7 +3361,13 @@ function buildArchivedTask(t){
   body.append(name,tags);
   /* Bouton désarchiver */
   const unarch=mk("button","td-btn");unarch.title="Désarchiver";unarch.innerHTML="↩";unarch.style.fontSize="16px";
-  unarch.onclick=()=>{t.archived=false;t.done=false;lsSave();renderTasks();toast("↩ Désarchivée");};
+  unarch.onclick=()=>{
+    t.archived=false;t.done=false;t._colorSynced=null;
+    lsSave();renderTasks();toast("↩ Désarchivée");
+    /* Repasser en orange dans GCal */
+    const gId=gcalEv?gcalEv.id:t.id;
+    if(token&&gId){patchGcalColor(gId).catch(()=>{});patchGcalMeta(gId);}
+  };
   /* Bouton supprimer */
   const del=mk("button","td-btn");del.innerHTML="×";
   del.onclick=async()=>{
@@ -3699,12 +3717,14 @@ function buildTask(t){
     arch.innerHTML="🗄 Archiver";
     arch.onclick=()=>{
       if(t.recurrence&&t.due){
-        /* Récurrente : demander si on archive cette occurrence ou toutes */
         showRecurArchiveDialog(t,t.due,()=>{renderTasks();renderAg();});
       } else {
         const real=S.tasks.find(x=>x.id===t.id);
-        if(real){real.archived=true;}
+        if(real){real.archived=true;real.done=true;real._colorSynced=null;}
         lsSave();renderTasks();toast("🗄 Archivé");
+        /* Sync couleur (bleu) + méta vers GCal si l'event existe */
+        const gId=real&&(gcalEv?gcalEv.id:real.id);
+        if(token&&gId){patchGcalColor(gId).catch(()=>{});patchGcalMeta(gId);}
       }
     };
     item.appendChild(arch);
