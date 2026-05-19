@@ -468,6 +468,16 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       </div>
     </div>
     <div style="margin-top:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <label style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin:0;">Descriptif (optionnel)</label>
+        <button id="mic-quick-desc-btn" title="Dicter le descriptif" onclick="toggleQuickDescMic()" style="display:flex;align-items:center;gap:4px;background:var(--blbg);border:1.5px solid var(--blb);border-radius:16px;padding:3px 9px;cursor:pointer;font-size:11px;font-weight:700;color:var(--tx2);font-family:inherit;transition:all .2s;">&#127908; Dicter</button>
+      </div>
+      <textarea id="ti-desc" rows="2" placeholder="Descriptif optionnel…" style="width:100%;font-family:inherit;font-size:13px;font-weight:600;color:var(--tx2);background:var(--blbg);border:1.5px solid var(--blb);border-radius:9px;padding:7px 11px;outline:none;resize:none;min-height:42px;margin-bottom:4px;transition:border-color .15s;"></textarea>
+      <div id="mic-quick-desc-bar" style="display:none;align-items:center;gap:8px;margin-bottom:6px;padding:6px 10px;background:linear-gradient(135deg,#fff8ed,#fff3e0);border:1.5px solid var(--or);border-radius:9px;font-size:11px;font-weight:700;color:var(--or);">
+        <span style="display:inline-block;width:8px;height:8px;background:var(--or);border-radius:50%;animation:pulse-mic .8s infinite alternate;flex-shrink:0;"></span>
+        <span id="mic-quick-desc-status">🎙️ En écoute…</span>
+        <button onclick="stopQuickDescMic()" style="margin-left:auto;background:none;border:none;font-size:14px;cursor:pointer;color:var(--or);line-height:1;">&#10005;</button>
+      </div>
       <button class="btn btn-bl" onclick="addTask()" style="width:100%;">+ Ajouter</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
@@ -3020,11 +3030,13 @@ async function addTask(){
   const dueEnd=(endRaw&&endRaw!==due)?endRaw:null;
   const tim=document.getElementById("ttim").value||null;
   const timEnd=document.getElementById("ttim-end").value||null;
+  const desc=(document.getElementById("ti-desc")?document.getElementById("ti-desc").value.trim():"");
   const remind=parseInt(document.getElementById("default-remind").value)||0;
   document.getElementById("ti").value="";document.getElementById("tdat").value="";
   document.getElementById("tdat-end").value="";
   const endRow=document.getElementById("tdat-end-row");if(endRow)endRow.style.display="none";
   document.getElementById("ttim").value="";document.getElementById("ttim-end").value="";
+  const tiDesc=document.getElementById("ti-desc");if(tiDesc)tiDesc.value="";
   /* Heure de fin : champ saisi > +1h auto */
   const timeEnd=timEnd||( tim?addOneHour(tim):null );
   if(token){
@@ -3050,13 +3062,13 @@ async function addTask(){
           /* jours intermédiaires : all-day (pas d'heure) */
         }
         const dayTitle=title+" (J"+(i+1)+"/"+total+")";
-        const ev=await createGcalEv(dayTitle,"",d,dayTS,dayTE,remind,null,null);
+        const ev=await createGcalEv(dayTitle,desc,d,dayTS,dayTE,remind,null,null);
         if(ev&&ev.id)dayEventIds.push(ev.id);
       }
       hideSync();
       if(dayEventIds.length){
         /* La tâche Planify pointe sur le 1er événement GCal et liste tous les ids */
-        S.tasks.push({id:dayEventIds[0],title,desc:"",due:startDate,done:false,archived:false,
+        S.tasks.push({id:dayEventIds[0],title,desc,due:startDate,done:false,archived:false,
           remind,dueEnd,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,
           _dayEventIds:dayEventIds});
         lsSave();await fetchGcal();renderTasks();renderAg();
@@ -3065,10 +3077,10 @@ async function addTask(){
       }
     } else {
       /* Tâche sur un seul jour — comportement original */
-      const ev=await createGcalEv(title,"",startDate,tim,timeEnd,remind,null,null);
+      const ev=await createGcalEv(title,desc,startDate,tim,timeEnd,remind,null,null);
       hideSync();
       if(ev&&ev.id){
-        S.tasks.push({id:ev.id,title,desc:"",due:startDate,done:false,archived:false,remind,
+        S.tasks.push({id:ev.id,title,desc,due:startDate,done:false,archived:false,remind,
           dueEnd:null,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
         lsSave();await fetchGcal();renderTasks();renderAg();
         let msg='📌 "'+title.slice(0,20)+'"';
@@ -3077,13 +3089,13 @@ async function addTask(){
         toast(msg);return;
       }
     }
-    S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd,done:false,archived:false,gcalId:null,
+    S.tasks.unshift({id:uid(),title,desc,due,dueEnd,done:false,archived:false,gcalId:null,
       plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
     lsSave();renderTasks();
     toast('⚠️ Erreur GCal — tâche sauvegardée localement');
     return;
   }
-  S.tasks.unshift({id:uid(),title,desc:"",due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
+  S.tasks.unshift({id:uid(),title,desc,due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
   lsSave();renderTasks();
   toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
 }
@@ -4762,6 +4774,86 @@ function addShopItem(text){
   window.stopDescMic=function(){
     if(recog){try{recog.stop();}catch(e){}}
     setUI(false);
+  };
+})();
+
+/* ══ DICTÉE VOCALE — DESCRIPTIF (formulaire création rapide) ══ */
+(function(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    const btn=document.getElementById('mic-quick-desc-btn');
+    if(btn)btn.style.display='none';
+    return;
+  }
+
+  let recog=null;
+  let listening=false;
+  let committedText='';
+  const seenFinals=new Set();
+
+  function setUI(active){
+    const btn=document.getElementById('mic-quick-desc-btn');
+    const bar=document.getElementById('mic-quick-desc-bar');
+    if(!btn||!bar)return;
+    listening=active;
+    if(active){
+      bar.style.display='flex';
+      btn.style.background='var(--orbg)';
+      btn.style.borderColor='var(--or)';
+      btn.style.color='var(--or)';
+      btn.innerHTML='&#9632; Stop';
+    } else {
+      bar.style.display='none';
+      btn.style.background='var(--blbg)';
+      btn.style.borderColor='var(--blb)';
+      btn.style.color='var(--tx2)';
+      btn.innerHTML='&#127908; Dicter';
+    }
+  }
+
+  function startSession(){
+    if(recog){try{recog.abort();}catch(e){} recog=null;}
+    const ta=document.getElementById('ti-desc');
+    const status=document.getElementById('mic-quick-desc-status');
+    committedText=(ta?ta.value||'':'').trimEnd();
+    if(committedText)committedText+=' ';
+    seenFinals.clear();
+    const r=new SpeechRecognition();
+    r.lang='fr-FR';
+    r.continuous=false;
+    r.interimResults=false;
+    r.maxAlternatives=1;
+    r.onstart=()=>{if(status)status.textContent='🎙️ En écoute… parlez maintenant';};
+    r.onresult=(ev)=>{
+      for(let i=ev.resultIndex;i<ev.results.length;i++){
+        if(ev.results[i].isFinal && !seenFinals.has(i)){
+          seenFinals.add(i);
+          const t=ev.results[i][0].transcript.trim();
+          if(t){
+            committedText+=t;
+            if(!committedText.endsWith(' '))committedText+=' ';
+          }
+        }
+      }
+      if(ta)ta.value=committedText.trimEnd();
+      if(status)status.textContent='✅ Reçu — cliquez Dicter pour continuer';
+    };
+    r.onerror=(ev)=>{
+      const msgs={'not-allowed':'🔒 Micro refusé','no-speech':'🔇 Aucune parole détectée','network':'📶 Erreur réseau','audio-capture':'🎤 Micro introuvable'};
+      if(status)status.textContent=msgs[ev.error]||'⚠️ '+ev.error;
+      setUI(false);
+    };
+    r.onend=()=>setUI(false);
+    recog=r;
+    try{r.start();}catch(e){if(status)status.textContent='⚠️ Impossible de démarrer le micro';setUI(false);}
+  }
+
+  window.toggleQuickDescMic=function(){
+    if(listening){if(recog){try{recog.stop();}catch(e){}}setUI(false);return;}
+    setUI(true);startSession();
+  };
+  window.stopQuickDescMic=function(){
+    if(recog){try{recog.stop();}catch(e){}}setUI(false);
   };
 })();
 </script>
