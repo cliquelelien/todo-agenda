@@ -426,9 +426,9 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <div id="cal-selector-wrap" style="margin-bottom:8px;"></div>
   <button onclick="fetchCalendarList().then(renderCalSelector)" style="font-family:inherit;font-size:12px;font-weight:700;background:var(--blbg);border:1.5px solid var(--blb);border-radius:9px;padding:6px 12px;cursor:pointer;color:var(--bl);">🔄 Actualiser la liste</button>
   <hr style="border:none;border-top:1px solid var(--blb);margin:12px 0;">
-  <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">☁️ Sauvegarde dans Google Agenda</div>
-  <div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px;line-height:1.4;">Les métadonnées (statut, descriptif, rappels…) sont automatiquement sauvegardées dans chaque événement GCal. Cliquez ci-dessous pour synchroniser toutes les tâches existantes.</div>
-  <button onclick="migrateAllMetaToGcal()" style="font-family:inherit;font-size:12px;font-weight:700;background:var(--bl);color:#fff;border:none;border-radius:9px;padding:7px 14px;cursor:pointer;">☁️ Synchroniser vers Google Agenda</button>
+  <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">☁️ Sauvegarde vers Google Agenda</div>
+  <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;line-height:1.5;">Les statuts et métadonnées sont sauvegardés dans chaque événement GCal à chaque modification. Cliquez ci-dessous pour synchroniser toutes vos tâches existantes en une fois.</div>
+  <button onclick="migrateAllMetaToGcal()" style="font-family:inherit;font-size:12px;font-weight:700;background:var(--bl);color:#fff;border:none;border-radius:9px;padding:7px 14px;cursor:pointer;">☁️ Synchroniser toutes les tâches</button>
   <hr style="border:none;border-top:1px solid var(--blb);margin:12px 0;">
   <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Notification récapitulative</div>
   <label style="display:flex;align-items:center;gap:9px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--tx);">
@@ -1188,24 +1188,117 @@ function toggleSettings(){
     else renderCalSelector();
   }
 }
+/* ══════════════════════════════════════════════════════════════
+   SAUVEGARDE MÉTADONNÉES PLANIFY → GCal extendedProperties
+   ══════════════════════════════════════════════════════════════
+   Chaque événement GCal créé ou modifié par Planify embarque un
+   JSON dans extendedProperties.private.planify.
+   À chaque fetchGcal, ces données sont relues et réinjectées dans
+   S.tasks → zéro perte de données même après vidage localStorage.
+
+   Synchronisation du statut :
+   - Tâche done  → colorId "7" (bleu/cyan dans GCal)
+   - Tâche à faire → colorId "6" (orange dans GCal)
+   ══════════════════════════════════════════════════════════════ */
+
+function buildPlanifyMeta(taskId){
+  const t=S.tasks.find(x=>x.id===taskId);
+  if(!t)return null;
+  const meta={
+    v:1,
+    done:!!t.done,
+    archived:!!t.archived,
+    desc:t.desc||"",
+    remind:t.remind||0,
+    reminders:t.reminders||[],
+    recurrence:t.recurrence||null,
+    dueEnd:t.dueEnd||null,
+    pendingTS:t._pendingTS||null,
+    pendingTE:t._pendingTE||null,
+    createdHere:true
+  };
+  if(t.shopping&&(t.shopping.active||t.shopping.items&&t.shopping.items.length)){
+    meta.shopping=t.shopping;
+  }
+  /* Entrées __done__date pour occurrences récurrentes */
+  const doneKeys=S.tasks
+    .filter(x=>x.id.startsWith(taskId+"__done__"))
+    .map(x=>({id:x.id,done:!!x.done}));
+  if(doneKeys.length)meta.doneKeys=doneKeys;
+  return JSON.stringify(meta);
+}
+
+async function patchGcalMeta(gcalId){
+  /* PATCH uniquement les extendedProperties — ne touche pas au reste */
+  if(!token||!gcalId)return;
+  const ev=gcal.find(e=>e.id===gcalId);
+  if(!ev||ev.eventType==="birthday"||ev.eventType==="fromGmail"||ev.readOnly)return;
+  const metaStr=buildPlanifyMeta(gcalId);
+  if(!metaStr)return;
+  const calId=ev.calendarId||'primary';
+  await calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalId,{
+    extendedProperties:{private:{planify:metaStr}}
+  }).catch(()=>{});
+}
+
+function restoreMetaFromGcal(rawItems){
+  /* Appelée après fetchGcal : lit planify JSON et réinjecte dans S.tasks */
+  let changed=false;
+  (rawItems||[]).forEach(function(rawEv){
+    const priv=rawEv.extendedProperties&&rawEv.extendedProperties.private;
+    if(!priv||!priv.planify)return;
+    let meta;
+    try{meta=JSON.parse(priv.planify);}catch(e){return;}
+    let t=S.tasks.find(x=>x.id===rawEv.id);
+    if(!t){t={id:rawEv.id,title:rawEv.summary||""};S.tasks.push(t);changed=true;}
+    t.done=!!meta.done;
+    t.archived=!!meta.archived;
+    t.desc=meta.desc||"";
+    t.remind=meta.remind||0;
+    if(meta.reminders&&meta.reminders.length)t.reminders=meta.reminders;
+    t.recurrence=meta.recurrence||null;
+    t.dueEnd=meta.dueEnd||null;
+    if(meta.pendingTS)t._pendingTS=meta.pendingTS;
+    if(meta.pendingTE)t._pendingTE=meta.pendingTE;
+    t._createdHere=true;
+    if(meta.shopping)t.shopping=meta.shopping;
+    if(meta.doneKeys&&meta.doneKeys.length){
+      meta.doneKeys.forEach(function(dk){
+        let occ=S.tasks.find(x=>x.id===dk.id);
+        if(!occ){occ={id:dk.id,done:!!dk.done,archived:false};S.tasks.push(occ);changed=true;}
+        else occ.done=!!dk.done;
+      });
+    }
+    changed=true;
+  });
+  if(changed)lsSave();
+}
+
 async function migrateAllMetaToGcal(){
   if(!token){toast('🔒 Connectez-vous à Google Calendar d\'abord');return;}
-  /* Trouver toutes les tâches créées dans Planify qui ont un événement GCal */
-  const toSync=S.tasks.filter(t=>t._createdHere&&!t.id.includes("__done__")&&!t.id.includes("__recur__")&&!t.id.includes("__arch__")&&!t.id.includes("__colsync__")&&gcal.find(e=>e.id===t.id));
+  const toSync=S.tasks.filter(function(t){
+    return t._createdHere
+      &&!t.id.includes("__done__")
+      &&!t.id.includes("__recur__")
+      &&!t.id.includes("__arch__")
+      &&!t.id.includes("__colsync__")
+      &&gcal.find(function(e){return e.id===t.id;});
+  });
   if(!toSync.length){toast('✅ Rien à synchroniser');return;}
-  showSync('☁️ Synchronisation (0/'+toSync.length+')…');
+  showSync('☁️ Migration (0/'+toSync.length+')…');
   let n=0;
-  for(const t of toSync){
-    await patchGcalMeta(t.id);
+  for(var i=0;i<toSync.length;i++){
+    await patchGcalMeta(toSync[i].id);
     n++;
-    document.getElementById('sync-msg').textContent='☁️ Synchronisation ('+n+'/'+toSync.length+')…';
-    await new Promise(r=>setTimeout(r,150)); /* éviter le rate limit */
+    var syncEl=document.getElementById('sync-msg');
+    if(syncEl)syncEl.textContent='☁️ Migration ('+n+'/'+toSync.length+')…';
+    await new Promise(function(r){setTimeout(r,200);});
   }
   hideSync();
   toast('✅ '+n+' tâche'+(n>1?'s':'')+' synchronisée'+(n>1?'s':'')+' dans Google Agenda');
 }
 
-
+function saveRecapSettings(){
   var rcb=document.getElementById('recap-enabled');var rt=document.getElementById('recap-time');
   var enabled=rcb?rcb.checked:true;
   var time=rt?rt.value:'08:00';
@@ -1563,7 +1656,7 @@ async function fetchGcal(){
   try{
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
-    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500',fields:'items(id,summary,start,end,colorId,eventType,organizer,guestsCanModify,extendedProperties),nextPageToken'});
+    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
     /* Toujours fetcher primary, plus les autres calendriers sélectionnés */
     var calsToFetch=['primary'];
     if(selectedCals.size>0){
@@ -1594,7 +1687,7 @@ async function fetchGcal(){
         return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null,eventType:e.eventType||null,calendarId:calId,readOnly:e.organizer&&e.organizer.self===false&&e.guestsCanModify===false,extendedProperties:e.extendedProperties||null};
       });
       /* Restaurer les métadonnées Planify depuis extendedProperties GCal */
-      restoreMetaFromGcal(data.items);
+      restoreMetaFromGcal(allItems);
       /* Resync couleurs : on patche uniquement les events dont le meta a change
          depuis la derniere sync (_colorSynced !== etat actuel done) */
       if(token){
@@ -1709,91 +1802,6 @@ async function patchGcalColor(gcalId){
       if(meta){meta._colorSynced=colorId;lsSave();}
     });
 }
-/* ══ MÉTADONNÉES PLANIFY ↔ GCal extendedProperties ══
-   Toutes les métadonnées importantes sont stockées dans extendedProperties.private
-   de chaque événement GCal, en JSON, sous la clé "planify".
-   Cela permet de restaurer l'état complet depuis GCal sur n'importe quel appareil,
-   même après vidage du localStorage. */
-
-function buildPlanifyMeta(taskId){
-  /* Construit l'objet méta à stocker dans extendedProperties.private.planify */
-  const t=S.tasks.find(x=>x.id===taskId);
-  if(!t)return null;
-  const meta={
-    v:1, // version du schéma, pour migrations futures
-    done:t.done||false,
-    archived:t.archived||false,
-    desc:t.desc||"",
-    remind:t.remind||0,
-    reminders:t.reminders||[],
-    recurrence:t.recurrence||null,
-    dueEnd:t.dueEnd||null,
-    pendingTS:t._pendingTS||null,
-    pendingTE:t._pendingTE||null,
-    createdHere:true
-  };
-  if(t.shopping&&(t.shopping.active||t.shopping.items&&t.shopping.items.length)){
-    meta.shopping=t.shopping;
-  }
-  /* Entrées __done__date pour occurrence unique des récurrentes */
-  const doneKeys=S.tasks.filter(x=>x.id.startsWith(taskId+"__done__")).map(x=>({id:x.id,done:x.done}));
-  if(doneKeys.length)meta.doneKeys=doneKeys;
-  return JSON.stringify(meta);
-}
-
-async function patchGcalMeta(gcalId){
-  /* Met à jour uniquement les extendedProperties de l'event GCal — sans toucher au reste */
-  if(!token||!gcalId)return;
-  const ev=gcal.find(e=>e.id===gcalId);
-  if(!ev)return;
-  if(ev.eventType==="birthday"||ev.eventType==="fromGmail"||ev.readOnly)return;
-  const metaStr=buildPlanifyMeta(gcalId);
-  if(!metaStr)return;
-  const calId=ev.calendarId||'primary';
-  await calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalId,{
-    extendedProperties:{private:{planify:metaStr}}
-  }).catch(()=>{});
-}
-
-function restoreMetaFromGcal(gcalEvents){
-  /* Appelé après fetchGcal : lit les extendedProperties.planify et restaure S.tasks */
-  let changed=false;
-  gcalEvents.forEach(function(rawEv){
-    const metaStr=rawEv.extendedProperties&&rawEv.extendedProperties.private&&rawEv.extendedProperties.private.planify;
-    if(!metaStr)return;
-    let meta;
-    try{meta=JSON.parse(metaStr);}catch(e){return;}
-    /* Trouver ou créer la tâche locale */
-    let t=S.tasks.find(x=>x.id===rawEv.id);
-    if(!t){
-      t={id:rawEv.id,title:rawEv.summary||"",_createdHere:true};
-      S.tasks.push(t);changed=true;
-    }
-    /* Restaurer les champs — ne pas écraser si déjà plus récent (priorité locale) */
-    t.done=meta.done||false;
-    t.archived=meta.archived||false;
-    t.desc=meta.desc||"";
-    t.remind=meta.remind||0;
-    if(meta.reminders&&meta.reminders.length)t.reminders=meta.reminders;
-    t.recurrence=meta.recurrence||null;
-    t.dueEnd=meta.dueEnd||null;
-    if(meta.pendingTS)t._pendingTS=meta.pendingTS;
-    if(meta.pendingTE)t._pendingTE=meta.pendingTE;
-    t._createdHere=true;
-    if(meta.shopping)t.shopping=meta.shopping;
-    /* Restaurer les entrées __done__date */
-    if(meta.doneKeys&&meta.doneKeys.length){
-      meta.doneKeys.forEach(function(dk){
-        let occ=S.tasks.find(x=>x.id===dk.id);
-        if(!occ){occ={id:dk.id,done:dk.done,archived:false};S.tasks.push(occ);changed=true;}
-        else occ.done=dk.done;
-      });
-    }
-    changed=true;
-  });
-  if(changed)lsSave();
-}
-
 async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
   if(!token)return null;
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
@@ -1801,8 +1809,6 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
   var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
-  /* GCal : pour allDay, la date de fin est EXCLUSIVE (dernier jour + 1 jour) */
-  /* Pour horodaté multi-jours, la date de fin est dueEnd */
   var gcalEndDate=dueEnd||date;
   var endObj;
   if(tS&&tE){
@@ -1813,14 +1819,12 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
     endObj={date:ds(gcalEndExcl)};
   }
   var colorId=taskId?gcalColorId(taskId):"6";
-  /* Métadonnées Planify embarquées dans l'événement GCal */
-  var extProps=undefined;
+  var body={summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId};
+  /* Embarquer les métadonnées Planify dès la création */
   if(taskId){
     var metaStr=buildPlanifyMeta(taskId);
-    if(metaStr)extProps={private:{planify:metaStr}};
+    if(metaStr)body.extendedProperties={private:{planify:metaStr}};
   }
-  var body={summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId};
-  if(extProps)body.extendedProperties=extProps;
   return await calFetch('POST','/calendars/primary/events',body);
 }
 async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd){
@@ -1839,16 +1843,13 @@ async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd){
     excl2.setDate(excl2.getDate()+1);
     endObj2={date:ds(excl2)};
   }
-  /* Utiliser PUT pour forcer le changement de type allDay↔timed (PATCH peut retourner 400) */
   var existingEv=gcal.find(e=>e.id===gcalId);
   var wasAllDay=existingEv?existingEv.allDay:true;
   var isNowAllDay=!tS;
   var method=(wasAllDay!==isNowAllDay)?'PUT':'PATCH';
-  /* Métadonnées Planify embarquées */
-  var metaStr=buildPlanifyMeta(gcalId);
-  var extProps=metaStr?{private:{planify:metaStr}}:undefined;
   var body={summary:title,description:desc||"",start:startObj2,end:endObj2,colorId};
-  if(extProps)body.extendedProperties=extProps;
+  var metaStr=buildPlanifyMeta(gcalId);
+  if(metaStr)body.extendedProperties={private:{planify:metaStr}};
   await calFetch(method,'/calendars/primary/events/'+gcalId,body);
 }
 async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd){
@@ -1870,12 +1871,10 @@ async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,due
   var body={summary:title,description:desc||"",start:startObj3,end:endObj3,colorId};
   if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
   else{body.recurrence=[];}
-  /* Utiliser PUT pour forcer le changement de type allDay->timed (PATCH retourne 400) */
   var existingEv=gcal.find(e=>e.id===gcalId);
   var wasAllDay=existingEv?existingEv.allDay:true;
   var isNowAllDay=!tS;
   var method=(wasAllDay!==isNowAllDay)?'PUT':'PATCH';
-  /* Métadonnées Planify embarquées */
   var metaStr=buildPlanifyMeta(gcalId);
   if(metaStr)body.extendedProperties={private:{planify:metaStr}};
   await calFetch(method,'/calendars/primary/events/'+gcalId,body);
@@ -2706,13 +2705,12 @@ function toggleEvDone(gcalId){
   const meta=metaOf(gcalId);
   meta.done=!meta.done;
   if(!meta.done)meta.archived=false;
-  meta._colorSynced=null; /* forcer re-sync couleur */
+  meta._colorSynced=null;
   lsSave();renderAg();renderTasks();
-  /* Mettre a jour la couleur dans GCal : orange=a faire, bleu=fait
-     On lit gcalColorId APRES avoir mis a jour meta.done ci-dessus */
   if(token&&gcalId){
+    /* 1. Couleur GCal : orange (6) = à faire, bleu/cyan (7) = fait */
     patchGcalColor(gcalId).catch(e=>console.warn('GCal color update failed:',e));
-    /* Sync les métadonnées Planify (done, desc, remind…) dans extendedProperties */
+    /* 2. Métadonnées Planify (done, desc, rappels…) dans extendedProperties */
     patchGcalMeta(gcalId);
   }
 }
@@ -3410,8 +3408,6 @@ function buildTask(t){
         const calId=gcalEv.calendarId||'primary';
         calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalEv.id,{colorId})
           .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=colorId;lsSave();}}).catch(()=>{});
-        /* Sync métadonnées Planify (statut done) dans extendedProperties */
-        patchGcalMeta(gcalEv.id);
       }
     } else if(gcalEv){
       toggleEvDone(t.id);
@@ -3541,6 +3537,8 @@ function buildTask(t){
                 calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:targetColor})
                   .then(()=>{if(pm)pm._colorSynced=targetColor;else S.tasks.push({id:gcalEv.id,_colorSynced:targetColor});lsSave();}).catch(()=>{});
               }
+              /* Sync statut done dans extendedProperties */
+              patchGcalMeta(gcalEv.id);
             }
           }
         };
