@@ -1715,6 +1715,137 @@ async function fetchGcal(){
       });
       /* Restaurer les métadonnées Planify depuis extendedProperties GCal */
       restoreMetaFromGcal(allItems);
+      /* ══ Import automatique GCal → Planify ══
+         Tout événement GCal non-auxiliaire qui n'existe pas encore dans S.tasks
+         est importé comme tâche Planify (_createdHere=true).
+         • Événement mono-jour  → 1 tâche simple
+         • Événement multi-jours → suppression de l'event GCal original +
+           création de N events journaliers "Titre (Ji/N)" + tâche parente
+           avec _dayEventIds (identique au comportement natif Planify).
+         Le colorId GCal détermine l'état initial : 7=bleu=fait, sinon à faire. */
+      (function importGcalTasks(){
+        var existingIds=new Set(S.tasks.map(function(t){return t.id;}));
+        /* Collecter les events multi-jours à scinder (async) dans une file */
+        var toSplit=[];
+        gcal.forEach(function(e){
+          if(e.eventType==="birthday"||e.eventType==="fromGmail")return;
+          if(existingIds.has(e.id))return;
+          /* Ignorer les sous-événements déjà créés par Planify "Titre (Ji/N)" */
+          if(/\(J\d+\/\d+\)$/.test(e.title||""))return;
+          var startDate=e.start.slice(0,10);
+          var isDone=(e.colorId==="7");
+          /* Calculer la date de fin inclusive */
+          var endInclStr=startDate;
+          if(e.allDay&&e.end){
+            var endExcl=e.end.slice(0,10);
+            var endInclD=new Date(endExcl+"T00:00:00");
+            endInclD.setDate(endInclD.getDate()-1);
+            endInclStr=ds(endInclD);
+          } else if(!e.allDay&&e.end&&e.end.slice(0,10)!==startDate){
+            endInclStr=e.end.slice(0,10);
+          }
+          var isMulti=(endInclStr>startDate);
+          if(isMulti){
+            /* Mettre en file pour traitement asynchrone */
+            toSplit.push({e,startDate,endInclStr,isDone});
+          } else {
+            /* Mono-jour : import direct */
+            var ts=(!e.allDay&&e.start.includes("T"))?e.start.split("T")[1].slice(0,5):null;
+            var te=(!e.allDay&&e.end&&e.end.includes("T"))?e.end.split("T")[1].slice(0,5):null;
+            var newTask={id:e.id,title:e.title||"(sans titre)",due:startDate,
+              done:isDone,archived:false,_createdHere:true,_gcalImported:true};
+            if(ts)newTask._pendingTS=ts;
+            if(te)newTask._pendingTE=te;
+            S.tasks.push(newTask);
+            existingIds.add(e.id);
+            /* Couleur GCal si nécessaire */
+            if(token&&!e.readOnly){
+              var expectedColor=isDone?"7":"6";
+              if(e.colorId!==expectedColor){
+                calFetch('PATCH','/calendars/'+(e.calendarId||'primary')+'/events/'+e.id,{colorId:expectedColor})
+                  .then(function(){e.colorId=expectedColor;}).catch(function(){});
+              }
+            }
+          }
+        });
+        if(toSplit.length){
+          /* Traitement asynchrone des events multi-jours */
+          (async function splitMultiDayEvents(){
+            var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+            for(var si=0;si<toSplit.length;si++){
+              var item=toSplit[si];
+              var e=item.e,startDate=item.startDate,endInclStr=item.endInclStr,isDone=item.isDone;
+              var title=e.title||"(sans titre)";
+              /* Heures éventuelles de l'event d'origine */
+              var ts=(!e.allDay&&e.start.includes("T"))?e.start.split("T")[1].slice(0,5):null;
+              var te=(!e.allDay&&e.end&&e.end.includes("T"))?e.end.split("T")[1].slice(0,5):null;
+              /* Construire la liste des jours */
+              var allDays=[];
+              var cur=new Date(startDate+"T00:00:00"),endD=new Date(endInclStr+"T00:00:00");
+              while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
+              var total=allDays.length;
+              /* 1. Supprimer l'event GCal original si on a le token */
+              if(token&&!e.readOnly){
+                await calFetch('DELETE','/calendars/'+(e.calendarId||'primary')+'/events/'+e.id)
+                  .catch(function(){});
+                gcal=gcal.filter(function(x){return x.id!==e.id;});
+              }
+              /* 2. Créer N events journaliers */
+              var dayEventIds=[];
+              var colorId=isDone?"7":"6";
+              for(var di=0;di<total;di++){
+                var d=allDays[di];
+                var dayTS=null,dayTE=null;
+                if(ts){
+                  if(di===0){dayTS=ts;dayTE="23:59";}
+                  else if(di===total-1){dayTS="00:00";dayTE=te||null;}
+                  /* jours intermédiaires : all-day */
+                }
+                var dayTitle=title+" (J"+(di+1)+"/"+total+")";
+                var startObj=dayTS?{dateTime:d+"T"+dayTS+":00",timeZone:tz}:{date:d};
+                var endObj;
+                if(dayTS&&dayTE){endObj={dateTime:d+"T"+dayTE+":00",timeZone:tz};}
+                else{var nextD=new Date(d+"T00:00:00");nextD.setDate(nextD.getDate()+1);endObj={date:ds(nextD)};}
+                if(token){
+                  var body={summary:dayTitle,start:startObj,end:endObj,colorId:colorId,
+                    reminders:{useDefault:false,overrides:[{method:"popup",minutes:0}]}};
+                  var newEv=await calFetch('POST','/calendars/primary/events',body).catch(function(){return null;});
+                  if(newEv&&newEv.id){
+                    dayEventIds.push(newEv.id);
+                    /* Ajouter au cache gcal local */
+                    gcal.push({id:newEv.id,title:dayTitle,
+                      start:startObj.dateTime||startObj.date,
+                      end:endObj.dateTime||endObj.date,
+                      allDay:!startObj.dateTime,colorId:colorId,
+                      eventType:null,calendarId:'primary',readOnly:false,extendedProperties:null});
+                  }
+                }
+              }
+              /* 3. Créer la tâche parente Planify */
+              if(dayEventIds.length){
+                var parentTask={id:dayEventIds[0],title:title,due:startDate,dueEnd:endInclStr,
+                  done:isDone,archived:false,_createdHere:true,_gcalImported:true,
+                  _pendingTS:ts||null,_pendingTE:te||null,
+                  _dayEventIds:dayEventIds};
+                /* Si isDone : marquer tous les jours comme cochés */
+                if(isDone){
+                  allDays.forEach(function(d){
+                    var key=dayEventIds[0]+"__done__"+d;
+                    if(!S.tasks.find(function(x){return x.id===key;}))
+                      S.tasks.push({id:key,done:true,archived:false});
+                  });
+                }
+                S.tasks.push(parentTask);
+                existingIds.add(dayEventIds[0]);
+              }
+            }
+            lsSave();
+            renderTasks();renderAg();
+          })();
+        } else {
+          lsSave();
+        }
+      })();
       /* Resync couleurs : on patche uniquement les events dont le meta a change
          depuis la derniere sync (_colorSynced !== etat actuel done) */
       if(token){
@@ -3526,9 +3657,9 @@ function buildTask(t){
   }
   if(gcalEv){
     const tg=mk("div","tg tg-p");let label="📌 ";
-    if(!gcalEv.allDay&&gcalEv.start.includes("T"))label+=fT(gcalEv.start)+(gcalEv.end&&gcalEv.end.includes("T")?" – "+fT(gcalEv.end):"")+" ";
     label+=fD(gcalEv.start.slice(0,10));
     if(t.dueEnd&&t.dueEnd!==gcalEv.start.slice(0,10))label+=" – "+fD(t.dueEnd);
+    if(!gcalEv.allDay&&gcalEv.start.includes("T"))label+=" à "+fT(gcalEv.start)+(gcalEv.end&&gcalEv.end.includes("T")?" – "+fT(gcalEv.end):"");
     tg.textContent=label;tags.appendChild(tg);
   }
   if(t.recurrence){
