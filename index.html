@@ -1675,6 +1675,7 @@ async function calFetch(method,path,body,_retries){
           }
           return;
         }
+        if(r.status===403){resolve(null);return;}
         if(!r.ok){
           var err=null;try{err=await r.json();}catch(e2){}
           toast('❌ Erreur Google '+r.status+' : '+(err&&err.error&&err.error.message||r.statusText));
