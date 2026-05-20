@@ -1252,20 +1252,22 @@ async function patchGcalMeta(gcalId){
 
 function restoreMetaFromGcal(rawItems){
   /* Appelée après fetchGcal : lit planify JSON et réinjecte dans S.tasks.
-     IMPORTANT : on ne crée jamais de tâche nouvelle ici (évite les titres vides).
-     On ne met à jour que les tâches qui existent déjà dans S.tasks. */
+     RÈGLE FONDAMENTALE : le localStorage est la source de vérité pour done/archived.
+     GCal est un miroir — on ne laisse jamais GCal écraser un état local plus récent.
+     On ne crée jamais de tâche nouvelle ici (évite les titres vides). */
   let changed=false;
   (rawItems||[]).forEach(function(rawEv){
     const priv=rawEv.extendedProperties&&rawEv.extendedProperties.private;
     if(!priv||!priv.planify)return;
     let meta;
     try{meta=JSON.parse(priv.planify);}catch(e){return;}
-    /* Ne mettre à jour que les tâches existantes — ne jamais en créer */
     const t=S.tasks.find(x=>x.id===rawEv.id);
     if(!t)return;
-    /* Ne jamais écraser le titre local */
-    t.done=!!meta.done;
-    t.archived=!!meta.archived;
+    /* done et archived : on prend le MAX (true > false) entre local et GCal.
+       Une tâche cochée ou archivée localement ne peut PAS être déscochée par GCal. */
+    if(meta.done&&!t.done){t.done=true;}
+    if(meta.archived&&!t.archived){t.archived=true;}
+    /* Les autres champs non-critiques sont mis à jour normalement */
     if(meta.desc)t.desc=meta.desc;
     if(meta.remind)t.remind=meta.remind;
     if(meta.reminders&&meta.reminders.length)t.reminders=meta.reminders;
@@ -1277,8 +1279,8 @@ function restoreMetaFromGcal(rawItems){
     if(meta.doneKeys&&meta.doneKeys.length){
       meta.doneKeys.forEach(function(dk){
         const occ=S.tasks.find(x=>x.id===dk.id);
-        if(occ)occ.done=!!dk.done;
-        /* Ne pas créer d'occurrences inexistantes */
+        /* Même règle : on ne déscoche jamais une occurrence déjà cochée localement */
+        if(occ&&dk.done&&!occ.done)occ.done=true;
       });
     }
     changed=true;
