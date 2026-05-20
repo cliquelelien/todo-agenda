@@ -1769,6 +1769,8 @@ async function fetchGcal(){
            avec _dayEventIds (identique au comportement natif Planify).
          Le colorId GCal détermine l'état initial : 7=bleu=fait, sinon à faire. */
       (function importGcalTasks(){
+        /* Construire l'ensemble des ids déjà connus — y compris les archivées
+           pour éviter absolument qu'une tâche archivée soit réimportée en "à faire" */
         var existingIds=new Set(S.tasks.map(function(t){return t.id;}));
         /* Collecter les events multi-jours à scinder (async) dans une file */
         var toSplit=[];
@@ -1898,9 +1900,9 @@ async function fetchGcal(){
       var gcalIds=new Set(gcal.map(function(e){return e.id;}));
       var before=S.tasks.length;
       S.tasks=S.tasks.filter(function(t){
-        if(t._createdHere)return true;   // toujours garder les tâches créées ici
-        if(t.archived)return true;       // garder les archivées
-        if(gcalIds.has(t.id))return true; // garder tous les metas d events GCal connus (done ou pas)
+        if(t.archived)return true;        // TOUJOURS garder les archivées — elles ne reviendront jamais en "à faire"
+        if(t._createdHere)return true;    // garder les tâches créées dans Planify
+        if(gcalIds.has(t.id))return true; // garder tous les metas d'events GCal connus
         // Garder les entrées auxiliaires de cochage par jour (tâches multi-jours et récurrentes)
         if(t.id.includes("__done__")||t.id.includes("__arch__")||t.id.includes("__recur__")||t.id.includes("__colsync__"))return true;
         return false; // purger les orphelins (events supprimés de GCal)
@@ -2814,7 +2816,7 @@ function evArchive(){
   if(!evPending)return;
   ensureMeta(evPending,"");
   const meta=metaOf(evPending);
-  if(meta){meta.archived=true;meta.done=true;meta._colorSynced=null;}
+  if(meta){meta.archived=true;meta.done=true;meta._colorSynced=null;meta._createdHere=true;}
   lsSave();closeEvModal();renderAg();renderTasks();toast("🗄 Archivé");
   /* Sync couleur (bleu=fait) + métadonnées vers GCal */
   if(token&&evPending){
@@ -3281,7 +3283,7 @@ function showRecurArchiveDialog(t,dueDate,cb){
   btnAll.innerHTML="<strong>Toutes les occurrences</strong><br><span style='font-size:11px;opacity:.75;font-weight:600;'>Archiver et supprimer la récurrence</span>";
   btnAll.onclick=()=>{
     const real=S.tasks.find(x=>x.id===t.id);
-    if(real){real.archived=true;real.done=true;real.recurrence=null;real._colorSynced=null;}
+    if(real){real.archived=true;real.done=true;real.recurrence=null;real._colorSynced=null;real._createdHere=true;}
     lsSave();document.body.removeChild(ov);
     toast("🗄 Tâche archivée — récurrence supprimée");
     /* Sync couleur + méta vers GCal */
@@ -3858,7 +3860,7 @@ function buildTask(t){
         showRecurArchiveDialog(t,t.due,()=>{renderTasks();renderAg();});
       } else {
         const real=S.tasks.find(x=>x.id===t.id);
-        if(real){real.archived=true;real.done=true;real._colorSynced=null;}
+        if(real){real.archived=true;real.done=true;real._colorSynced=null;real._createdHere=true;}
         lsSave();renderTasks();toast("🗄 Archivé");
         /* Sync couleur (bleu) + méta vers GCal si l'event existe */
         const gId=real&&(gcalEv?gcalEv.id:real.id);
