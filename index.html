@@ -1628,20 +1628,64 @@ function authEmail(){
 
 initFirebase();
 /* Calendar via fetch REST direct — pas de SDK GAPI */
-async function calFetch(method,path,body){
-  if(!token)return null;
-  var url='https://www.googleapis.com/calendar/v3'+path;
-  var opts={method:method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}};
-  if(body)opts.body=JSON.stringify(body);
-  var r=await fetch(url,opts);
-  if(r.status===401){
-    token=null;localStorage.removeItem('gcal_token');updateCalendarBtn();
-    toast('🔒 Session expirée — appuyez sur votre avatar pour reconnecter');
-    return null;
+/* ══ FILE D'ATTENTE GCAL — évite les 429 Rate Limit ══
+   Toutes les requêtes vers l'API Calendar passent par cette file.
+   • Maximum 3 requêtes simultanées (quota Google : ~10/s mais on reste conservateur)
+   • Retry automatique sur 429 avec backoff exponentiel (1s, 2s, 4s)
+   • Les erreurs 429 sont silencieuses (pas de toast intempestif) — on réessaie
+   • Les autres erreurs non-401 affichent un toast une seule fois            */
+var _gcalQueue=[];
+var _gcalActive=0;
+var _GCAL_CONCURRENCY=3;
+
+function _gcalDequeue(){
+  while(_gcalActive<_GCAL_CONCURRENCY&&_gcalQueue.length){
+    var job=_gcalQueue.shift();
+    _gcalActive++;
+    job().finally(function(){_gcalActive--;_gcalDequeue();});
   }
-  if(!r.ok){var err=null;try{err=await r.json();}catch(e){}toast('❌ Erreur Google '+r.status+' : '+(err&&err.error&&err.error.message||r.statusText));return null;}
-  if(r.status===204)return {};
-  return r.json();
+}
+
+async function calFetch(method,path,body,_retries){
+  if(!token)return null;
+  _retries=_retries||0;
+  return new Promise(function(resolve){
+    _gcalQueue.push(async function(){
+      var url='https://www.googleapis.com/calendar/v3'+path;
+      var opts={method:method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}};
+      if(body)opts.body=JSON.stringify(body);
+      try{
+        var r=await fetch(url,opts);
+        if(r.status===401){
+          token=null;localStorage.removeItem('gcal_token');updateCalendarBtn();
+          toast('🔒 Session expirée — appuyez sur votre avatar pour reconnecter');
+          resolve(null);return;
+        }
+        if(r.status===429||r.status===503){
+          /* Rate limit : attendre puis ré-enqueuer */
+          var delay=Math.min(1000*Math.pow(2,_retries),16000);
+          if(_retries===0)toast('⏳ Quota Google atteint — nouvelles tentatives en cours…');
+          if(_retries<5){
+            await new Promise(function(w){setTimeout(w,delay);});
+            var retry=await calFetch(method,path,body,_retries+1);
+            resolve(retry);
+          } else {
+            toast('❌ Google Calendar indisponible après plusieurs tentatives');
+            resolve(null);
+          }
+          return;
+        }
+        if(!r.ok){
+          var err=null;try{err=await r.json();}catch(e2){}
+          toast('❌ Erreur Google '+r.status+' : '+(err&&err.error&&err.error.message||r.statusText));
+          resolve(null);return;
+        }
+        if(r.status===204){resolve({});return;}
+        resolve(await r.json());
+      }catch(e){resolve(null);}
+    });
+    _gcalDequeue();
+  });
 }
 
 async function fetchCalendarList(){
@@ -1846,83 +1890,8 @@ async function fetchGcal(){
           lsSave();
         }
       })();
-      /* Resync couleurs : on patche uniquement les events dont le meta a change
-         depuis la derniere sync (_colorSynced !== etat actuel done) */
-      if(token){
-        /* Calcule la couleur attendue pour un event GCal donné :
-           - Sous-événement d'une tâche _dayEventIds : bleu si CE jour est coché
-           - Tâche multi-jours classique : bleu si TOUS les jours sont cochés
-           - Tâche normale : bleu si done */
-        function expectedColorForEvent(gcalEvent){
-          /* Chercher si cet event est un sous-événement (_dayEventIds) */
-          const parentTask=S.tasks.find(function(t){
-            return t._dayEventIds&&t._dayEventIds.includes(gcalEvent.id);
-          });
-          if(parentTask){
-            const dayIdx=parentTask._dayEventIds.indexOf(gcalEvent.id);
-            /* Reconstruire la date du jour à partir du start GCal */
-            const dayDate=gcalEvent.start.slice(0,10);
-            const doneKey=parentTask.id+"__done__"+dayDate;
-            const isDayDone=S.tasks.find(function(x){return x.id===doneKey;})?.done||false;
-            return isDayDone?"7":"6";
-          }
-          /* Tâche principale avec dueEnd (multi-jours sur un seul event GCal) */
-          const meta=S.tasks.find(function(t){return t.id===gcalEvent.id;});
-          if(!meta)return null; /* pas de méta → ne pas toucher */
-          if(meta.dueEnd&&meta.dueEnd!==meta.due){
-            const _start=new Date((meta.due||meta.dueEnd)+"T00:00:00");
-            const _end=new Date(meta.dueEnd+"T00:00:00");
-            const _days=[];const _c=new Date(_start);
-            while(_c<=_end){_days.push(ds(_c));_c.setDate(_c.getDate()+1);}
-            /* Bleu dès qu'AU MOINS UN jour est coché */
-            const _anyDone=_days.some(function(d){return S.tasks.find(function(x){return x.id===meta.id+"__done__"+d;})?.done;});
-            return _anyDone?"7":"6";
-          }
-          return meta.done?"7":"6";
-        }
-        /* Pour chaque event GCal, calculer la couleur attendue et ne patcher
-           que si elle diffère de la valeur confirmée localement (_colorSynced).
-           On n'utilise PAS e.colorId retourné par GCal car il est null quand
-           l'event a la couleur par défaut du calendrier (≠ "6"). */
-        function getColorSynced(gcalEvent){
-          /* Chercher d'abord une entrée __colsync__ (sous-événements _dayEventIds) */
-          const cs=S.tasks.find(function(x){return x.id===gcalEvent.id+"__colsync__";});
-          if(cs)return cs._colorSynced||null;
-          /* Sinon méta principale */
-          const meta=S.tasks.find(function(t){return t.id===gcalEvent.id;});
-          return meta?meta._colorSynced||null:null;
-        }
-        const toSync=gcal.filter(function(e){
-          if(e.eventType==="birthday"||e.eventType==="fromGmail")return false;
-          const expected=expectedColorForEvent(e);
-          if(expected===null)return false;
-          return getColorSynced(e)!==expected;
-        });
-        toSync.reduce(function(p,e){
-          return p.then(function(){
-            /* Recalculer au moment du PATCH pour avoir l'état le plus récent
-               (l'utilisateur a pu cocher/décocher entre le début du toSync et maintenant) */
-            const expected=expectedColorForEvent(e);
-            if(expected===null)return;
-            /* Si déjà synced entretemps (ex: clic utilisateur), ne pas repatcher */
-            if(getColorSynced(e)===expected)return;
-            return calFetch('PATCH','/calendars/primary/events/'+e.id,{colorId:expected})
-              .then(function(){
-                const cs=S.tasks.find(function(x){return x.id===e.id+"__colsync__";});
-                if(cs){cs._colorSynced=expected;}
-                else{
-                  const meta=S.tasks.find(function(t){return t.id===e.id;});
-                  if(meta){meta._colorSynced=expected;}
-                  else{S.tasks.push({id:e.id+"__colsync__",_colorSynced:expected});}
-                }
-                e.colorId=expected;
-                lsSave();
-                return new Promise(function(r){setTimeout(r,200);});
-              })
-              .catch(function(){});
-          });
-        },Promise.resolve());
-      }
+      /* Resync couleurs supprimé : la couleur est patché directement au cochage/décochage,
+         ce qui évite les rafales de requêtes 429 déclenchées par le fetch automatique. */
       /* Purger les tâches locales dont l'id existe dans GCal ET qui n'ont pas _createdHere
          Les tâches créées dans cette app (_createdHere) sont conservées même si elles sont dans GCal */
       var gcalIds=new Set(gcal.map(function(e){return e.id;}));
@@ -3593,12 +3562,15 @@ function buildTask(t){
         m.done=!allDone;
       });
       lsSave();renderTasks();renderAg();
-      /* Patcher la couleur GCal : bleu si tous cochés, orange sinon */
+      /* Un seul PATCH : couleur + méta */
       if(token&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
         const newAllDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
         const colorId=newAllDone?"7":"6";
         const calId=gcalEv.calendarId||'primary';
-        calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalEv.id,{colorId})
+        const metaStr=buildPlanifyMeta(gcalEv.id);
+        const patchBody={colorId};
+        if(metaStr)patchBody.extendedProperties={private:{planify:metaStr}};
+        calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalEv.id,patchBody)
           .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=colorId;lsSave();}}).catch(()=>{});
       }
     } else if(gcalEv){
@@ -3704,8 +3676,7 @@ function buildTask(t){
           window._lastDayClick=Date.now();
           if(token){
             if(t._dayEventIds&&t._dayEventIds.length){
-              /* Tâche créée avec plusieurs sous-événements GCal séparés :
-                 chaque jour a son propre event → on le patche individuellement */
+              /* Tâche _dayEventIds : un seul PATCH couleur par jour */
               const dayIdx=allDays.indexOf(dayDate);
               const dayEvId=dayIdx>=0?t._dayEventIds[dayIdx]:null;
               if(dayEvId){
@@ -3721,18 +3692,22 @@ function buildTask(t){
                   }).catch(()=>{});
               }
             } else if(gcalEv&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
-              /* Tâche multi-jours sur un seul event GCal (start→end étendu) :
-                 bleu dès qu'AU MOINS UN jour est coché, orange seulement si AUCUN jour n'est coché */
+              /* Tâche mono-event GCal : couleur + méta en un seul PATCH */
               const anyDone=allDays.some(dd=>S.tasks.find(x=>x.id===t.id+"__done__"+dd)?.done);
               const targetColor=anyDone?"7":"6";
               const calId2=gcalEv.calendarId||'primary';
               const pm=S.tasks.find(x=>x.id===gcalEv.id);
               if(!pm||pm._colorSynced!==targetColor){
-                calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,{colorId:targetColor})
-                  .then(()=>{if(pm)pm._colorSynced=targetColor;else S.tasks.push({id:gcalEv.id,_colorSynced:targetColor});lsSave();}).catch(()=>{});
+                const metaStr=buildPlanifyMeta(gcalEv.id);
+                const patchBody={colorId:targetColor};
+                if(metaStr)patchBody.extendedProperties={private:{planify:metaStr}};
+                calFetch('PATCH','/calendars/'+encodeURIComponent(calId2)+'/events/'+gcalEv.id,patchBody)
+                  .then(()=>{
+                    if(pm)pm._colorSynced=targetColor;
+                    else S.tasks.push({id:gcalEv.id,_colorSynced:targetColor});
+                    lsSave();
+                  }).catch(()=>{});
               }
-              /* Sync statut done dans extendedProperties */
-              patchGcalMeta(gcalEv.id);
             }
           }
         };
