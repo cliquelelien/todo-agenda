@@ -275,7 +275,89 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .mini-md.drag-ov{border-color:var(--or)!important;background:var(--orbg)!important;}
 .mini-cal-wrap.drag-active .mini-md{touch-action:none;}
 
-/* ══ DESKTOP LAYOUT ≥900px ══ */
+/* ══ IA ASSISTANT PANEL ══ */
+#panel-ia{padding:0!important;display:none;flex-direction:column;height:calc(100vh - 112px);max-width:none!important;margin:0!important;}
+#panel-ia.active{display:flex;}
+.ia-header{background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);padding:16px 16px 12px;flex-shrink:0;}
+.ia-header-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.ia-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 0 16px rgba(102,126,234,.5);}
+.ia-avatar.thinking{animation:ia-pulse 1.2s ease-in-out infinite;}
+@keyframes ia-pulse{0%,100%{box-shadow:0 0 16px rgba(102,126,234,.5);}50%{box-shadow:0 0 28px rgba(102,126,234,.9),0 0 48px rgba(118,75,162,.4);}}
+.ia-title{flex:1;}
+.ia-title h2{font-size:16px;font-weight:800;color:#fff;margin:0;}
+.ia-title p{font-size:11px;color:rgba(255,255,255,.55);margin:0;}
+.ia-status-dot{width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399;flex-shrink:0;}
+.ia-status-dot.busy{background:#f59e0b;box-shadow:0 0 6px #f59e0b;animation:ia-blink .7s ease-in-out infinite alternate;}
+@keyframes ia-blink{from{opacity:.4}to{opacity:1}}
+.ia-caps{display:flex;gap:6px;flex-wrap:wrap;}
+.ia-cap{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.75);}
+.ia-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--blbg);scrollbar-width:thin;scrollbar-color:var(--blb) transparent;}
+.ia-messages::-webkit-scrollbar{width:4px;}
+.ia-messages::-webkit-scrollbar-thumb{background:var(--blb);border-radius:2px;}
+.ia-msg{display:flex;gap:8px;animation:ia-appear .25s cubic-bezier(.34,1.56,.64,1);}
+@keyframes ia-appear{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.ia-msg.user{flex-direction:row-reverse;}
+.ia-msg-bubble{max-width:80%;padding:10px 14px;border-radius:16px;font-size:13px;font-weight:600;line-height:1.5;color:var(--tx);}
+.ia-msg.user .ia-msg-bubble{background:var(--bl);color:#fff;border-radius:16px 4px 16px 16px;}
+.ia-msg.ai .ia-msg-bubble{background:#fff;border:1.5px solid var(--blb);border-radius:4px 16px 16px 16px;box-shadow:var(--sh);}
+.ia-msg.ai .ia-msg-bubble img{max-width:100%;border-radius:8px;margin-top:6px;}
+.ia-msg-avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.ia-msg.ai .ia-msg-avatar{background:linear-gradient(135deg,#667eea,#764ba2);}
+.ia-msg.user .ia-msg-avatar{background:var(--bl);}
+/* Actions suggérées */
+.ia-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.ia-action-btn{background:var(--blbg);border:1.5px solid var(--blb);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:800;color:var(--bl);cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.ia-action-btn:hover{background:var(--bl);color:#fff;border-color:var(--bl);}
+/* Cards planification dans les bulles */
+.ia-plan-card{background:linear-gradient(135deg,var(--blbg),#e8f4ff);border:1.5px solid var(--blb);border-radius:12px;padding:10px 12px;margin-top:8px;}
+.ia-plan-card-title{font-size:11px;font-weight:800;color:var(--bld);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
+.ia-task-item{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--blb);font-size:12px;font-weight:700;color:var(--tx);}
+.ia-task-item:last-child{border-bottom:none;}
+.ia-task-icon{font-size:14px;flex-shrink:0;}
+.ia-task-meta{font-size:10px;color:var(--tx3);font-weight:600;}
+.ia-task-add-btn{margin-left:auto;background:var(--gr);border:none;border-radius:7px;color:#fff;padding:3px 9px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;}
+.ia-task-add-btn:hover{filter:brightness(1.1);}
+.ia-task-add-btn.added{background:var(--tx3);cursor:default;}
+/* Barre de saisie */
+.ia-input-area{background:#fff;border-top:1.5px solid var(--blb);padding:10px 12px;flex-shrink:0;}
+.ia-input-row{display:flex;align-items:flex-end;gap:7px;}
+.ia-input-wrap{flex:1;background:var(--blbg);border:1.5px solid var(--blb);border-radius:14px;padding:8px 12px;transition:border-color .15s;}
+.ia-input-wrap:focus-within{border-color:var(--bl);box-shadow:0 0 0 3px rgba(42,125,225,.08);}
+.ia-textarea{width:100%;font-family:inherit;font-size:13px;font-weight:600;color:var(--tx);background:transparent;border:none;outline:none;resize:none;min-height:20px;max-height:100px;line-height:1.4;}
+.ia-textarea::placeholder{color:var(--tx3);}
+.ia-btns{display:flex;gap:5px;align-items:center;flex-shrink:0;}
+.ia-btn{width:38px;height:38px;border-radius:12px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;transition:all .15s;flex-shrink:0;}
+.ia-btn-send{background:var(--bl);color:#fff;box-shadow:0 2px 8px rgba(42,125,225,.3);}
+.ia-btn-send:hover{filter:brightness(1.1);}
+.ia-btn-send:disabled{background:var(--blb);box-shadow:none;cursor:default;}
+.ia-btn-mic{background:var(--blbg);border:1.5px solid var(--blb);color:var(--tx2);}
+.ia-btn-mic:hover{background:var(--orbg);border-color:var(--or);color:var(--or);}
+.ia-btn-mic.recording{background:var(--orbg);border-color:var(--or);color:var(--or);animation:ia-pulse-mic .6s ease-in-out infinite alternate;}
+@keyframes ia-pulse-mic{from{box-shadow:0 0 0 0 rgba(245,166,35,.4);}to{box-shadow:0 0 0 6px rgba(245,166,35,0);}}
+.ia-btn-photo{background:var(--blbg);border:1.5px solid var(--blb);color:var(--tx2);}
+.ia-btn-photo:hover{background:#e8f4ff;border-color:var(--bl);color:var(--bl);}
+.ia-img-preview{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;}
+.ia-img-thumb{position:relative;width:56px;height:56px;border-radius:8px;overflow:hidden;border:1.5px solid var(--blb);}
+.ia-img-thumb img{width:100%;height:100%;object-fit:cover;}
+.ia-img-thumb-del{position:absolute;top:1px;right:1px;background:rgba(0,0,0,.6);border:none;border-radius:4px;color:#fff;font-size:10px;cursor:pointer;width:16px;height:16px;display:flex;align-items:center;justify-content:center;line-height:1;}
+/* Typing indicator */
+.ia-typing{display:flex;align-items:center;gap:4px;padding:10px 14px;}
+.ia-dot{width:7px;height:7px;border-radius:50%;background:var(--tx3);animation:ia-bounce .9s ease-in-out infinite;}
+.ia-dot:nth-child(2){animation-delay:.2s;}
+.ia-dot:nth-child(3){animation-delay:.4s;}
+@keyframes ia-bounce{0%,80%,100%{transform:scale(.6);opacity:.4;}40%{transform:scale(1);opacity:1;}}
+/* Suggestions rapides */
+.ia-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.ia-quick-btn{background:#fff;border:1.5px solid var(--blb);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;color:var(--tx2);cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.ia-quick-btn:hover{border-color:var(--bl);color:var(--bl);background:var(--blbg);}
+/* Notification de tâche créée */
+.ia-toast-task{background:linear-gradient(135deg,var(--gr),#22a653);color:#fff;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;margin-top:6px;display:flex;align-items:center;gap:6px;}
+/* Desktop layout pour le panel IA */
+@media(min-width:900px){
+  #panel-ia{height:calc(100vh - 56px)!important;display:none!important;}
+  #panel-ia.active{display:flex!important;}
+}
+
 @media(min-width:900px){
   nav{display:none;}
   body{overflow:hidden;height:100vh;}
@@ -442,6 +524,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 </div>
 <nav>
   <button class="tab active" onclick="goTab('todo')">&#9989; T&#226;ches</button>
+  <button class="tab" onclick="goTab('ia')">&#129302; IA</button>
   <button class="tab" onclick="goTab('agenda')">&#128197; Agenda</button>
 </nav>
 <div id="desktop-body">
@@ -542,6 +625,53 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <button id="search-clear" onclick="clearSearch()" title="Effacer">✕</button>
   </div>
 </div><!-- /panel-todo -->
+
+<!-- PANEL IA -->
+<div class="panel" id="panel-ia">
+  <!-- Header gradient -->
+  <div class="ia-header">
+    <div class="ia-header-top">
+      <div class="ia-avatar" id="ia-avatar">🤖</div>
+      <div class="ia-title">
+        <h2>Assistant IA</h2>
+        <p id="ia-status-text">Prêt à planifier pour vous</p>
+      </div>
+      <div class="ia-status-dot" id="ia-status-dot"></div>
+    </div>
+    <div class="ia-caps">
+      <span class="ia-cap">📸 Photos de docs</span>
+      <span class="ia-cap">🎙️ Vocal</span>
+      <span class="ia-cap">📅 Sync Google</span>
+      <span class="ia-cap">🧠 Planification auto</span>
+    </div>
+  </div>
+  <!-- Zone messages -->
+  <div class="ia-messages" id="ia-messages">
+    <!-- Message de bienvenue injecté par JS -->
+  </div>
+  <!-- Zone de saisie -->
+  <div class="ia-input-area">
+    <div class="ia-img-preview" id="ia-img-preview"></div>
+    <div class="ia-quick" id="ia-quick-btns">
+      <button class="ia-quick-btn" onclick="iaSendQuick('📸 Je prends une photo d\'un document')">📸 Photo doc</button>
+      <button class="ia-quick-btn" onclick="iaSendQuick('Planifie ma semaine')">📅 Ma semaine</button>
+      <button class="ia-quick-btn" onclick="iaSendQuick('Quelles tâches ai-je en retard ?')">⚠️ Retards</button>
+      <button class="ia-quick-btn" onclick="iaSendQuick('Aide-moi à décomposer mon prochain objectif en étapes')">🎯 Objectifs</button>
+    </div>
+    <div class="ia-input-row">
+      <div class="ia-input-wrap">
+        <textarea class="ia-textarea" id="ia-input" placeholder="Décrivez ce que vous avez besoin de planifier…" rows="1"
+          onkeydown="iaKeydown(event)" oninput="iaResize(this)"></textarea>
+      </div>
+      <div class="ia-btns">
+        <button class="ia-btn ia-btn-photo" id="ia-photo-btn" onclick="iaTriggerPhoto()" title="Prendre/envoyer une photo">📷</button>
+        <button class="ia-btn ia-btn-mic" id="ia-mic-btn" onclick="iaToggleMic()" title="Dicter">🎙️</button>
+        <button class="ia-btn ia-btn-send" id="ia-send-btn" onclick="iaSend()" title="Envoyer">➤</button>
+      </div>
+    </div>
+    <input type="file" id="ia-file-input" accept="image/*" capture="environment" style="display:none" multiple onchange="iaOnFileSelect(this)">
+  </div>
+</div>
 
 <!-- VUE SEMAINE -->
 <div class="panel" id="panel-week">
@@ -2020,8 +2150,10 @@ async function delGcalEv(gcalId){
 /* ══ TABS ══ */
 function goTab(t,skipRender){
   curTab=t;
-  document.querySelectorAll(".tab").forEach(function(el,i){
-    el.classList.toggle("active",(i===0&&t==="todo")||(i===1&&t==="agenda"));
+  var tabs=document.querySelectorAll(".tab");
+  tabs.forEach(function(el,i){
+    el.classList.toggle("active",
+      (i===0&&t==="todo")||(i===1&&t==="ia")||(i===2&&t==="agenda"));
   });
   document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active");});
   var panel=document.getElementById("panel-"+t);
@@ -2036,6 +2168,7 @@ function goTab(t,skipRender){
       if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doAg).catch(doAg);}else doAg();
     }
   }
+  if(t==="ia"&&!window._iaInited){window._iaInited=true;iaInit();}
   /* Close settings if open */
   var sp=document.getElementById('settings-panel');if(sp&&sp.style.display!=='none')sp.style.display='none';
 }
@@ -4888,7 +5021,417 @@ function addShopItem(text){
   };
 })();
 
-/* ══ DICTÉE VOCALE — DESCRIPTIF (formulaire création rapide) ══ */
+
+/* ══════════════════════════════════════════════════════════════
+   MODULE IA — Assistant planification connecté à Claude API
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  /* ── State ── */
+  var _msgs=[]; // historique {role:'user'|'assistant', content:[...]}
+  var _images=[]; // [{base64, mediaType, previewUrl}]
+  var _micRecog=null, _micActive=false;
+  var _busy=false;
+  var CLAUDE_MODEL='claude-sonnet-4-20250514';
+
+  /* ── Initialisation ── */
+  window.iaInit=function(){
+    var msgs=document.getElementById('ia-messages');
+    if(!msgs)return;
+    msgs.innerHTML='';
+    _msgs=[];
+    _images=[];
+    iaAppendAI(
+      '👋 Bonjour ! Je suis votre assistant de planification.\n\n'+
+      'Je peux **analyser des documents** (factures, courriers, contrats…), **planifier automatiquement** rendez-vous et tâches dans Planify + Google Agenda, et **décomposer vos objectifs** en étapes concrètes.\n\n'+
+      'Que souhaitez-vous planifier ?',
+      [{label:'📸 Analyser un document', action:'photo'},{label:'📅 Voir mes tâches en cours', action:'summary'},{label:'🎯 Décomposer un objectif', action:'goal'}]
+    );
+  };
+
+  /* ── Resize textarea ── */
+  window.iaResize=function(el){
+    el.style.height='auto';
+    el.style.height=Math.min(el.scrollHeight,100)+'px';
+  };
+
+  /* ── Keydown ── */
+  window.iaKeydown=function(e){
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();iaSend();}
+  };
+
+  /* ── Quick send ── */
+  window.iaSendQuick=function(text){
+    var inp=document.getElementById('ia-input');
+    if(inp){inp.value=text;iaResize(inp);}
+    if(text==='📸 Je prends une photo d\'un document'){iaTriggerPhoto();return;}
+    iaSend();
+  };
+
+  /* ── Photo trigger ── */
+  window.iaTriggerPhoto=function(){
+    document.getElementById('ia-file-input').click();
+  };
+
+  /* ── File select ── */
+  window.iaOnFileSelect=function(input){
+    var files=Array.from(input.files||[]);
+    if(!files.length)return;
+    var prev=document.getElementById('ia-img-preview');
+    files.forEach(function(f){
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        var b64=ev.target.result.split(',')[1];
+        var mt=f.type||'image/jpeg';
+        _images.push({base64:b64,mediaType:mt,previewUrl:ev.target.result});
+        var thumb=document.createElement('div');thumb.className='ia-img-thumb';
+        var img=document.createElement('img');img.src=ev.target.result;
+        var del=document.createElement('button');del.className='ia-img-thumb-del';del.textContent='✕';
+        var idx=_images.length-1;
+        del.onclick=function(){_images.splice(idx,1);thumb.remove();};
+        thumb.append(img,del);if(prev)prev.appendChild(thumb);
+      };
+      reader.readAsDataURL(f);
+    });
+    input.value='';
+    /* Proposer un message d'analyse si pas de texte */
+    var inp=document.getElementById('ia-input');
+    if(inp&&!inp.value.trim()){inp.value='Analyse ce document et planifie les actions nécessaires';iaResize(inp);}
+  };
+
+  /* ── Microphone ── */
+  window.iaToggleMic=function(){
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){toast('🔒 Reconnaissance vocale non disponible sur ce navigateur');return;}
+    if(_micActive){
+      if(_micRecog)try{_micRecog.stop();}catch(e){}
+      _micActive=false;
+      document.getElementById('ia-mic-btn').classList.remove('recording');
+      document.getElementById('ia-mic-btn').textContent='🎙️';
+      return;
+    }
+    _micActive=true;
+    var btn=document.getElementById('ia-mic-btn');
+    btn.classList.add('recording');btn.textContent='⏹';
+    var r=new SR();r.lang='fr-FR';r.continuous=false;r.interimResults=false;
+    r.onresult=function(ev){
+      var txt=ev.results[0][0].transcript.trim();
+      var inp=document.getElementById('ia-input');
+      if(inp){inp.value=(inp.value?inp.value+' ':'')+txt;iaResize(inp);}
+    };
+    r.onend=function(){
+      _micActive=false;
+      var b=document.getElementById('ia-mic-btn');
+      if(b){b.classList.remove('recording');b.textContent='🎙️';}
+    };
+    r.onerror=function(){
+      _micActive=false;
+      var b=document.getElementById('ia-mic-btn');
+      if(b){b.classList.remove('recording');b.textContent='🎙️';}
+    };
+    _micRecog=r;
+    try{r.start();}catch(e){_micActive=false;btn.classList.remove('recording');btn.textContent='🎙️';}
+  };
+
+  /* ── Construire le contexte Planify à injecter dans le prompt système ── */
+  function buildPlanifyContext(){
+    var today=ds(new Date());
+    var tasks=(S.tasks||[]).filter(function(t){return !t.archived&&!t.id.includes('__done__')&&!t.id.includes('__arch__');});
+    var todo=tasks.filter(function(t){return !t.done;}).slice(0,30);
+    var done=tasks.filter(function(t){return t.done;}).slice(0,10);
+    var ctx='=== CONTEXTE PLANIFY (données actuelles) ===\n';
+    ctx+='Aujourd\'hui : '+today+'\n\n';
+    ctx+='TÂCHES À FAIRE ('+todo.length+') :\n';
+    todo.forEach(function(t){
+      ctx+='- ['+t.id+'] "'+t.title+'"'+(t.due?' | due:'+t.due:'')+(t.dueEnd&&t.dueEnd!==t.due?' → '+t.dueEnd:'')+(t.desc?' | '+t.desc.slice(0,60):'')+(t.done?' ✓':'')+'\n';
+    });
+    ctx+='\nTÂCHES RÉCENTES TERMINÉES ('+done.length+') :\n';
+    done.forEach(function(t){ctx+='- "'+t.title+'"'+(t.due?' | '+t.due:'')+'\n';});
+    ctx+='\n=== FIN CONTEXTE ===\n';
+    return ctx;
+  }
+
+  /* ── Prompt système ── */
+  function buildSystemPrompt(){
+    return (
+      'Tu es l\'assistant IA intégré à Planify, une application de gestion de tâches et calendrier.\n'+
+      'Tu parles UNIQUEMENT en français.\n'+
+      'Ton rôle est de DÉCHARGER totalement l\'utilisateur de la planification :\n'+
+      '1. Tu analyses les documents (photos de courriers, factures, contrats, ordonnances, convocations…)\n'+
+      '2. Tu extrais les dates, délais, obligations et actions requises\n'+
+      '3. Tu proposes un plan d\'action COMPLET avec toutes les étapes intermédiaires\n'+
+      '4. Tu crées les tâches/RDV directement dans Planify via des commandes JSON\n\n'+
+      'IMPORTANT — Quand tu veux créer des tâches ou RDV, inclus dans ta réponse un bloc JSON entre les balises :\n'+
+      '<PLANIFY_ACTIONS>\n'+
+      '[\n'+
+      '  {"type":"task","title":"Titre","due":"YYYY-MM-DD","dueEnd":"YYYY-MM-DD","timeStart":"HH:MM","timeEnd":"HH:MM","desc":"Description","priority":"high|normal"},\n'+
+      '  {"type":"task","title":"...","due":"...","desc":"..."}\n'+
+      ']\n'+
+      '</PLANIFY_ACTIONS>\n\n'+
+      'Règles :\n'+
+      '- Pour un RDV ponctuel : due = dueEnd = date du RDV, indique timeStart et timeEnd\n'+
+      '- Pour une tâche sans heure : omets timeStart/timeEnd\n'+
+      '- Pour une tâche multi-jours : due = début, dueEnd = fin\n'+
+      '- Toujours proposer des étapes intermédiaires (préparation, rappels, suivis)\n'+
+      '- Être proactif : si tu vois une date limite dans 3 semaines, propose un rappel à J-7 et J-2\n'+
+      '- Ton ton est humain, chaleureux, efficace\n'+
+      '- Après avoir listé les actions, demande confirmation avant de tout créer, OU si l\'utilisateur dit "oui planifie" / "crée tout" → utilise PLANIFY_ACTIONS directement\n\n'+
+      buildPlanifyContext()
+    );
+  }
+
+  /* ── Envoyer un message ── */
+  window.iaSend=function(){
+    if(_busy)return;
+    var inp=document.getElementById('ia-input');
+    var text=(inp?inp.value.trim():'');
+    if(!text&&_images.length===0)return;
+
+    /* Cacher les quick buttons après premier message */
+    var qb=document.getElementById('ia-quick-btns');if(qb)qb.style.display='none';
+
+    /* Construire le contenu du message utilisateur */
+    var userContent=[];
+    _images.forEach(function(img){
+      userContent.push({type:'image',source:{type:'base64',media_type:img.mediaType,data:img.base64}});
+    });
+    if(text)userContent.push({type:'text',text:text});
+
+    /* Afficher côté UI */
+    var uiParts=[];
+    _images.forEach(function(img){uiParts.push('<img src="'+img.previewUrl+'" style="max-width:180px;border-radius:8px;margin-top:4px;">' );});
+    if(text)uiParts.push(iaMarkdown(text));
+    iaAppendUser(uiParts.join('<br>'));
+
+    /* Réinitialiser inputs */
+    _images=[];
+    document.getElementById('ia-img-preview').innerHTML='';
+    if(inp){inp.value='';iaResize(inp);}
+
+    /* Ajouter à l'historique */
+    _msgs.push({role:'user',content:userContent});
+
+    /* Appel API */
+    iaCallClaude();
+  };
+
+  /* ── Appel Claude API ── */
+  async function iaCallClaude(){
+    _busy=true;
+    iaSetBusy(true);
+    var typingEl=iaShowTyping();
+
+    try{
+      /* Construire messages pour l'API (max 20 tours) */
+      var apiMessages=_msgs.slice(-20);
+
+      var resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:CLAUDE_MODEL,
+          max_tokens:2000,
+          system:buildSystemPrompt(),
+          messages:apiMessages
+        })
+      });
+
+      if(typingEl)typingEl.remove();
+
+      if(!resp.ok){
+        var err=await resp.json().catch(function(){return {};});
+        throw new Error(err.error&&err.error.message||'Erreur API '+resp.status);
+      }
+
+      var data=await resp.json();
+      var rawText=(data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('');
+
+      /* Ajouter à l'historique assistant */
+      _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
+
+      /* Parser les actions Planify */
+      var actions=null;
+      var displayText=rawText;
+      var match=rawText.match(/<PLANIFY_ACTIONS>([\s\S]*?)<\/PLANIFY_ACTIONS>/);
+      if(match){
+        try{actions=JSON.parse(match[1].trim());}catch(e){actions=null;}
+        displayText=rawText.replace(/<PLANIFY_ACTIONS>[\s\S]*?<\/PLANIFY_ACTIONS>/,'').trim();
+      }
+
+      /* Afficher la réponse */
+      if(actions&&actions.length>0){
+        iaAppendAIPlan(displayText,actions);
+      } else {
+        iaAppendAI(displayText);
+      }
+
+    }catch(e){
+      if(typingEl)typingEl.remove();
+      iaAppendAI('⚠️ Erreur de connexion à l\'IA : '+e.message+'\n\nVérifiez votre connexion internet et réessayez.');
+    }
+
+    _busy=false;
+    iaSetBusy(false);
+  }
+
+  /* ── UI helpers ── */
+  function iaSetBusy(on){
+    var av=document.getElementById('ia-avatar');
+    var dot=document.getElementById('ia-status-dot');
+    var st=document.getElementById('ia-status-text');
+    var btn=document.getElementById('ia-send-btn');
+    if(av){if(on)av.classList.add('thinking');else av.classList.remove('thinking');}
+    if(dot){if(on)dot.classList.add('busy');else dot.classList.remove('busy');}
+    if(st)st.textContent=on?'En train de réfléchir…':'Prêt à planifier pour vous';
+    if(btn)btn.disabled=on;
+  }
+
+  function iaShowTyping(){
+    var msgs=document.getElementById('ia-messages');
+    if(!msgs)return null;
+    var wrap=document.createElement('div');wrap.className='ia-msg ai';
+    var av=document.createElement('div');av.className='ia-msg-avatar';av.textContent='🤖';
+    var bub=document.createElement('div');bub.className='ia-msg-bubble';
+    bub.innerHTML='<div class="ia-typing"><div class="ia-dot"></div><div class="ia-dot"></div><div class="ia-dot"></div></div>';
+    wrap.append(av,bub);msgs.appendChild(wrap);
+    msgs.scrollTop=msgs.scrollHeight;
+    return wrap;
+  }
+
+  function iaAppendUser(html){
+    var msgs=document.getElementById('ia-messages');if(!msgs)return;
+    var wrap=document.createElement('div');wrap.className='ia-msg user';
+    var av=document.createElement('div');av.className='ia-msg-avatar';av.textContent='👤';
+    var bub=document.createElement('div');bub.className='ia-msg-bubble';bub.innerHTML=html;
+    wrap.append(bub,av);msgs.appendChild(wrap);
+    msgs.scrollTop=msgs.scrollHeight;
+  }
+
+  function iaAppendAI(text,actions){
+    var msgs=document.getElementById('ia-messages');if(!msgs)return;
+    var wrap=document.createElement('div');wrap.className='ia-msg ai';
+    var av=document.createElement('div');av.className='ia-msg-avatar';av.textContent='🤖';
+    var bub=document.createElement('div');bub.className='ia-msg-bubble';
+    bub.innerHTML=iaMarkdown(text);
+    if(actions&&actions.length){
+      var actDiv=document.createElement('div');actDiv.className='ia-actions';
+      actions.forEach(function(a){
+        var btn=document.createElement('button');btn.className='ia-action-btn';
+        btn.textContent=a.label;
+        btn.onclick=function(){
+          if(a.action==='photo'){iaTriggerPhoto();}
+          else if(a.action==='summary'){iaSendQuick('Résume-moi toutes mes tâches en cours et dis-moi ce qui est prioritaire');}
+          else if(a.action==='goal'){iaSendQuick('Je veux décomposer un objectif en étapes. Demande-moi lequel.');}
+          else if(a.action==='confirm'){iaSendQuick('Oui, crée toutes ces tâches dans Planify');}
+        };
+        actDiv.appendChild(btn);
+      });
+      bub.appendChild(actDiv);
+    }
+    wrap.append(av,bub);msgs.appendChild(wrap);
+    msgs.scrollTop=msgs.scrollHeight;
+  }
+
+  /* Afficher un plan avec boutons d'ajout par tâche */
+  function iaAppendAIPlan(text,tasks){
+    var msgs=document.getElementById('ia-messages');if(!msgs)return;
+    var wrap=document.createElement('div');wrap.className='ia-msg ai';
+    var av=document.createElement('div');av.className='ia-msg-avatar';av.textContent='🤖';
+    var bub=document.createElement('div');bub.className='ia-msg-bubble';
+    if(text)bub.innerHTML=iaMarkdown(text);
+
+    /* Card de planification */
+    var card=document.createElement('div');card.className='ia-plan-card';
+    var cardTitle=document.createElement('div');cardTitle.className='ia-plan-card-title';
+    cardTitle.textContent='📋 '+tasks.length+' action'+(tasks.length>1?'s':'')+' à planifier';
+    card.appendChild(cardTitle);
+
+    tasks.forEach(function(t,idx){
+      var row=document.createElement('div');row.className='ia-task-item';
+      var icon=document.createElement('span');icon.className='ia-task-icon';
+      icon.textContent=t.timeStart?'🕐':'📌';
+      var info=document.createElement('div');info.style.flex='1';info.style.minWidth='0';
+      var name=document.createElement('div');name.textContent=t.title;name.style.cssText='font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      var meta=document.createElement('div');meta.className='ia-task-meta';
+      var metaParts=[];
+      if(t.due)metaParts.push('📅 '+fD(t.due));
+      if(t.timeStart)metaParts.push('⏰ '+t.timeStart+(t.timeEnd?'–'+t.timeEnd:''));
+      if(t.desc)metaParts.push(t.desc.slice(0,50));
+      meta.textContent=metaParts.join(' · ');
+      info.append(name,meta);
+      var addBtn=document.createElement('button');addBtn.className='ia-task-add-btn';addBtn.textContent='+ Ajouter';
+      (function(task,btn){
+        btn.onclick=function(){
+          iaCreateTask(task);
+          btn.textContent='✓ Ajouté';btn.classList.add('added');btn.disabled=true;
+        };
+      })(t,addBtn);
+      row.append(icon,info,addBtn);
+      card.appendChild(row);
+    });
+
+    /* Bouton "tout ajouter" */
+    var allBtn=document.createElement('button');
+    allBtn.style.cssText='width:100%;margin-top:10px;background:var(--bl);color:#fff;border:none;border-radius:9px;padding:8px;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;';
+    allBtn.textContent='✅ Tout ajouter à Planify & Google Agenda';
+    allBtn.onclick=function(){
+      tasks.forEach(function(t){iaCreateTask(t);});
+      allBtn.textContent='✓ Tout ajouté !';allBtn.disabled=true;allBtn.style.background='var(--gr)';
+      toast('✅ '+tasks.length+' tâche'+(tasks.length>1?'s':'')+' ajoutée'+(tasks.length>1?'s':'')+' !');
+    };
+    card.appendChild(allBtn);
+    bub.appendChild(card);
+
+    wrap.append(av,bub);msgs.appendChild(wrap);
+    msgs.scrollTop=msgs.scrollHeight;
+  }
+
+  /* ── Créer une tâche depuis un plan IA ── */
+  function iaCreateTask(t){
+    var id=uid();
+    var task={
+      id:id,
+      title:t.title||'Tâche IA',
+      due:t.due||null,
+      dueEnd:t.dueEnd||t.due||null,
+      desc:t.desc||'',
+      done:false,
+      archived:false,
+      remind:0,
+      _createdHere:true,
+      _pendingTS:t.timeStart||null,
+      _pendingTE:t.timeEnd||null
+    };
+    S.tasks.push(task);
+    lsSave();
+    renderTasks();
+    /* Sync GCal si token disponible */
+    if(token&&task.due){
+      createGcalEv(task.title,task.desc,task.due,task.timeStart||null,task.timeEnd||null,0,id,task.dueEnd||task.due)
+        .then(function(ev){
+          if(ev&&ev.id){
+            /* Mettre à jour l'id local avec l'id GCal */
+            var local=S.tasks.find(function(x){return x.id===id;});
+            if(local){local.id=ev.id;local._gcalId=ev.id;lsSave();}
+            fetchGcal().then(function(){renderTasks();renderAg();});
+          }
+        }).catch(function(){});
+    }
+  }
+
+  /* ── Markdown minimal ── */
+  function iaMarkdown(text){
+    if(!text)return '';
+    return text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/`(.+?)`/g,'<code style="background:rgba(0,0,0,.07);border-radius:3px;padding:1px 4px;font-size:11px;">$1</code>')
+      .replace(/\n/g,'<br>');
+  }
+
+  /* Init au premier appel goTab('ia') */
+})();
+
 (function(){
   const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SpeechRecognition){
