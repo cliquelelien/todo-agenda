@@ -458,7 +458,11 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 
 #panel-week{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 
-/* ── Champ date de fin ── */
+/* ── Assignation conjoint ── */
+.tg-spouse{background:#fce4ec;color:#c2185b;border:1px solid #f48fb1;}
+.tg-both{background:#e8eaf6;color:#3949ab;border:1px solid #9fa8da;}
+.assign-btn{transition:all .15s;}
+.assign-btn.assign-active{background:var(--bl)!important;color:#fff!important;border-color:var(--bl)!important;}
 .date-end-row{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;}
 .date-end-row label{font-size:11px;font-weight:800;color:var(--tx3);white-space:nowrap;}
 .date-end-row input[type=date]{font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:7px 10px;outline:none;color-scheme:light;transition:border-color .15s;}
@@ -521,6 +525,12 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <span>Heure :</span>
     <input type="time" id="recap-time" value="08:00" onchange="saveRecapSettings()" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--input-bg);border:1.5px solid var(--blb);border-radius:9px;padding:5px 9px;outline:none;color-scheme:light;">
   </div>
+  <hr style="border:none;border-top:1px solid var(--blb);margin:12px 0;">
+  <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">👫 Partage avec votre conjoint(e)</div>
+  <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;line-height:1.5;">Entrez l'adresse email Google de votre conjoint(e) pour pouvoir lui attribuer ou partager des tâches. Elle recevra une invitation Google Agenda pour chaque tâche partagée.</div>
+  <input type="email" id="spouse-email" placeholder="email@gmail.com" oninput="saveSpouseEmail()" style="width:100%;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--input-bg);border:1.5px solid var(--blb);border-radius:9px;padding:8px 11px;outline:none;margin-bottom:6px;transition:border-color .15s;" onfocus="this.style.borderColor='var(--bl)'" onblur="this.style.borderColor='var(--blb)'">
+  <input type="text" id="spouse-name" placeholder="Prénom (ex: Sophie)" oninput="saveSpouseEmail()" style="width:100%;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--input-bg);border:1.5px solid var(--blb);border-radius:9px;padding:8px 11px;outline:none;margin-bottom:6px;transition:border-color .15s;" onfocus="this.style.borderColor='var(--bl)'" onblur="this.style.borderColor='var(--blb)'">
+  <div id="spouse-status" style="font-size:11px;font-weight:700;color:var(--gr);display:none;">✅ Conjoint(e) configuré(e)</div>
 </div>
 <nav>
   <button class="tab active" onclick="goTab('todo')">&#9989; T&#226;ches</button>
@@ -560,6 +570,15 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
         <span style="display:inline-block;width:8px;height:8px;background:var(--or);border-radius:50%;animation:pulse-mic .8s infinite alternate;flex-shrink:0;"></span>
         <span id="mic-quick-desc-status">🎙️ En écoute…</span>
         <button onclick="stopQuickDescMic()" style="margin-left:auto;background:none;border:none;font-size:14px;cursor:pointer;color:var(--or);line-height:1;">&#10005;</button>
+      </div>
+      <!-- Assignation -->
+      <div id="assignee-row" style="display:none;margin-bottom:8px;">
+        <label style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;">👤 Attribuer à</label>
+        <div style="display:flex;gap:5px;">
+          <button id="assign-me" onclick="setAssignee('me')" class="assign-btn assign-active" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 4px;border:1.5px solid var(--bl);background:var(--bl);color:#fff;cursor:pointer;transition:all .15s;">🙋 Moi</button>
+          <button id="assign-spouse" onclick="setAssignee('spouse')" class="assign-btn" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 4px;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s;">👩 <span id="assign-spouse-label">Conjoint(e)</span></button>
+          <button id="assign-both" onclick="setAssignee('both')" class="assign-btn" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 4px;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s;">👫 Nous deux</button>
+        </div>
       </div>
       <button class="btn btn-bl" onclick="addTask()" style="width:100%;">+ Ajouter</button>
     </div>
@@ -824,6 +843,15 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <option value="MONTHLY">Chaque mois</option>
       <option value="YEARLY">Chaque ann&#233;e</option>
     </select>
+    <!-- Assignation dans l'édition -->
+    <div id="te-assignee-row" style="display:none;margin-top:8px;margin-bottom:4px;">
+      <label style="display:block;margin-bottom:5px;">👤 Attribuer à</label>
+      <div style="display:flex;gap:5px;">
+        <button id="te-assign-me" onclick="setTeAssignee('me')" class="assign-btn assign-active" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 4px;border:1.5px solid var(--bl);background:var(--bl);color:#fff;cursor:pointer;transition:all .15s;">🙋 Moi</button>
+        <button id="te-assign-spouse" onclick="setTeAssignee('spouse')" class="assign-btn" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 4px;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s;">👩 <span id="te-assign-spouse-label">Conjoint(e)</span></button>
+        <button id="te-assign-both" onclick="setTeAssignee('both')" class="assign-btn" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 4px;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s;">👫 Nous deux</button>
+      </div>
+    </div>
     <div class="shop-section">
       <label class="shop-toggle">
         <input type="checkbox" id="te-shop-toggle" onchange="toggleShopBody()">
@@ -1326,6 +1354,8 @@ function toggleSettings(){
     /* Charger cal list si pas encore fait */
     if(!_calListLoaded&&token){_calListLoaded=true;fetchCalendarList();}
     else renderCalSelector();
+    /* Charger config conjoint */
+    updateAssigneeUI();
   }
 }
 /* ══════════════════════════════════════════════════════════════
@@ -1343,7 +1373,6 @@ function toggleSettings(){
 
 function buildPlanifyMeta(taskId){
   const t=S.tasks.find(x=>x.id===taskId);
-  /* Même sans tâche locale, on crée une méta minimale avec l'état actuel */
   const meta={
     v:1,
     done:t?!!t.done:false,
@@ -1355,7 +1384,8 @@ function buildPlanifyMeta(taskId){
     dueEnd:t?t.dueEnd||null:null,
     pendingTS:t?t._pendingTS||null:null,
     pendingTE:t?t._pendingTE||null:null,
-    createdHere:t?!!t._createdHere:false
+    createdHere:t?!!t._createdHere:false,
+    assignee:t?t._assignee||'me':'me'
   };
   if(t&&t.shopping&&(t.shopping.active||t.shopping.items&&t.shopping.items.length)){
     meta.shopping=t.shopping;
@@ -1406,6 +1436,7 @@ function restoreMetaFromGcal(rawItems){
     if(meta.pendingTS)t._pendingTS=meta.pendingTS;
     if(meta.pendingTE)t._pendingTE=meta.pendingTE;
     if(meta.shopping)t.shopping=meta.shopping;
+    if(meta.assignee&&meta.assignee!=='me')t._assignee=meta.assignee;
     if(meta.doneKeys&&meta.doneKeys.length){
       meta.doneKeys.forEach(function(dk){
         const occ=S.tasks.find(x=>x.id===dk.id);
@@ -1665,6 +1696,9 @@ function initApp(){
     }
   });
   updateCalendarBtn();
+  /* Initialiser UI assignation conjoint */
+  updateAssigneeUI();
+  _currentAssignee='me';
 }
 
 function updateCalendarBtn(){
@@ -1757,6 +1791,134 @@ function authEmail(){
   .catch(function(e){setAuthLoading(false);showAuthError(e.message);});
 }
 
+
+/* ══════════════════════════════════════════════════════════════
+   GESTION CONJOINT(E) — Assignation de tâches
+   ══════════════════════════════════════════════════════════════ */
+
+/* --- Config conjoint --- */
+function getSpouseEmail(){return localStorage.getItem('pfy_spouse_email')||'';}
+function getSpouseName(){return localStorage.getItem('pfy_spouse_name')||'Conjoint(e)';}
+function saveSpouseEmail(){
+  var emailEl=document.getElementById('spouse-email');
+  var nameEl=document.getElementById('spouse-name');
+  var email=(emailEl?emailEl.value.trim():'');
+  var name=(nameEl?nameEl.value.trim():'');
+  localStorage.setItem('pfy_spouse_email',email);
+  localStorage.setItem('pfy_spouse_name',name||'Conjoint(e)');
+  var status=document.getElementById('spouse-status');
+  if(status)status.style.display=(email&&email.includes('@'))?'block':'none';
+  /* Mettre à jour le libellé du bouton dans le formulaire */
+  updateAssigneeUI();
+}
+
+/* --- Sélecteur d'assignation --- */
+var _currentAssignee='me'; // 'me' | 'spouse' | 'both'
+
+function setAssignee(who){
+  _currentAssignee=who;
+  ['me','spouse','both'].forEach(function(k){
+    var btn=document.getElementById('assign-'+k);
+    if(btn){
+      btn.classList.toggle('assign-active',k===who);
+      if(k===who){
+        btn.style.background='var(--bl)';btn.style.color='#fff';btn.style.borderColor='var(--bl)';
+      } else {
+        btn.style.background='var(--blbg)';btn.style.color='var(--tx2)';btn.style.borderColor='var(--blb)';
+      }
+    }
+  });
+}
+
+function updateAssigneeUI(){
+  var spouseName=getSpouseName();
+  var email=getSpouseEmail();
+  /* Label du bouton conjoint */
+  var lbl=document.getElementById('assign-spouse-label');
+  if(lbl)lbl.textContent=spouseName;
+  /* Montrer/cacher la ligne assignation selon config */
+  var row=document.getElementById('assignee-row');
+  if(row)row.style.display=email?'block':'none';
+  /* Mettre à jour dans les réglages */
+  var emailEl=document.getElementById('spouse-email');
+  if(emailEl&&!emailEl.value&&email)emailEl.value=email;
+  var nameEl=document.getElementById('spouse-name');
+  if(nameEl&&!nameEl.value&&spouseName!=='Conjoint(e)')nameEl.value=spouseName;
+  var status=document.getElementById('spouse-status');
+  if(status)status.style.display=(email&&email.includes('@'))?'block':'none';
+}
+
+/* --- Création GCal avec assignation ---
+   Stratégie :
+   - 'me'     → POST /calendars/primary/events (comportement actuel)
+   - 'spouse' → POST /calendars/primary/events + attendees:[spouse] 
+                 Google envoie automatiquement une invitation à la femme
+                 Elle voit l'event dans son propre agenda Google
+   - 'both'   → idem : attendees:[spouse, me] — les deux voient l'event
+*/
+async function createGcalEvWithAssignee(title,desc,date,tS,tE,remindMin,taskId,dueEnd,assignee){
+  /* Construire le body de base */
+  if(!token)return null;
+  tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
+  remindMin=remindMin||0;
+  var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
+  var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
+  var gcalEndDate=dueEnd||date;
+  var endObj;
+  if(tS&&tE){
+    endObj={dateTime:gcalEndDate+"T"+tE+":00",timeZone:tz};
+  } else {
+    var gcalEndExcl=new Date(gcalEndDate+"T00:00:00");
+    gcalEndExcl.setDate(gcalEndExcl.getDate()+1);
+    endObj={date:ds(gcalEndExcl)};
+  }
+  var colorId=taskId?gcalColorId(taskId):"6";
+  var body={summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId};
+  if(taskId){
+    var metaStr=buildPlanifyMeta(taskId);
+    if(metaStr)body.extendedProperties={private:{planify:metaStr}};
+  }
+
+  /* Ajout des attendees selon l'assignation */
+  var spouseEmail=getSpouseEmail();
+  if(spouseEmail&&assignee&&assignee!=='me'){
+    body.attendees=[];
+    /* Ajouter le conjoint */
+    body.attendees.push({email:spouseEmail,displayName:getSpouseName()});
+    /* Pour 'both' : ajouter aussi l'utilisateur courant */
+    if(assignee==='both'&&fbUser&&fbUser.email){
+      body.attendees.push({email:fbUser.email,displayName:fbUser.displayName||'Moi'});
+    }
+    /* Permettre aux invités de modifier */
+    body.guestsCanModify=true;
+  }
+
+  var ev=await calFetch('POST','/calendars/primary/events',body);
+  return ev;
+}
+
+/* --- Patch assignee sur un event existant --- */
+async function patchGcalAssignee(gcalId, assignee){
+  if(!token||!gcalId)return;
+  var spouseEmail=getSpouseEmail();
+  if(!spouseEmail||assignee==='me')return;
+  var attendees=[];
+  attendees.push({email:spouseEmail,displayName:getSpouseName()});
+  if(assignee==='both'&&fbUser&&fbUser.email){
+    attendees.push({email:fbUser.email,displayName:fbUser.displayName||'Moi'});
+  }
+  await calFetch('PATCH','/calendars/primary/events/'+gcalId,{attendees,guestsCanModify:true}).catch(()=>{});
+}
+
+/* --- Badge texte pour assignation --- */
+function assigneeBadgeLabel(assignee){
+  if(!assignee||assignee==='me')return null;
+  var name=getSpouseName();
+  if(assignee==='spouse')return '👩 '+name;
+  if(assignee==='both')return '👫 Partagé';
+  return null;
+}
 
 initFirebase();
 /* Calendar via fetch REST direct — pas de SDK GAPI */
@@ -3226,17 +3388,18 @@ async function planTask(tid,date,tS,tE){
   if(t.gcalId){showSync("Mise à jour…");await delGcalEv(t.gcalId);t.gcalId=null;}
   else if(existingGcal){showSync("Mise à jour…");await delGcalEv(existingGcal.id);}
   showSync("Envoi Google Agenda…");
-  const ev=await createGcalEv(t.title,t.desc,date,tS,tE,t.remind||0,tid);
+  const assignee=t._assignee||'me';
+  const ev=await createGcalEvWithAssignee(t.title,t.desc,date,tS,tE,t.remind||0,tid,null,assignee);
   hideSync();
   if(ev&&ev.id){
     const recur=t.recurrence||null;
-    /* Appliquer la récurrence si définie */
     if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==tid);
-    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",due:date,done:false,archived:false,remind:t.remind||0,recurrence:recur,dueEnd:t.dueEnd||null,_pendingTS:tS||null,_pendingTE:tE||null,_createdHere:true});
+    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",due:date,done:false,archived:false,remind:t.remind||0,recurrence:recur,dueEnd:t.dueEnd||null,_pendingTS:tS||null,_pendingTE:tE||null,_createdHere:true,_assignee:assignee});
     lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();
     const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
-    toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:"")+" · "+fD(date)+(recur?" · "+(recLbl[recur]||"↻"):""));
+    const assignMsg=(assignee!=='me'&&getSpouseEmail())?(' · '+(assignee==='both'?'👫 Partagé':'👩 '+getSpouseName())):'';
+    toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:"")+" · "+fD(date)+(recur?" · "+(recLbl[recur]||"↻"):"")+assignMsg);
   } else if(ev===null){
     t._pendingDate=date;t._pendingTS=tS||null;t._pendingTE=tE||null;lsSave();
   }
@@ -3270,11 +3433,15 @@ async function addTask(){
   const timEnd=document.getElementById("ttim-end").value||null;
   const desc=(document.getElementById("ti-desc")?document.getElementById("ti-desc").value.trim():"");
   const remind=parseInt(document.getElementById("default-remind").value)||0;
+  /* Capturer l'assignation avant de réinitialiser */
+  const assignee=getSpouseEmail()?_currentAssignee:'me';
   document.getElementById("ti").value="";document.getElementById("tdat").value="";
   document.getElementById("tdat-end").value="";
   const endRow=document.getElementById("tdat-end-row");if(endRow)endRow.style.display="none";
   document.getElementById("ttim").value="";document.getElementById("ttim-end").value="";
   const tiDesc=document.getElementById("ti-desc");if(tiDesc)tiDesc.value="";
+  /* Réinitialiser le sélecteur à "Moi" */
+  setAssignee('me');
   /* Heure de fin : champ saisi > +1h auto */
   const timeEnd=timEnd||( tim?addOneHour(tim):null );
   if(token){
@@ -3289,51 +3456,47 @@ async function addTask(){
       const dayEventIds=[];
       for(let i=0;i<total;i++){
         const d=allDays[i];
-        /* Heures :
-           J1          → heure début (tim) jusqu'à 23:59
-           J intermédiaires → journée entière (all-day)
-           J dernier   → 00:00 jusqu'à heure fin (timeEnd) */
         let dayTS=null,dayTE=null;
         if(tim){
           if(i===0){dayTS=tim;dayTE="23:59";}
           else if(i===total-1&&timeEnd){dayTS="00:00";dayTE=timeEnd;}
-          /* jours intermédiaires : all-day (pas d'heure) */
         }
         const dayTitle=title+" (J"+(i+1)+"/"+total+")";
-        const ev=await createGcalEv(dayTitle,desc,d,dayTS,dayTE,remind,null,null);
+        const ev=await createGcalEvWithAssignee(dayTitle,desc,d,dayTS,dayTE,remind,null,null,assignee);
         if(ev&&ev.id)dayEventIds.push(ev.id);
       }
       hideSync();
       if(dayEventIds.length){
-        /* La tâche Planify pointe sur le 1er événement GCal et liste tous les ids */
         S.tasks.push({id:dayEventIds[0],title,desc,due:startDate,done:false,archived:false,
           remind,dueEnd,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,
-          _dayEventIds:dayEventIds});
+          _dayEventIds:dayEventIds,_assignee:assignee});
         lsSave();await fetchGcal();renderTasks();renderAg();
-        toast('📌 "'+title.slice(0,20)+'" → '+fD(startDate)+" – "+fD(dueEnd)+" ("+total+" événements GCal)");
+        const assignLbl=assignee!=='me'?(' · '+(assignee==='both'?'👫 Partagé':'👩 '+getSpouseName())):'';
+        toast('📌 "'+title.slice(0,20)+'" → '+fD(startDate)+" – "+fD(dueEnd)+" ("+total+" événements GCal)"+assignLbl);
         return;
       }
     } else {
-      /* Tâche sur un seul jour — comportement original */
-      const ev=await createGcalEv(title,desc,startDate,tim,timeEnd,remind,null,null);
+      /* Tâche sur un seul jour */
+      const ev=await createGcalEvWithAssignee(title,desc,startDate,tim,timeEnd,remind,null,null,assignee);
       hideSync();
       if(ev&&ev.id){
         S.tasks.push({id:ev.id,title,desc,due:startDate,done:false,archived:false,remind,
-          dueEnd:null,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
+          dueEnd:null,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,_assignee:assignee});
         lsSave();await fetchGcal();renderTasks();renderAg();
         let msg='📌 "'+title.slice(0,20)+'"';
         if(due)msg+=' → '+fD(due);else msg+=' (aujourd\'hui)';
         if(tim)msg+=' à '+tim;
+        if(assignee!=='me')msg+=' · '+(assignee==='both'?'👫 Partagé':'👩 '+getSpouseName());
         toast(msg);return;
       }
     }
     S.tasks.unshift({id:uid(),title,desc,due,dueEnd,done:false,archived:false,gcalId:null,
-      plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
+      plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,_assignee:assignee});
     lsSave();renderTasks();
     toast('⚠️ Erreur GCal — tâche sauvegardée localement');
     return;
   }
-  S.tasks.unshift({id:uid(),title,desc,due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true});
+  S.tasks.unshift({id:uid(),title,desc,due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,_assignee:assignee});
   lsSave();renderTasks();
   toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
 }
@@ -3776,6 +3939,15 @@ function buildTask(t){
     const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
     const tgR=mk("div","tg");tgR.style="background:#e8f0fe;color:#3b5fce;border:1px solid #a8bff5;";
     tgR.textContent=recLbl[t.recurrence]||"↻ Récurrent";tags.appendChild(tgR);
+  }
+  /* Badge assignation */
+  if(t._assignee&&t._assignee!=='me'&&getSpouseEmail()){
+    const badgeLbl=assigneeBadgeLabel(t._assignee);
+    if(badgeLbl){
+      const tgA=mk("div","tg "+(t._assignee==='both'?'tg-both':'tg-spouse'));
+      tgA.textContent=badgeLbl;
+      tags.appendChild(tgA);
+    }
   }
   body.append(name,tags);
 
@@ -4716,6 +4888,12 @@ function openTaskEdit(tid){
     document.getElementById("te-tstart").value=_ts;
     document.getElementById("te-tend").value=_te;
   }
+  /* Assignation conjoint */
+  var teAssigneeRow=document.getElementById("te-assignee-row");
+  if(teAssigneeRow){teAssigneeRow.style.display=getSpouseEmail()?'block':'none';}
+  var spLbl=document.getElementById("te-assign-spouse-label");
+  if(spLbl)spLbl.textContent=getSpouseName();
+  setTeAssignee(t._assignee||'me');
   document.getElementById("task-edit-overlay").classList.add("open");
 }
 function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;}
@@ -4723,6 +4901,20 @@ function onTeRemindChange(sel){/* legacy, not used */}
 function addTeReminder(){
   var list=document.getElementById('te-reminders-list');
   if(list)addReminderRow(list,15);
+}
+
+/* Sélecteur d'assignation dans la modale d'édition */
+var _teAssignee='me';
+function setTeAssignee(who){
+  _teAssignee=who;
+  ['me','spouse','both'].forEach(function(k){
+    var btn=document.getElementById('te-assign-'+k);
+    if(btn){
+      btn.classList.toggle('assign-active',k===who);
+      if(k===who){btn.style.background='var(--bl)';btn.style.color='#fff';btn.style.borderColor='var(--bl)';}
+      else{btn.style.background='var(--blbg)';btn.style.color='var(--tx2)';btn.style.borderColor='var(--blb)';}
+    }
+  });
 }
 function saveTaskEdit(){
   if(!_editTaskId)return;
@@ -4739,16 +4931,17 @@ function saveTaskEdit(){
   /* Rappels multiples */
   var rems=getRemindersFromUI();
   t.reminders=rems;
-  t.remind=rems.length?rems[0].min:0; /* compat cloche */
+  t.remind=rems.length?rems[0].min:0;
   t.recurrence=document.getElementById("te-recur").value||null;
+  /* Assignation */
+  const prevAssignee=t._assignee||'me';
+  t._assignee=_teAssignee;
   /* Lire les heures ET détecter le mode (journée vs avec heure) AVANT closeTaskEdit */
-  /* Utiliser te-time-fields-start (le vrai wrapper visible) plutôt que le div compat vide */
   const tf=document.getElementById("te-time-fields-start");
   const tfCompat=document.getElementById("te-time-fields");
   const isTimed=(tf&&tf.style.display!=="none")||(tfCompat&&tfCompat.style.display!=="none");
   const _ts=isTimed?(document.getElementById("te-tstart").value||null):null;
   const _te=isTimed?(document.getElementById("te-tend").value||null):null;
-  /* Stocker les heures dans la tâche locale pour qu'elles persistent */
   if(isTimed&&_ts){
     t._pendingTS=_ts;
     t._pendingTE=_te||addOneHour(_ts);
@@ -4760,13 +4953,9 @@ function saveTaskEdit(){
   /* Synchroniser dans GCal */
   const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
   if(token&&t._dayEventIds&&t._dayEventIds.length){
-    /* Tâche multi-jours avec sous-événements GCal :
-       Supprimer les anciens events et recréer N nouveaux avec les nouvelles dates/titre */
     showSync("Mise à jour GCal…");
     (async function(){
-      /* 1. Supprimer tous les anciens sous-événements */
       for(const eid of t._dayEventIds){await delGcalEv(eid);}
-      /* 2. Reconstruire la liste des jours avec les nouvelles dates */
       const newStart=t.due||t.dueEnd;
       const newEnd=t.dueEnd||t.due;
       const newDays=[];
@@ -4774,13 +4963,11 @@ function saveTaskEdit(){
        while(c<=eD){newDays.push(ds(c));c.setDate(c.getDate()+1);}}
       const newTotal=newDays.length;
       const newIds=[];
-      /* 3. Récupérer les couleurs cochées pour les reporter sur les nouveaux events */
       const checkedDates=new Set(
         S.tasks.filter(x=>x.id.startsWith(t.id+"__done__")&&x.done).map(x=>x.id.replace(t.id+"__done__",""))
       );
       for(let i=0;i<newTotal;i++){
         const d=newDays[i];
-        /* Mêmes règles d'heures que à la création */
         let dayTS=null,dayTE=null;
         if(_ts){
           if(i===0){dayTS=_ts;dayTE="23:59";}
@@ -4788,7 +4975,7 @@ function saveTaskEdit(){
         }
         const dayTitle=t.title+" (J"+(i+1)+"/"+newTotal+")";
         const colorId=checkedDates.has(d)?"7":"6";
-        const ev=await createGcalEv(dayTitle,t.desc||"",d,dayTS,dayTE,t.remind||0,null,null);
+        const ev=await createGcalEvWithAssignee(dayTitle,t.desc||"",d,dayTS,dayTE,t.remind||0,null,null,t._assignee||'me');
         if(ev&&ev.id){
           newIds.push(ev.id);
           if(colorId==="7"){
@@ -4796,10 +4983,8 @@ function saveTaskEdit(){
           }
         }
       }
-      /* 4. Mettre à jour la tâche Planify avec les nouveaux IDs */
       t._dayEventIds=newIds;
       if(newIds.length)t.id=newIds[0];
-      /* Purger les __done__ obsolètes (dates hors nouvelle plage) */
       S.tasks=S.tasks.filter(x=>{
         if(!x.id.startsWith(t.id+"__done__"))return true;
         const d=x.id.replace(t.id+"__done__","");
@@ -4812,7 +4997,14 @@ function saveTaskEdit(){
   } else if(token&&gcalEv){
     const date=t.due||(gcalEv.start.slice(0,10));
     showSync("Mise à jour GCal…");
-    updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
+    /* Si l'assignation a changé, patcher les attendees */
+    var patchAssigneePromise=Promise.resolve();
+    if(t._assignee!==prevAssignee&&getSpouseEmail()){
+      patchAssigneePromise=patchGcalAssignee(gcalEv.id,t._assignee);
+    }
+    patchAssigneePromise.then(()=>{
+      updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
+    });
   } else if(token&&t.due&&isTimed&&_ts){
     planTask(t.id,t.due,_ts,_te||addOneHour(_ts));
     renderTasks();renderAg();
@@ -4822,7 +5014,8 @@ function saveTaskEdit(){
   const recLbl={"WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
   const recurMsg=t.recurrence?(" · "+(recLbl[t.recurrence]||"↻ Récurrent")):"";
   const endMsg=t.dueEnd?" · jusqu'au "+fD(t.dueEnd):"";
-  toast("✓ Tâche modifiée"+recurMsg+endMsg);
+  const assignMsg=(t._assignee&&t._assignee!=='me'&&getSpouseEmail())?(' · '+(t._assignee==='both'?'👫 Partagé':'👩 '+getSpouseName())):'';
+  toast("✓ Tâche modifiée"+recurMsg+endMsg+assignMsg);
 }
 document.getElementById("task-edit-overlay").addEventListener("click",e=>{if(e.target===document.getElementById("task-edit-overlay"))closeTaskEdit();});
 
