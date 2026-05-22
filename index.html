@@ -5224,7 +5224,8 @@ function addShopItem(text){
   var _images=[]; // [{base64, mediaType, previewUrl}]
   var _micRecog=null, _micActive=false;
   var _busy=false;
-  var CLAUDE_MODEL='claude-sonnet-4-20250514';
+  var GEMINI_API_KEY='AIzaSyDcUNn5qEwgUXKK6Biw_0Mmj5V4d_WKszg';
+  var GEMINI_MODEL='gemini-2.0-flash';
 
   /* ── Initialisation ── */
   window.iaInit=function(){
@@ -5407,24 +5408,45 @@ function addShopItem(text){
     iaCallClaude();
   };
 
-  /* ── Appel Claude API ── */
+  /* ── Convertir historique Claude → Gemini ── */
+  function toGeminiContents(msgs, systemPrompt){
+    var contents=[];
+    /* Injecter le prompt système comme premier tour user/model */
+    contents.push({role:'user',parts:[{text:'[SYSTEM INSTRUCTIONS]\n'+systemPrompt}]});
+    contents.push({role:'model',parts:[{text:'Compris. Je suis votre assistant Planify, je réponds uniquement en français.'}]});
+    msgs.forEach(function(m){
+      var parts=[];
+      (m.content||[]).forEach(function(c){
+        if(c.type==='text'){
+          parts.push({text:c.text});
+        } else if(c.type==='image'&&c.source&&c.source.data){
+          parts.push({inline_data:{mime_type:c.source.media_type,data:c.source.data}});
+        }
+      });
+      if(parts.length>0){
+        contents.push({role:m.role==='assistant'?'model':'user',parts:parts});
+      }
+    });
+    return contents;
+  }
+
+  /* ── Appel Gemini API ── */
   async function iaCallClaude(){
     _busy=true;
     iaSetBusy(true);
     var typingEl=iaShowTyping();
 
     try{
-      /* Construire messages pour l'API (max 20 tours) */
       var apiMessages=_msgs.slice(-20);
+      var contents=toGeminiContents(apiMessages, buildSystemPrompt());
 
-      var resp=await fetch('https://api.anthropic.com/v1/messages',{
+      var url='https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODEL+':generateContent?key='+GEMINI_API_KEY;
+      var resp=await fetch(url,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
-          model:CLAUDE_MODEL,
-          max_tokens:2000,
-          system:buildSystemPrompt(),
-          messages:apiMessages
+          contents:contents,
+          generationConfig:{maxOutputTokens:2000,temperature:0.7}
         })
       });
 
@@ -5432,13 +5454,17 @@ function addShopItem(text){
 
       if(!resp.ok){
         var err=await resp.json().catch(function(){return {};});
-        throw new Error(err.error&&err.error.message||'Erreur API '+resp.status);
+        var msg=err.error&&err.error.message||'Erreur API '+resp.status;
+        throw new Error(msg);
       }
 
       var data=await resp.json();
-      var rawText=(data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('');
+      var rawText='';
+      try{
+        rawText=data.candidates[0].content.parts.map(function(p){return p.text||'';}).join('');
+      }catch(e){rawText='';}
 
-      /* Ajouter à l'historique assistant */
+      /* Ajouter à l'historique */
       _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
 
       /* Parser les actions Planify */
