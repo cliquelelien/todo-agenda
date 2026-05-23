@@ -5224,8 +5224,8 @@ function addShopItem(text){
   var _images=[]; // [{base64, mediaType, previewUrl}]
   var _micRecog=null, _micActive=false;
   var _busy=false;
-  var GEMINI_API_KEY='AIzaSyDm2yyC9VSBjnREevy7O3ySNm8pWHzEcT4';
-  var GEMINI_MODEL='gemini-1.5-flash';
+  var OPENROUTER_API_KEY='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';
+  var OPENROUTER_MODEL='mistralai/mistral-7b-instruct:free';
 
   /* ── Initialisation ── */
   window.iaInit=function(){
@@ -5408,29 +5408,7 @@ function addShopItem(text){
     iaCallClaude();
   };
 
-  /* ── Convertir historique Claude → Gemini ── */
-  function toGeminiContents(msgs, systemPrompt){
-    var contents=[];
-    /* Injecter le prompt système comme premier tour user/model */
-    contents.push({role:'user',parts:[{text:'[SYSTEM INSTRUCTIONS]\n'+systemPrompt}]});
-    contents.push({role:'model',parts:[{text:'Compris. Je suis votre assistant Planify, je réponds uniquement en français.'}]});
-    msgs.forEach(function(m){
-      var parts=[];
-      (m.content||[]).forEach(function(c){
-        if(c.type==='text'){
-          parts.push({text:c.text});
-        } else if(c.type==='image'&&c.source&&c.source.data){
-          parts.push({inline_data:{mime_type:c.source.media_type,data:c.source.data}});
-        }
-      });
-      if(parts.length>0){
-        contents.push({role:m.role==='assistant'?'model':'user',parts:parts});
-      }
-    });
-    return contents;
-  }
-
-  /* ── Appel Gemini API ── */
+  /* ── Appel OpenRouter API ── */
   async function iaCallClaude(){
     _busy=true;
     iaSetBusy(true);
@@ -5438,15 +5416,27 @@ function addShopItem(text){
 
     try{
       var apiMessages=_msgs.slice(-20);
-      var contents=toGeminiContents(apiMessages, buildSystemPrompt());
 
-      var url='https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODEL+':generateContent?key='+GEMINI_API_KEY;
-      var resp=await fetch(url,{
+      /* Convertir le format messages pour OpenRouter (format OpenAI) */
+      var orMessages=[{role:'system',content:buildSystemPrompt()}];
+      apiMessages.forEach(function(m){
+        var textParts=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
+        if(textParts){orMessages.push({role:m.role,content:textParts});}
+      });
+
+      var resp=await fetch('https://openrouter.ai/api/v1/chat/completions',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+OPENROUTER_API_KEY,
+          'HTTP-Referer':'https://planify.app',
+          'X-Title':'Planify'
+        },
         body:JSON.stringify({
-          contents:contents,
-          generationConfig:{maxOutputTokens:2000,temperature:0.7}
+          model:OPENROUTER_MODEL,
+          messages:orMessages,
+          max_tokens:2000,
+          temperature:0.7
         })
       });
 
@@ -5460,9 +5450,7 @@ function addShopItem(text){
 
       var data=await resp.json();
       var rawText='';
-      try{
-        rawText=data.candidates[0].content.parts.map(function(p){return p.text||'';}).join('');
-      }catch(e){rawText='';}
+      try{rawText=data.choices[0].message.content||'';}catch(e){rawText='';}
 
       /* Ajouter à l'historique */
       _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
