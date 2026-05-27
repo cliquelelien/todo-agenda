@@ -151,7 +151,7 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .md.tdy .mn{color:var(--bl);}.md.sel .mn{color:var(--or);}
 .mds{display:flex;flex-direction:column;gap:2px;overflow:hidden;flex:1;margin-top:3px;}
 .dot{height:13px;flex-shrink:0;border-radius:4px;font-size:9px;font-weight:700;color:#fff;padding:0 5px;display:flex;align-items:center;overflow:hidden;white-space:nowrap;}
-.dot-td{background:var(--or);color:#fff;}.dot-dn{background:var(--bl);color:#000;}.dot-gc{background:var(--or);color:#fff;}.dot-mo{background:var(--tx3);color:#fff;}
+.dot-td{background:var(--or);}.dot-dn{background:var(--bl);}.dot-gc{background:var(--or);}.dot-mo{background:var(--tx3);}
 /* Week */
 .ww{position:relative;overflow:hidden;}
 .wg{width:100%;}
@@ -167,7 +167,7 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .wac{background:var(--card-bg);border:1px solid var(--blb);min-height:20px;padding:2px 3px;overflow:hidden;}
 .wac.drag-ov{background:var(--orbg)!important;border-color:var(--or)!important;box-shadow:inset 0 0 0 2px rgba(245,166,35,.25);}
 .wch{border-radius:4px;font-size:9px;font-weight:700;color:#fff;padding:1px 5px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;cursor:pointer;}
-.wch-td{background:var(--or);color:#fff;}.wch-dn{background:var(--bl);color:#000;}.wch-gc{background:var(--or);color:#fff;}
+.wch-td{background:var(--or);}.wch-dn{background:var(--bl);}.wch-gc{background:var(--or);}
 .w-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--blb) transparent;}
 .w-scroll::-webkit-scrollbar{width:5px;}
 .w-scroll::-webkit-scrollbar-thumb{background:var(--blb);border-radius:3px;}
@@ -180,7 +180,7 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 /* Overlay événements semaine — positionné en absolu sur .wtr-wrap */
 .wev-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:3;}
 .wev{position:absolute;border-radius:5px;font-size:9px;font-weight:700;color:#fff;padding:2px 4px;overflow:hidden;cursor:pointer;pointer-events:all;box-shadow:0 1px 4px rgba(0,0,0,.18);line-height:1.25;word-break:break-word;}
-.wev-td{background:var(--or);color:#fff;}.wev-dn{background:var(--bl);color:#000;}.wev-gc{background:var(--or);color:#fff;}
+.wev-td{background:var(--or);}.wev-dn{background:var(--bl);}.wev-gc{background:var(--or);}
 /* Day */
 .day-allday{background:var(--blbg);border:1.5px solid var(--blb);border-radius:11px;padding:10px 13px;margin-bottom:10px;}
 .day-allday-t{font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
@@ -200,7 +200,7 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 /* Overlay événements jour */
 .day-ev-overlay{position:absolute;top:0;left:44px;right:54px;bottom:0;pointer-events:none;z-index:3;}
 .day-ev{position:absolute;left:4px;right:4px;border-radius:7px;font-size:11px;font-weight:700;color:#fff;padding:3px 9px;overflow:hidden;cursor:pointer;pointer-events:all;box-shadow:0 2px 6px rgba(0,0,0,.13);line-height:1.3;word-break:break-word;}
-.day-ev-td{background:var(--or);color:#fff;}.day-ev-dn{background:var(--bl);color:#000;}.day-ev-gc{background:var(--or);color:#fff;}
+.day-ev-td{background:var(--or);}.day-ev-dn{background:var(--bl);}.day-ev-gc{background:var(--or);}
 .now-line{position:absolute;left:0;right:0;height:2px;background:var(--rd);z-index:5;pointer-events:none;}
 .now-dot{position:absolute;left:-5px;top:-4px;width:10px;height:10px;background:var(--rd);border-radius:50%;}
 /* Detail */
@@ -1205,46 +1205,6 @@ function evCls(e,prefix,forDate){
     }
   }
   return isDoneForDate(e.id,forDate)?(prefix+"-dn"):(prefix+"-gc");
-}
-
-/* ── Couleur uniforme des événements dans les vues calendrier ──
-   - Tâche Planify à faire  → fond orange,  texte blanc
-   - Tâche Planify faite    → fond bleu,    texte noir
-   - Événement GCal natif   → couleur du calendrier d'origine, texte blanc
-   Applique background + color en style inline sur l'élément pour forcer
-   l'uniformité même quand un événement vient d'un autre calendrier. */
-function applyEvColor(el,e,forDate){
-  /* Résoudre l'état done */
-  var cls=el.className;
-  var isDn=cls.indexOf('-dn')!==-1;
-  var isTd=cls.indexOf('-td')!==-1;
-  /* Événement local Planify : orange (à faire) ou bleu (fait) */
-  if(e._local){
-    if(isDn){el.style.background='var(--bl)';el.style.color='#000';}
-    else{el.style.background='var(--or)';el.style.color='#fff';}
-    return;
-  }
-  /* Événement GCal avec colorId Planify connu : 6=orange, 7=bleu */
-  if(e.colorId==='7'){el.style.background='var(--bl)';el.style.color='#000';return;}
-  if(e.colorId==='6'){el.style.background='var(--or)';el.style.color='#fff';return;}
-  /* Événement GCal natif sans colorId Planify : utiliser la couleur du calendrier */
-  var calColor=null;
-  if(e.calendarId){
-    var cal=allCalendars.find(function(c){return c.id===e.calendarId;});
-    if(cal&&cal.color)calColor=cal.color;
-  }
-  if(calColor){
-    el.style.background=calColor;
-    /* Calculer luminosité pour choisir texte blanc ou noir */
-    var hex=calColor.replace('#','');
-    if(hex.length===3)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-    var r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
-    var lum=(0.299*r+0.587*g+0.114*b)/255;
-    el.style.color=lum>0.5?'#000':'#fff';
-  } else {
-    /* Fallback : orange + blanc */
-    el.style.background='var(--or)';el.style.color='#fff';
-  }
 }
 
 /* Hidden selects kept for compatibility */
@@ -2553,7 +2513,7 @@ function renderMonth(){
     div.innerHTML=`<div class="mn">${c.d}</div><div class="mds"></div>`;
     const mds=div.querySelector(".mds");
     let n=0;
-    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+evCls(e,"dot",date));applyEvColor(dot,e,date);dot.textContent=(e._recurrence?"↻ ":"")+e.title;mds.appendChild(dot);n++;});
+    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+evCls(e,"dot",date));dot.textContent=(e._recurrence?"↻ ":"")+e.title;mds.appendChild(dot);n++;});
     if(evs.length>2){const m=mk("div","dot dot-mo");m.textContent="+"+(evs.length-2)+" autre"+(evs.length-2>1?"s":"");mds.appendChild(m);}
     div.addEventListener("click",()=>{selDay=date;cDay=date;setView("day");});
     div.addEventListener("dragenter",e=>{e.preventDefault();div.classList.add("drag-ov");});
@@ -2612,7 +2572,7 @@ function renderWeek(){
   const al=mk("div","wal");al.textContent="Jour";ar.appendChild(al);
   days.forEach(day=>{
     const cell=mk("div","wac");cell.dataset.date=day.date;
-    eventsOn(day.date).filter(e=>e.allDay).slice(0,3).forEach(e=>{const c=mk("div","wch "+evCls(e,"wch",day.date));applyEvColor(c,e,day.date);c.textContent=e.title;if(!e._local)c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
+    eventsOn(day.date).filter(e=>e.allDay).slice(0,3).forEach(e=>{const c=mk("div","wch "+evCls(e,"wch",day.date));c.textContent=e.title;if(!e._local)c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
     bindDrop(cell,day.date,false);ar.appendChild(cell);
   });
 
@@ -2687,7 +2647,6 @@ function renderWeek(){
         const widthPx=colW-5;
 
         const ev=mk("div","wev "+evCls(e,"wev",day.date));
-        applyEvColor(ev,e,day.date);
         ev.style.top=topPx+"px";
         ev.style.height=heightPx+"px";
         ev.style.left=leftPx+"px";
@@ -2825,7 +2784,6 @@ function renderDay(){
       const heightPx=Math.max(durMin/60*slotH-3,16);
 
       const ev=mk("div","day-ev "+evCls(e,"day-ev",cDay));
-      applyEvColor(ev,e,cDay);
       ev.style.top=topPx+"px";
       ev.style.height=heightPx+"px";
       
