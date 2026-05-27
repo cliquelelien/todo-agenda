@@ -1207,6 +1207,46 @@ function evCls(e,prefix,forDate){
   return isDoneForDate(e.id,forDate)?(prefix+"-dn"):(prefix+"-gc");
 }
 
+/* ── Couleur uniforme des événements dans les vues calendrier ──
+   - Tâche Planify à faire  → fond orange,  texte blanc
+   - Tâche Planify faite    → fond bleu,    texte noir
+   - Événement GCal natif   → couleur du calendrier d'origine, texte blanc
+   Applique background + color en style inline sur l'élément pour forcer
+   l'uniformité même quand un événement vient d'un autre calendrier. */
+function applyEvColor(el,e,forDate){
+  /* Résoudre l'état done */
+  var cls=el.className;
+  var isDn=cls.indexOf('-dn')!==-1;
+  var isTd=cls.indexOf('-td')!==-1;
+  /* Événement local Planify : orange (à faire) ou bleu (fait) */
+  if(e._local){
+    if(isDn){el.style.background='var(--bl)';el.style.color='#000';}
+    else{el.style.background='var(--or)';el.style.color='#fff';}
+    return;
+  }
+  /* Événement GCal avec colorId Planify connu : 6=orange, 7=bleu */
+  if(e.colorId==='7'){el.style.background='var(--bl)';el.style.color='#000';return;}
+  if(e.colorId==='6'){el.style.background='var(--or)';el.style.color='#fff';return;}
+  /* Événement GCal natif sans colorId Planify : utiliser la couleur du calendrier */
+  var calColor=null;
+  if(e.calendarId){
+    var cal=allCalendars.find(function(c){return c.id===e.calendarId;});
+    if(cal&&cal.color)calColor=cal.color;
+  }
+  if(calColor){
+    el.style.background=calColor;
+    /* Calculer luminosité pour choisir texte blanc ou noir */
+    var hex=calColor.replace('#','');
+    if(hex.length===3)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
+    var lum=(0.299*r+0.587*g+0.114*b)/255;
+    el.style.color=lum>0.5?'#000':'#fff';
+  } else {
+    /* Fallback : orange + blanc */
+    el.style.background='var(--or)';el.style.color='#fff';
+  }
+}
+
 /* Hidden selects kept for compatibility */
 (function(){const hs=document.getElementById("h-start"),he=document.getElementById("h-end");for(let h=0;h<24;h++){[hs,he].forEach(s=>{const o=document.createElement("option");o.value=h;o.textContent=h+"h00";s.appendChild(o);});}hs.value=0;he.value=24;})();
 
@@ -2513,7 +2553,7 @@ function renderMonth(){
     div.innerHTML=`<div class="mn">${c.d}</div><div class="mds"></div>`;
     const mds=div.querySelector(".mds");
     let n=0;
-    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+evCls(e,"dot",date));dot.textContent=(e._recurrence?"↻ ":"")+e.title;mds.appendChild(dot);n++;});
+    evs.slice(0,3).forEach(e=>{if(n>=2)return;const dot=mk("div","dot "+evCls(e,"dot",date));applyEvColor(dot,e,date);dot.textContent=(e._recurrence?"↻ ":"")+e.title;mds.appendChild(dot);n++;});
     if(evs.length>2){const m=mk("div","dot dot-mo");m.textContent="+"+(evs.length-2)+" autre"+(evs.length-2>1?"s":"");mds.appendChild(m);}
     div.addEventListener("click",()=>{selDay=date;cDay=date;setView("day");});
     div.addEventListener("dragenter",e=>{e.preventDefault();div.classList.add("drag-ov");});
@@ -2572,7 +2612,7 @@ function renderWeek(){
   const al=mk("div","wal");al.textContent="Jour";ar.appendChild(al);
   days.forEach(day=>{
     const cell=mk("div","wac");cell.dataset.date=day.date;
-    eventsOn(day.date).filter(e=>e.allDay).slice(0,3).forEach(e=>{const c=mk("div","wch "+evCls(e,"wch",day.date));c.textContent=e.title;if(!e._local)c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
+    eventsOn(day.date).filter(e=>e.allDay).slice(0,3).forEach(e=>{const c=mk("div","wch "+evCls(e,"wch",day.date));applyEvColor(c,e,day.date);c.textContent=e.title;if(!e._local)c.onclick=()=>openEvModal(e.id);cell.appendChild(c);});
     bindDrop(cell,day.date,false);ar.appendChild(cell);
   });
 
@@ -2647,6 +2687,7 @@ function renderWeek(){
         const widthPx=colW-5;
 
         const ev=mk("div","wev "+evCls(e,"wev",day.date));
+        applyEvColor(ev,e,day.date);
         ev.style.top=topPx+"px";
         ev.style.height=heightPx+"px";
         ev.style.left=leftPx+"px";
@@ -2784,6 +2825,7 @@ function renderDay(){
       const heightPx=Math.max(durMin/60*slotH-3,16);
 
       const ev=mk("div","day-ev "+evCls(e,"day-ev",cDay));
+      applyEvColor(ev,e,cDay);
       ev.style.top=topPx+"px";
       ev.style.height=heightPx+"px";
       
