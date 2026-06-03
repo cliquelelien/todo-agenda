@@ -1476,16 +1476,29 @@ async function migrateAllMetaToGcal(){
     return;
   }
   showSync('☁️ Sync (0/'+allToSync.length+')…');
-  let n=0,err=0;
+  var n=0,err=0;
   for(var i=0;i<allToSync.length;i++){
-    const result=await patchGcalMeta(allToSync[i]).catch(function(){return null;});
+    var syncId=allToSync[i];
+    /* Patch métadonnées Planify */
+    await patchGcalMeta(syncId).catch(function(){return null;});
+    /* Patch couleur GCal selon état done */
+    var syncEv=gcal.find(function(e){return e.id===syncId;});
+    if(syncEv&&syncEv.eventType!=="birthday"&&syncEv.eventType!=="fromGmail"&&!syncEv.readOnly){
+      var syncMeta=S.tasks.find(function(t){return t.id===syncId;});
+      var expectedColor=(syncMeta&&syncMeta.done)?"7":"6";
+      if(syncEv.colorId!==expectedColor){
+        await calFetch('PATCH','/calendars/'+encodeURIComponent(syncEv.calendarId||'primary')+'/events/'+syncId,{colorId:expectedColor})
+          .then(function(){syncEv.colorId=expectedColor;if(syncMeta)syncMeta._colorSynced=expectedColor;}).catch(function(){});
+      }
+    }
     n++;
     var syncEl=document.getElementById('sync-msg');
     if(syncEl)syncEl.textContent='☁️ Sync ('+n+'/'+allToSync.length+')…';
-    await new Promise(function(r){setTimeout(r,150);});
+    await new Promise(function(r){setTimeout(r,200);});
   }
   hideSync();
-  toast('✅ '+n+' événement'+(n>1?'s':'')+' synchronisé'+(n>1?'s':'')+' vers Google Agenda');
+  lsSave();
+  toast('✅ '+n+' événement'+(n>1?'s':'')+' synchronisé'+(n>1?'s':'')+' (métadonnées + couleurs) vers Google Agenda');
 }
 
 function saveRecapSettings(){
@@ -1890,6 +1903,17 @@ async function createGcalEvWithAssignee(title,desc,date,tS,tE,remindMin,taskId,d
     if(assignee==='both'&&fbUser&&fbUser.email){
       body.attendees.push({email:fbUser.email,displayName:fbUser.displayName||'Moi'});
     }
+    /* L'organisateur (nous) est d'office accepté — évite la demande d'acceptation dans notre agenda */
+    if(fbUser&&fbUser.email){
+      /* Vérifier si notre email est déjà dans la liste */
+      var selfInList=body.attendees.find(function(a){return a.email===fbUser.email;});
+      if(selfInList){
+        selfInList.responseStatus='accepted';selfInList.self=true;
+      } else {
+        /* Ajouter notre propre email comme organisateur accepté */
+        body.attendees.push({email:fbUser.email,displayName:fbUser.displayName||'Moi',responseStatus:'accepted',self:true,organizer:true});
+      }
+    }
     /* Permettre aux invités de modifier */
     body.guestsCanModify=true;
   }
@@ -1907,6 +1931,12 @@ async function patchGcalAssignee(gcalId, assignee){
   attendees.push({email:spouseEmail,displayName:getSpouseName()});
   if(assignee==='both'&&fbUser&&fbUser.email){
     attendees.push({email:fbUser.email,displayName:fbUser.displayName||'Moi'});
+  }
+  /* L'organisateur est d'office accepté */
+  if(fbUser&&fbUser.email){
+    var selfPatch=attendees.find(function(a){return a.email===fbUser.email;});
+    if(selfPatch){selfPatch.responseStatus='accepted';selfPatch.self=true;}
+    else{attendees.push({email:fbUser.email,displayName:fbUser.displayName||'Moi',responseStatus:'accepted',self:true,organizer:true});}
   }
   await calFetch('PATCH','/calendars/primary/events/'+gcalId,{attendees,guestsCanModify:true}).catch(()=>{});
 }
@@ -3903,6 +3933,19 @@ function buildTask(t){
     } else {
       t.done=!t.done;
       lsSave();renderTasks();
+      /* Sync couleur GCal pour tâche simple locale (id direct dans gcal) */
+      if(token){
+        const gcalEvSimple=gcal.find(e=>e.id===t.id);
+        if(gcalEvSimple&&gcalEvSimple.eventType!=="birthday"&&gcalEvSimple.eventType!=="fromGmail"&&!gcalEvSimple.readOnly){
+          const colorId=t.done?"7":"6";
+          const calIdSimple=gcalEvSimple.calendarId||'primary';
+          const metaStrSimple=buildPlanifyMeta(t.id);
+          const patchBodySimple={colorId};
+          if(metaStrSimple)patchBodySimple.extendedProperties={private:{planify:metaStrSimple}};
+          calFetch('PATCH','/calendars/'+encodeURIComponent(calIdSimple)+'/events/'+t.id,patchBodySimple)
+            .then(()=>{t._colorSynced=colorId;gcalEvSimple.colorId=colorId;lsSave();}).catch(()=>{});
+        }
+      }
     }
   };
   const body=mk("div","tb");
