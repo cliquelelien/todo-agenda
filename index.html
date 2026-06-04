@@ -1482,12 +1482,13 @@ async function migrateAllMetaToGcal(){
     var syncEv=gcal.find(function(e){return e.id===syncId;});
     var syncTask=S.tasks.find(function(t){return t.id===syncId;});
     if(syncEv&&syncEv.eventType!=="birthday"&&syncEv.eventType!=="fromGmail"&&!syncEv.readOnly){
-      var wantColor=(syncTask&&syncTask.done)?"7":"6";
+      var wantColor=(syncTask&&(syncTask.done||syncTask.archived))?"7":"6";
       var metaStr=buildPlanifyMeta(syncId);
       var pb={colorId:wantColor};
       if(metaStr)pb.extendedProperties={private:{planify:metaStr}};
       await calFetch('PATCH','/calendars/'+encodeURIComponent(syncEv.calendarId||'primary')+'/events/'+syncId,pb)
-        .then(function(){syncEv.colorId=wantColor;if(syncTask){syncTask._colorSynced=wantColor;}}).catch(function(){});
+        .then(function(){syncEv.colorId=wantColor;if(syncTask)syncTask._colorSynced=wantColor;})
+        .catch(function(){});
     }
     n++;
     var syncEl=document.getElementById('sync-msg');
@@ -2199,18 +2200,17 @@ async function fetchGcal(){
         }
       })();
       /* ══ Resync couleurs GCal ══
-         Pour chaque tâche Planify qui a un event GCal, on vérifie si la couleur
-         GCal correspond à l'état done. Si non, on patche. On étale les appels
-         pour éviter les 429. */
+         Après chaque fetchGcal, on vérifie toutes les tâches (y compris archivées/done)
+         et on corrige la couleur GCal si elle ne correspond pas à l'état Planify.
+         Les appels sont espacés de 300ms pour éviter les 429. */
       (function resyncColors(){
         var toResync=[];
         S.tasks.forEach(function(t){
-          if(t.id.includes("__"))return;
-          if(t.archived)return;
+          if(t.id.includes("__"))return; /* ignorer les entrées auxiliaires */
           var ev=gcal.find(function(e){return e.id===t.id;});
           if(!ev||ev.eventType==="birthday"||ev.eventType==="fromGmail"||ev.readOnly)return;
-          var want=t.done?"7":"6";
-          if(ev.colorId!==want)toResync.push({t,ev,want});
+          var want=(t.done||t.archived)?"7":"6";
+          if(ev.colorId!==want)toResync.push({t:t,ev:ev,want:want});
         });
         if(!toResync.length)return;
         (async function(){
@@ -2220,7 +2220,8 @@ async function fetchGcal(){
             var pb={colorId:item.want};
             if(metaStr)pb.extendedProperties={private:{planify:metaStr}};
             await calFetch('PATCH','/calendars/'+encodeURIComponent(item.ev.calendarId||'primary')+'/events/'+item.t.id,pb)
-              .then(function(){item.ev.colorId=item.want;item.t._colorSynced=item.want;}).catch(function(){});
+              .then(function(){item.ev.colorId=item.want;item.t._colorSynced=item.want;})
+              .catch(function(){});
             await new Promise(function(r){setTimeout(r,300);});
           }
           lsSave();
@@ -2243,13 +2244,13 @@ async function fetchGcal(){
     hideSync();
   }catch(e){hideSync();}
 }
-/* colorId GCal : 6=Tangerine (orange=a faire), 7=Peacock (paon=fait) */
+/* colorId GCal : 6=Tangerine (orange=a faire), 7=Peacock (paon=fait/archivé) */
 function gcalColorId(taskId){
   const meta=S.tasks.find(t=>t.id===taskId);
-  return (meta&&meta.done)?"7":"6";
+  return (meta&&(meta.done||meta.archived))?"7":"6";
 }
-/* Met a jour la couleur d un event GCal selon son etat done dans S.tasks.
-   Ne fait le PATCH que si la couleur actuelle dans gcal[] est incorrecte. */
+/* Met a jour la couleur d un event GCal selon son etat done/archived dans S.tasks.
+   Ne fait le PATCH que si la couleur GCal actuelle est incorrecte. */
 async function patchGcalColor(gcalId){
   if(!token||!gcalId)return;
   const ev=gcal.find(e=>e.id===gcalId);
@@ -2258,8 +2259,7 @@ async function patchGcalColor(gcalId){
   if(ev.readOnly)return;
   const calId=ev.calendarId||'primary';
   const colorId=gcalColorId(gcalId);
-  /* Ne rien faire si la couleur est déjà correcte */
-  if(ev.colorId===colorId)return;
+  if(ev.colorId===colorId)return; /* déjà correct — pas de PATCH inutile */
   const metaStr=buildPlanifyMeta(gcalId);
   const patchBody={colorId};
   if(metaStr)patchBody.extendedProperties={private:{planify:metaStr}};
@@ -3950,7 +3950,7 @@ function buildTask(t){
       if(token){
         var simpleEv=gcal.find(function(e){return e.id===t.id;});
         if(simpleEv&&simpleEv.eventType!=="birthday"&&simpleEv.eventType!=="fromGmail"&&!simpleEv.readOnly){
-          var simpleColor=t.done?"7":"6";
+          var simpleColor=(t.done||t.archived)?"7":"6";
           var simpleMeta=buildPlanifyMeta(t.id);
           var simplePatch={colorId:simpleColor};
           if(simpleMeta)simplePatch.extendedProperties={private:{planify:simpleMeta}};
