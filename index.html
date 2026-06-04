@@ -352,6 +352,27 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .ia-quick-btn:hover{border-color:var(--bl);color:var(--bl);background:var(--blbg);}
 /* Notification de tâche créée */
 .ia-toast-task{background:linear-gradient(135deg,var(--gr),#22a653);color:#fff;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;margin-top:6px;display:flex;align-items:center;gap:6px;}
+/* ── Sélecteur de modèle ── */
+.ia-model-bar{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12);}
+.ia-model-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);white-space:nowrap;flex-shrink:0;}
+.ia-model-select{flex:1;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:6px 10px;font-family:inherit;font-size:11px;font-weight:700;color:#fff;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,.5)'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
+.ia-model-select:focus{border-color:rgba(255,255,255,.45);}
+.ia-model-select option{background:#1a2a4a;color:#fff;}
+.ia-model-badge{font-size:9px;font-weight:800;border-radius:6px;padding:2px 6px;flex-shrink:0;}
+.ia-model-badge.free{background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.35);}
+.ia-model-badge.paid{background:rgba(245,158,11,.2);color:#f59e0b;border:1px solid rgba(245,158,11,.35);}
+/* ── Modale clé API Claude ── */
+#ia-apikey-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,30,60,.65);align-items:center;justify-content:center;padding:20px;}
+#ia-apikey-modal.open{display:flex;}
+.ia-apikey-box{background:#fff;border-radius:18px;padding:24px 20px;max-width:340px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.25);}
+.ia-apikey-box h3{font-size:16px;font-weight:800;color:var(--tx);margin-bottom:6px;}
+.ia-apikey-box p{font-size:12px;color:var(--tx2);margin-bottom:14px;line-height:1.5;}
+.ia-apikey-box input{width:100%;font-family:inherit;font-size:13px;font-weight:600;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:10px 13px;outline:none;margin-bottom:6px;}
+.ia-apikey-box input:focus{border-color:var(--bl);}
+.ia-apikey-hint{font-size:10px;color:var(--tx3);margin-bottom:16px;line-height:1.4;}
+.ia-apikey-hint a{color:var(--bl);text-decoration:none;}
+.ia-apikey-btns{display:flex;gap:8px;}
+.ia-apikey-btns button{flex:1;}
 /* Desktop layout pour le panel IA */
 @media(min-width:900px){
   #panel-ia{height:calc(100vh - 56px)!important;display:none!important;}
@@ -662,6 +683,32 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <span class="ia-cap">🎙️ Vocal</span>
       <span class="ia-cap">📅 Sync Google</span>
       <span class="ia-cap">🧠 Planification auto</span>
+    </div>
+    <div class="ia-model-bar">
+      <span class="ia-model-label">🤖 Modèle</span>
+      <select class="ia-model-select" id="ia-model-select" onchange="iaOnModelChange(this.value)">
+        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70b — Gratuit</option>
+        <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash — Gratuit</option>
+        <option value="mistralai/mistral-7b-instruct:free">Mistral 7b — Gratuit</option>
+        <option value="claude">Claude Sonnet — Clé API</option>
+      </select>
+      <span class="ia-model-badge free" id="ia-model-badge">GRATUIT</span>
+    </div>
+  </div>
+  <!-- Modale clé API Anthropic -->
+  <div id="ia-apikey-modal">
+    <div class="ia-apikey-box">
+      <h3>🔑 Clé API Anthropic</h3>
+      <p>Pour utiliser Claude Sonnet, entre ta clé API Anthropic. Elle est stockée uniquement sur cet appareil (localStorage).</p>
+      <input type="password" id="ia-apikey-input" placeholder="sk-ant-…" autocomplete="off">
+      <div class="ia-apikey-hint">
+        Obtenir une clé sur <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.<br>
+        Les premiers $5 de crédit sont offerts.
+      </div>
+      <div class="ia-apikey-btns">
+        <button class="btn btn-gh" onclick="iaApiKeyCancel()">Annuler</button>
+        <button class="btn btn-bl" onclick="iaApiKeySave()">Enregistrer</button>
+      </div>
     </div>
   </div>
   <!-- Zone messages -->
@@ -5280,7 +5327,9 @@ function addShopItem(text){
   var _micRecog=null, _micActive=false;
   var _busy=false;
   var OPENROUTER_API_KEY='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';
-  var OPENROUTER_MODEL='google/gemma-3-1b-it:free';
+  var OPENROUTER_MODEL='meta-llama/llama-3.3-70b-instruct:free';
+  var _iaActiveModel=localStorage.getItem('planify_ia_model')||'meta-llama/llama-3.3-70b-instruct:free';
+  var _iaAnthropicKey=localStorage.getItem('planify_anthropic_key')||'';
 
   /* ── Initialisation ── */
   window.iaInit=function(){
@@ -5289,6 +5338,7 @@ function addShopItem(text){
     msgs.innerHTML='';
     _msgs=[];
     _images=[];
+    iaRestoreModelSelect();
     iaAppendAI(
       '👋 Bonjour ! Je suis votre assistant de planification.\n\n'+
       'Je peux **analyser des documents** (factures, courriers, contrats…), **planifier automatiquement** rendez-vous et tâches dans Planify + Google Agenda, et **décomposer vos objectifs** en étapes concrètes.\n\n'+
@@ -5463,49 +5513,145 @@ function addShopItem(text){
     iaCallClaude();
   };
 
-  /* ── Appel OpenRouter API ── */
+  /* ── Gestion sélecteur de modèle ── */
+  window.iaOnModelChange=function(val){
+    if(val==='claude'){
+      var key=localStorage.getItem('planify_anthropic_key')||'';
+      if(!key){
+        /* Ouvrir modale clé API */
+        var modal=document.getElementById('ia-apikey-modal');
+        if(modal)modal.classList.add('open');
+        var sel=document.getElementById('ia-model-select');
+        if(sel)sel.value=_iaActiveModel; /* Remettre l'ancien modèle le temps que l'user saisisse */
+        return;
+      }
+    }
+    _iaActiveModel=val;
+    localStorage.setItem('planify_ia_model',val);
+    iaUpdateModelBadge(val);
+  };
+
+  window.iaApiKeyCancel=function(){
+    var modal=document.getElementById('ia-apikey-modal');
+    if(modal)modal.classList.remove('open');
+    /* Remettre le sélecteur sur le modèle actif */
+    var sel=document.getElementById('ia-model-select');
+    if(sel)sel.value=_iaActiveModel;
+  };
+
+  window.iaApiKeySave=function(){
+    var inp=document.getElementById('ia-apikey-input');
+    var key=inp?inp.value.trim():'';
+    if(!key||!key.startsWith('sk-ant')){
+      alert('Clé invalide. Elle doit commencer par sk-ant-…');
+      return;
+    }
+    _iaAnthropicKey=key;
+    localStorage.setItem('planify_anthropic_key',key);
+    _iaActiveModel='claude';
+    localStorage.setItem('planify_ia_model','claude');
+    var sel=document.getElementById('ia-model-select');
+    if(sel)sel.value='claude';
+    iaUpdateModelBadge('claude');
+    var modal=document.getElementById('ia-apikey-modal');
+    if(modal)modal.classList.remove('open');
+    if(inp)inp.value='';
+  };
+
+  function iaUpdateModelBadge(val){
+    var badge=document.getElementById('ia-model-badge');
+    if(!badge)return;
+    if(val==='claude'){
+      badge.textContent='CLAUDE';
+      badge.className='ia-model-badge paid';
+    } else {
+      badge.textContent='GRATUIT';
+      badge.className='ia-model-badge free';
+    }
+  }
+
+  function iaRestoreModelSelect(){
+    var sel=document.getElementById('ia-model-select');
+    if(!sel)return;
+    /* Si la clé Claude n'est plus dispo, repasser sur Llama */
+    if(_iaActiveModel==='claude'&&!_iaAnthropicKey){
+      _iaActiveModel='meta-llama/llama-3.3-70b-instruct:free';
+      localStorage.setItem('planify_ia_model',_iaActiveModel);
+    }
+    sel.value=_iaActiveModel;
+    iaUpdateModelBadge(_iaActiveModel);
+  }
+
+  /* ── Appel API (OpenRouter ou Anthropic selon modèle) ── */
   async function iaCallClaude(){
     _busy=true;
     iaSetBusy(true);
     var typingEl=iaShowTyping();
 
     try{
-      var apiMessages=_msgs.slice(-20);
-
-      /* Convertir le format messages pour OpenRouter (format OpenAI) */
-      var orMessages=[{role:'system',content:buildSystemPrompt()}];
-      apiMessages.forEach(function(m){
-        var textParts=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
-        if(textParts){orMessages.push({role:m.role,content:textParts});}
-      });
-
-      var resp=await fetch('https://openrouter.ai/api/v1/chat/completions',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':'Bearer '+OPENROUTER_API_KEY,
-          'HTTP-Referer':'https://planify.app',
-          'X-Title':'Planify'
-        },
-        body:JSON.stringify({
-          model:OPENROUTER_MODEL,
-          messages:orMessages,
-          max_tokens:2000,
-          temperature:0.7
-        })
-      });
-
-      if(typingEl)typingEl.remove();
-
-      if(!resp.ok){
-        var err=await resp.json().catch(function(){return {};});
-        var msg=err.error&&err.error.message||'Erreur API '+resp.status;
-        throw new Error(msg);
-      }
-
-      var data=await resp.json();
       var rawText='';
-      try{rawText=data.choices[0].message.content||'';}catch(e){rawText='';}
+
+      if(_iaActiveModel==='claude'){
+        /* ── Backend Anthropic direct ── */
+        var anthropicKey=localStorage.getItem('planify_anthropic_key')||'';
+        if(!anthropicKey) throw new Error('Clé API Anthropic manquante. Sélectionne Claude Sonnet pour la configurer.');
+        var anthropicMessages=_msgs.slice(-20).map(function(m){
+          return {role:m.role,content:m.content};
+        });
+        var resp=await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'x-api-key':anthropicKey,
+            'anthropic-version':'2023-06-01',
+            'anthropic-dangerous-direct-browser-access':'true'
+          },
+          body:JSON.stringify({
+            model:'claude-sonnet-4-5',
+            max_tokens:2000,
+            system:buildSystemPrompt(),
+            messages:anthropicMessages
+          })
+        });
+        if(typingEl)typingEl.remove();
+        if(!resp.ok){
+          var err=await resp.json().catch(function(){return {};});
+          throw new Error(err.error&&err.error.message||'Erreur Anthropic '+resp.status);
+        }
+        var data=await resp.json();
+        rawText=(data.content&&data.content[0]&&data.content[0].text)||'';
+
+      } else {
+        /* ── Backend OpenRouter ── */
+        var apiMessages=_msgs.slice(-20);
+        var orMessages=[{role:'system',content:buildSystemPrompt()}];
+        apiMessages.forEach(function(m){
+          var textParts=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
+          if(textParts){orMessages.push({role:m.role,content:textParts});}
+        });
+        var resp=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Authorization':'Bearer '+OPENROUTER_API_KEY,
+            'HTTP-Referer':'https://planify.app',
+            'X-Title':'Planify'
+          },
+          body:JSON.stringify({
+            model:_iaActiveModel,
+            messages:orMessages,
+            max_tokens:2000,
+            temperature:0.7
+          })
+        });
+        if(typingEl)typingEl.remove();
+        if(!resp.ok){
+          var err=await resp.json().catch(function(){return {};});
+          throw new Error(err.error&&err.error.message||'Erreur API '+resp.status);
+        }
+        var data=await resp.json();
+        try{rawText=data.choices[0].message.content||'';}catch(e){rawText='';}
+      }
 
       /* Ajouter à l'historique */
       _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
@@ -5528,7 +5674,7 @@ function addShopItem(text){
 
     }catch(e){
       if(typingEl)typingEl.remove();
-      iaAppendAI('⚠️ Erreur de connexion à l\'IA : '+e.message+'\n\nVérifiez votre connexion internet et réessayez.');
+      iaAppendAI('⚠️ Erreur : '+e.message+'\n\nVérifiez votre connexion et réessayez.');
     }
 
     _busy=false;
