@@ -514,7 +514,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <hr style="border:none;border-top:1px solid var(--blb);margin:12px 0;">
   <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">☁️ Sauvegarde vers Google Agenda</div>
   <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;line-height:1.5;">Les statuts et métadonnées sont sauvegardés dans chaque événement GCal à chaque modification. Cliquez ci-dessous pour synchroniser toutes vos tâches existantes en une fois.</div>
-  <button onclick="toast('⏳ Synchronisation en cours…');setTimeout(migrateAllMetaToGcal,50);" style="font-family:inherit;font-size:12px;font-weight:700;background:var(--bl);color:#fff;border:none;border-radius:9px;padding:7px 14px;cursor:pointer;">☁️ Synchroniser toutes les tâches</button>
+  <button onclick="toast('⏳ Synchronisation…');setTimeout(migrateAllMetaToGcal,80);" style="font-family:inherit;font-size:12px;font-weight:700;background:var(--bl);color:#fff;border:none;border-radius:9px;padding:7px 14px;cursor:pointer;">☁️ Synchroniser toutes les tâches</button>
   <hr style="border:none;border-top:1px solid var(--blb);margin:12px 0;">
   <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Notification récapitulative</div>
   <label style="display:flex;align-items:center;gap:9px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--tx);">
@@ -1479,14 +1479,16 @@ async function migrateAllMetaToGcal(){
   var n=0;
   for(var i=0;i<allToSync.length;i++){
     var syncId=allToSync[i];
+    /* 1. Métadonnées */
     await patchGcalMeta(syncId).catch(function(){});
+    /* 2. Couleur GCal selon état done */
     var syncEv=gcal.find(function(e){return e.id===syncId;});
     if(syncEv&&syncEv.eventType!=="birthday"&&syncEv.eventType!=="fromGmail"&&!syncEv.readOnly){
       var syncTask=S.tasks.find(function(t){return t.id===syncId;});
-      var wantedColor=(syncTask&&syncTask.done)?"7":"6";
-      if(syncEv.colorId!==wantedColor){
-        await calFetch('PATCH','/calendars/'+encodeURIComponent(syncEv.calendarId||'primary')+'/events/'+syncId,{colorId:wantedColor})
-          .then(function(){syncEv.colorId=wantedColor;if(syncTask)syncTask._colorSynced=wantedColor;}).catch(function(){});
+      var wantColor=(syncTask&&syncTask.done)?"7":"6";
+      if(syncEv.colorId!==wantColor){
+        await calFetch('PATCH','/calendars/'+encodeURIComponent(syncEv.calendarId||'primary')+'/events/'+syncId,{colorId:wantColor})
+          .then(function(){syncEv.colorId=wantColor;if(syncTask){syncTask._colorSynced=wantColor;}}).catch(function(){});
       }
     }
     n++;
@@ -1496,7 +1498,7 @@ async function migrateAllMetaToGcal(){
   }
   lsSave();
   hideSync();
-  toast('✅ '+n+' tâche'+(n>1?'s':'')+' synchronisée'+(n>1?'s':'')+' avec Google Agenda !');
+  toast('✅ '+n+' tâche'+(n>1?'s':'')+' synchronisée'+(n>1?'s':'')+' !');
 }
 
 function saveRecapSettings(){
@@ -1899,9 +1901,9 @@ async function createGcalEvWithAssignee(title,desc,date,tS,tE,remindMin,taskId,d
     if(assignee==='both'&&fbUser&&fbUser.email){
       body.attendees.push({email:fbUser.email,displayName:fbUser.displayName||'Moi',responseStatus:'accepted',self:true});
     } else if(fbUser&&fbUser.email){
-      /* Assigné uniquement au conjoint : on s'ajoute quand même comme organisateur accepté */
       body.attendees.push({email:fbUser.email,displayName:fbUser.displayName||'Moi',responseStatus:'accepted',self:true,organizer:true});
     }
+    /* Permettre aux invités de modifier */
     body.guestsCanModify=true;
   }
 
@@ -3914,16 +3916,13 @@ function buildTask(t){
     } else {
       t.done=!t.done;
       lsSave();renderTasks();
+      /* Patch couleur GCal si cet id existe dans gcal (tâche locale liée) */
       if(token){
-        var gcalEvSimple=gcal.find(function(e){return e.id===t.id;});
-        if(gcalEvSimple&&gcalEvSimple.eventType!=="birthday"&&gcalEvSimple.eventType!=="fromGmail"&&!gcalEvSimple.readOnly){
-          var colorIdSimple=t.done?"7":"6";
-          var calIdSimple=gcalEvSimple.calendarId||'primary';
-          var metaSimple=buildPlanifyMeta(t.id);
-          var patchSimple={colorId:colorIdSimple};
-          if(metaSimple)patchSimple.extendedProperties={private:{planify:metaSimple}};
-          calFetch('PATCH','/calendars/'+encodeURIComponent(calIdSimple)+'/events/'+t.id,patchSimple)
-            .then(function(){t._colorSynced=colorIdSimple;gcalEvSimple.colorId=colorIdSimple;lsSave();}).catch(function(){});
+        var simpleEv=gcal.find(function(e){return e.id===t.id;});
+        if(simpleEv&&simpleEv.eventType!=="birthday"&&simpleEv.eventType!=="fromGmail"&&!simpleEv.readOnly){
+          var simpleColor=t.done?"7":"6";
+          calFetch('PATCH','/calendars/'+encodeURIComponent(simpleEv.calendarId||'primary')+'/events/'+t.id,{colorId:simpleColor})
+            .then(function(){simpleEv.colorId=simpleColor;t._colorSynced=simpleColor;lsSave();}).catch(function(){});
         }
       }
     }
