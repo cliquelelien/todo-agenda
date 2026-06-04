@@ -1259,11 +1259,17 @@ function initFirebase(){
     firebase.initializeApp(FIREBASE_CONFIG);
     fbAuth=firebase.auth();
 
-    /* Récupérer un éventuel token GCal issu d'un redirect précédent */
+    /* Récupérer le token GCal après un redirect Google */
     fbAuth.getRedirectResult().then(function(result){
       if(result&&result.credential&&result.credential.accessToken){
         token=result.credential.accessToken;
         localStorage.setItem('gcal_token',token);
+        /* Déclencher le chargement du calendrier si l'app est déjà initialisée */
+        if(fbUser){
+          var doFetchR=function(){fetchGcal().then(function(){renderTasks();renderAg();if(curTab==='week')renderWeekQuick();updateCalendarBtn();scheduleRecapNotif();});};
+          if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doFetchR).catch(doFetchR);}
+          else doFetchR();
+        }
       }
     }).catch(function(){});
 
@@ -1756,20 +1762,11 @@ function updateCalendarBtn(){
 
 function handleAuth(){
   if(!fbUser){authGoogle();return;}
-  /* Token GCal expiré → reconnecter via popup */
+  /* Token GCal expiré → reconnecter via redirect */
   if(!token){
     var provider=new firebase.auth.GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/calendar');
-    fbAuth.signInWithPopup(provider).then(function(result){
-      if(result.credential&&result.credential.accessToken){
-        token=result.credential.accessToken;
-        localStorage.setItem('gcal_token',token);
-        var doFetch3=function(){fetchGcal().then(function(){renderTasks();renderAg();if(curTab==='week')renderWeekQuick();updateCalendarBtn();toast('✅ Agenda rechargé !');});};
-        if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doFetch3).catch(doFetch3);}else doFetch3();
-      } else {
-        toast('⚠️ Connexion réussie mais pas de token Calendar — réessayez');
-      }
-    }).catch(function(e){toast('❌ '+e.message);});
+    fbAuth.signInWithRedirect(provider).catch(function(e){toast('❌ '+e.message);});
     return;
   }
   /* Session active → menu */
@@ -1787,14 +1784,7 @@ function connectCalendar(){
   if(!fbAuth){toast('⏳ Chargement…');return;}
   var provider=new firebase.auth.GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/calendar');
-  fbAuth.signInWithPopup(provider).then(function(result){
-    if(result.credential&&result.credential.accessToken){
-      token=result.credential.accessToken;
-      localStorage.setItem('gcal_token',token);
-      var doFetch2=function(){fetchGcal().then(function(){renderTasks();renderAg();if(curTab==='week')renderWeekQuick();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();updateCalendarBtn();toast('✅ Agenda connecté !');});};
-      if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doFetch2).catch(doFetch2);}else doFetch2();
-    }
-  }).catch(function(e){toast('❌ '+e.message);});
+  fbAuth.signInWithRedirect(provider).catch(function(e){toast('❌ '+e.message);});
 }
 
 function renderAuthButtons(){
@@ -1811,20 +1801,10 @@ function authGoogle(){
   showAuthError('');setAuthLoading(true);
   var provider=new firebase.auth.GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/calendar');
-  fbAuth.signInWithPopup(provider).then(function(result){
-    localStorage.setItem('pfy_ever_logged','1');
-    if(result.credential&&result.credential.accessToken){
-      token=result.credential.accessToken;
-      localStorage.setItem('gcal_token',token);
-      /* Lancer le fetch immédiatement avec le token frais */
-      var doFetch=function(){fetchGcal().then(function(){renderTasks();renderAg();if(curTab==='week')renderWeekQuick();updateCalendarBtn();scheduleRecapNotif();});};
-      if(!_calListLoaded){_calListLoaded=true;fetchCalendarList().then(doFetch).catch(doFetch);}
-      else doFetch();
-    }
-    /* onAuthStateChanged prend le relais pour l'UI */
-  }).catch(function(e){
+  /* Redirect (plus fiable que popup sur mobile) */
+  fbAuth.signInWithRedirect(provider).catch(function(e){
     setAuthLoading(false);
-    showAuthError(e.code==='auth/popup-blocked'?'Popup bloquée — autorisez les popups pour ce site.':e.message);
+    showAuthError(e.message);
   });
 }
 
