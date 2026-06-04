@@ -679,10 +679,24 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <span class="ia-cap">🧠 Planification auto</span>
     </div>
     <div class="ia-model-bar">
-      <span class="ia-model-label">✨ Propulsé par</span>
-      <span style="font-size:12px;font-weight:800;color:#fff;">Claude Haiku</span>
-      <span class="ia-model-badge free" id="ia-model-badge">NATIF</span>
+      <span class="ia-model-label">⚡ Groq</span>
+      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.75);flex:1;" id="ia-model-name">Llama 3.3 70b</span>
+      <button onclick="iaOpenKeyModal()" id="ia-key-btn" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 10px;font-family:inherit;font-size:10px;font-weight:800;color:#fff;cursor:pointer;" title="Configurer la clé API">🔑 Clé API</button>
+      <span class="ia-model-badge free" id="ia-model-badge">GRATUIT</span>
     </div>
+  <!-- Modale clé Groq -->
+  <div id="ia-apikey-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,30,60,.65);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:340px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.25);">
+      <h3 style="font-size:16px;font-weight:800;color:var(--tx);margin-bottom:6px;">⚡ Clé API Groq</h3>
+      <p style="font-size:12px;color:var(--tx2);margin-bottom:14px;line-height:1.5;">Gratuit et sans carte bancaire sur <a href="https://console.groq.com" target="_blank" style="color:var(--bl);">console.groq.com</a> → API Keys → Create API Key</p>
+      <input type="password" id="ia-apikey-input" placeholder="gsk_…" autocomplete="off"
+        style="width:100%;font-family:inherit;font-size:13px;font-weight:600;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:10px 13px;outline:none;margin-bottom:14px;display:block;">
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-gh" onclick="iaApiKeyCancel()" style="flex:1;">Annuler</button>
+        <button class="btn btn-bl" onclick="iaApiKeySave()" style="flex:1;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
   </div>
 
   <!-- Zone messages -->
@@ -5484,40 +5498,84 @@ function addShopItem(text){
     iaCallClaude();
   };
 
-  /* ── Gestion sélecteur (conservé pour compatibilité UI) ── */
-  window.iaOnModelChange=function(val){ /* no-op — modèle unique Anthropic */ };
-  window.iaApiKeyCancel=function(){};
-  window.iaApiKeySave=function(){};
+  /* ── Gestion clé API Groq ── */
+  var _groqKey=localStorage.getItem('planify_groq_key')||'';
+
+  window.iaOpenKeyModal=function(){
+    var modal=document.getElementById('ia-apikey-modal');
+    var inp=document.getElementById('ia-apikey-input');
+    if(inp&&_groqKey)inp.value=_groqKey;
+    if(modal)modal.style.display='flex';
+  };
+  window.iaApiKeyCancel=function(){
+    var modal=document.getElementById('ia-apikey-modal');
+    if(modal)modal.style.display='none';
+  };
+  window.iaApiKeySave=function(){
+    var inp=document.getElementById('ia-apikey-input');
+    var key=inp?inp.value.trim():'';
+    if(!key||!key.startsWith('gsk_')){
+      alert('Clé invalide. Elle doit commencer par gsk_…');
+      return;
+    }
+    _groqKey=key;
+    localStorage.setItem('planify_groq_key',key);
+    var modal=document.getElementById('ia-apikey-modal');
+    if(modal)modal.style.display='none';
+    var badge=document.getElementById('ia-model-badge');
+    if(badge){badge.textContent='ACTIF';badge.style.background='rgba(52,211,153,.2)';badge.style.color='#34d399';}
+    var btn=document.getElementById('ia-key-btn');
+    if(btn)btn.textContent='✅ Clé OK';
+  };
   function iaUpdateModelBadge(){}
+  /* Vérifier si clé déjà présente au chargement */
+  (function(){
+    if(_groqKey){
+      var badge=document.getElementById('ia-model-badge');
+      if(badge){badge.textContent='ACTIF';badge.style.background='rgba(52,211,153,.2)';badge.style.color='#34d399';}
+      var btn=document.getElementById('ia-key-btn');
+      if(btn)btn.textContent='✅ Clé OK';
+    }
+  })();
 
   function iaRestoreModelSelect(){
-    /* Plus rien à restaurer — API Anthropic native, pas de sélection nécessaire */
+    /* Vérifier clé Groq au démarrage */
+    var k=localStorage.getItem('planify_groq_key')||'';
+    if(k){_groqKey=k;}
   }
 
-  /* ── Appel API Anthropic natif ── */
+  /* ── Appel API Groq ── */
   async function iaCallClaude(){
     _busy=true;
     iaSetBusy(true);
     var typingEl=iaShowTyping();
 
     try{
-      /* Construire les messages au format Anthropic */
-      var anthropicMessages=_msgs.slice(-20).map(function(m){
-        return {role:m.role,content:m.content};
+      var key=localStorage.getItem('planify_groq_key')||'';
+      if(!key){
+        if(typingEl)typingEl.remove();
+        iaAppendAI('🔑 Configure d'abord ta clé API Groq en cliquant sur le bouton **🔑 Clé API** en haut.\n\nGratuit et sans CB sur [console.groq.com](https://console.groq.com)');
+        _busy=false; iaSetBusy(false); return;
+      }
+
+      /* Format OpenAI-compatible pour Groq */
+      var messages=[{role:'system',content:buildSystemPrompt()}];
+      _msgs.slice(-20).forEach(function(m){
+        var text=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
+        if(text)messages.push({role:m.role,content:text});
       });
 
-      var resp=await fetch('https://api.anthropic.com/v1/messages',{
+      var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
         method:'POST',
         headers:{
           'Content-Type':'application/json',
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
+          'Authorization':'Bearer '+key
         },
         body:JSON.stringify({
-          model:'claude-haiku-4-5-20251001',
+          model:'llama-3.3-70b-versatile',
+          messages:messages,
           max_tokens:2000,
-          system:buildSystemPrompt(),
-          messages:anthropicMessages
+          temperature:0.7
         })
       });
 
@@ -5525,11 +5583,12 @@ function addShopItem(text){
 
       if(!resp.ok){
         var err=await resp.json().catch(function(){return {};});
-        throw new Error(err.error&&err.error.message||'Erreur '+resp.status);
+        throw new Error(err.error&&err.error.message||'Erreur Groq '+resp.status);
       }
 
       var data=await resp.json();
-      var rawText=(data.content&&data.content[0]&&data.content[0].text)||'';
+      var rawText='';
+      try{rawText=data.choices[0].message.content||'';}catch(e){rawText='';}
 
       /* Ajouter à l'historique */
       _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
@@ -5543,7 +5602,6 @@ function addShopItem(text){
         displayText=rawText.replace(/<PLANIFY_ACTIONS>[\s\S]*?<\/PLANIFY_ACTIONS>/,'').trim();
       }
 
-      /* Afficher la réponse */
       if(actions&&actions.length>0){
         iaAppendAIPlan(displayText,actions);
       } else {
@@ -5552,7 +5610,7 @@ function addShopItem(text){
 
     }catch(e){
       if(typingEl)typingEl.remove();
-      iaAppendAI('⚠️ Erreur : '+e.message+'\n\nVérifiez votre connexion et réessayez.');
+      iaAppendAI('⚠️ Erreur : '+e.message+'\n\nVérifiez ta clé Groq et ta connexion.');
     }
 
     _busy=false;
