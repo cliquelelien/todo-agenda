@@ -497,6 +497,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
         Continuer avec Google
       </button>
+      <div id="auth-debug" style="font-size:11px;color:#888;margin-top:8px;text-align:center;"></div>
     </div>
   </div>
 </div>
@@ -1789,17 +1790,21 @@ function toggleAuthMode(){AUTH_MODE=AUTH_MODE==='login'?'register':'login';rende
 function showAuthError(msg){var el=document.getElementById('auth-error');if(el){el.textContent=msg;el.style.display='block';}}
 function setAuthLoading(on){var lo=document.getElementById('auth-loading');var fo=document.getElementById('auth-forms');if(lo)lo.style.display=on?'block':'none';if(fo)fo.style.display=on?'none':'block';}
 
+function _dbg(msg){var el=document.getElementById('auth-debug');if(el)el.textContent=msg;}
 function authGoogle(){
   showAuthError('');
-  /* Attendre que le script GIS soit bien chargé */
+  _dbg('Clic détecté…');
   if(typeof google==='undefined'||!google.accounts||!google.accounts.oauth2){
+    _dbg('GIS pas encore chargé, attente…');
     setAuthLoading(true);
     var tries=0;
     var wait=setInterval(function(){
       tries++;
+      _dbg('Attente GIS… essai '+tries);
       if(typeof google!=='undefined'&&google.accounts&&google.accounts.oauth2){
         clearInterval(wait);
         setAuthLoading(false);
+        _dbg('GIS prêt, lancement…');
         _launchGoogleAuth();
       } else if(tries>20){
         clearInterval(wait);
@@ -1809,10 +1814,12 @@ function authGoogle(){
     },300);
     return;
   }
+  _dbg('GIS prêt, lancement direct…');
   _launchGoogleAuth();
 }
 
 function _launchGoogleAuth(){
+  _dbg('initTokenClient…');
   setAuthLoading(true);
   var client=google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
