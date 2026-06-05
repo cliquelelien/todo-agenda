@@ -5568,7 +5568,7 @@ function addShopItem(text){
     var key=inp?inp.value.trim():'';
     if(!key){alert('Veuillez entrer une clé API.');return;}
     if(_iaProvider==='gemini'){
-      if(!key.startsWith('AIza')){alert('Clé Gemini invalide. Elle doit commencer par AIza…');return;}
+      if(key.length<10){alert('Clé Gemini invalide.');return;}
       _geminiKey=key;
       localStorage.setItem('planify_gemini_key',key);
     } else {
