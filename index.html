@@ -674,16 +674,21 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <span class="ia-cap">🧠 Planification auto</span>
     </div>
     <div class="ia-model-bar">
-      <span class="ia-model-label">⚡ Groq</span>
+      <span class="ia-model-label" id="ia-provider-label">⚡ Groq</span>
       <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.75);flex:1;" id="ia-model-name">Llama 3.3 70b</span>
+      <!-- Sélecteur provider -->
+      <select id="ia-provider-select" onchange="iaOnProviderChange()" style="font-family:inherit;font-size:10px;font-weight:800;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 6px;cursor:pointer;outline:none;margin-right:4px;">
+        <option value="groq">⚡ Groq</option>
+        <option value="gemini">✨ Gemini</option>
+      </select>
       <button onclick="iaOpenKeyModal()" id="ia-key-btn" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 10px;font-family:inherit;font-size:10px;font-weight:800;color:#fff;cursor:pointer;" title="Configurer la clé API">🔑 Clé API</button>
       <span class="ia-model-badge free" id="ia-model-badge">GRATUIT</span>
     </div>
-  <!-- Modale clé Groq -->
+  <!-- Modale clé API (Groq ou Gemini) -->
   <div id="ia-apikey-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,30,60,.65);align-items:center;justify-content:center;padding:20px;">
     <div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:340px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.25);">
-      <h3 style="font-size:16px;font-weight:800;color:var(--tx);margin-bottom:6px;">⚡ Clé API Groq</h3>
-      <p style="font-size:12px;color:var(--tx2);margin-bottom:14px;line-height:1.5;">Gratuit et sans carte bancaire sur <a href="https://console.groq.com" target="_blank" style="color:var(--bl);">console.groq.com</a> → API Keys → Create API Key</p>
+      <h3 id="ia-modal-title" style="font-size:16px;font-weight:800;color:var(--tx);margin-bottom:6px;">⚡ Clé API Groq</h3>
+      <p id="ia-modal-desc" style="font-size:12px;color:var(--tx2);margin-bottom:14px;line-height:1.5;">Gratuit et sans carte bancaire sur <a href="https://console.groq.com" target="_blank" style="color:var(--bl);">console.groq.com</a> → API Keys → Create API Key</p>
       <input type="password" id="ia-apikey-input" placeholder="gsk_…" autocomplete="off"
         style="width:100%;font-family:inherit;font-size:13px;font-weight:600;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:10px 13px;outline:none;margin-bottom:14px;display:block;">
       <div style="display:flex;gap:8px;">
@@ -5499,13 +5504,59 @@ function addShopItem(text){
     iaCallClaude();
   };
 
-  /* ── Gestion clé API Groq ── */
+  /* ── Gestion clé API (Groq + Gemini) ── */
   var _groqKey=localStorage.getItem('planify_groq_key')||'';
+  var _geminiKey=localStorage.getItem('planify_gemini_key')||'';
+  var _iaProvider=localStorage.getItem('planify_ia_provider')||'groq';
+
+  /* Initialiser le sélecteur au bon provider */
+  (function(){
+    var sel=document.getElementById('ia-provider-select');
+    if(sel)sel.value=_iaProvider;
+    iaUpdateProviderUI(_iaProvider);
+  })();
+
+  function iaUpdateProviderUI(provider){
+    var label=document.getElementById('ia-provider-label');
+    var modelName=document.getElementById('ia-model-name');
+    var badge=document.getElementById('ia-model-badge');
+    var btn=document.getElementById('ia-key-btn');
+    if(provider==='gemini'){
+      if(label)label.textContent='✨ Gemini';
+      if(modelName)modelName.textContent='Gemini 2.0 Flash';
+      var hasKey=!!_geminiKey;
+      if(badge){badge.textContent=hasKey?'ACTIF':'GRATUIT';badge.style.background=hasKey?'rgba(52,211,153,.2)':'';badge.style.color=hasKey?'#34d399':'';}
+      if(btn)btn.textContent=hasKey?'✅ Clé OK':'🔑 Clé API';
+    } else {
+      if(label)label.textContent='⚡ Groq';
+      if(modelName)modelName.textContent='Llama 3.3 70b';
+      var hasKeyG=!!_groqKey;
+      if(badge){badge.textContent=hasKeyG?'ACTIF':'GRATUIT';badge.style.background=hasKeyG?'rgba(52,211,153,.2)':'';badge.style.color=hasKeyG?'#34d399':'';}
+      if(btn)btn.textContent=hasKeyG?'✅ Clé OK':'🔑 Clé API';
+    }
+  }
+
+  window.iaOnProviderChange=function(){
+    var sel=document.getElementById('ia-provider-select');
+    _iaProvider=sel?sel.value:'groq';
+    localStorage.setItem('planify_ia_provider',_iaProvider);
+    iaUpdateProviderUI(_iaProvider);
+  };
 
   window.iaOpenKeyModal=function(){
     var modal=document.getElementById('ia-apikey-modal');
     var inp=document.getElementById('ia-apikey-input');
-    if(inp&&_groqKey)inp.value=_groqKey;
+    var title=document.getElementById('ia-modal-title');
+    var desc=document.getElementById('ia-modal-desc');
+    if(_iaProvider==='gemini'){
+      if(title)title.textContent='✨ Clé API Gemini';
+      if(desc)desc.innerHTML='Gratuit sur <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--bl);">aistudio.google.com</a> → Get API Key. Aucune CB requise.';
+      if(inp){inp.placeholder='AIza…';inp.value=_geminiKey||'';}
+    } else {
+      if(title)title.textContent='⚡ Clé API Groq';
+      if(desc)desc.innerHTML='Gratuit et sans carte bancaire sur <a href="https://console.groq.com" target="_blank" style="color:var(--bl);">console.groq.com</a> → API Keys → Create API Key';
+      if(inp){inp.placeholder='gsk_…';inp.value=_groqKey||'';}
+    }
     if(modal)modal.style.display='flex';
   };
   window.iaApiKeyCancel=function(){
@@ -5515,103 +5566,118 @@ function addShopItem(text){
   window.iaApiKeySave=function(){
     var inp=document.getElementById('ia-apikey-input');
     var key=inp?inp.value.trim():'';
-    if(!key||!key.startsWith('gsk_')){
-      alert('Clé invalide. Elle doit commencer par gsk_…');
-      return;
+    if(!key){alert('Veuillez entrer une clé API.');return;}
+    if(_iaProvider==='gemini'){
+      if(!key.startsWith('AIza')){alert('Clé Gemini invalide. Elle doit commencer par AIza…');return;}
+      _geminiKey=key;
+      localStorage.setItem('planify_gemini_key',key);
+    } else {
+      if(!key.startsWith('gsk_')){alert('Clé Groq invalide. Elle doit commencer par gsk_…');return;}
+      _groqKey=key;
+      localStorage.setItem('planify_groq_key',key);
     }
-    _groqKey=key;
-    localStorage.setItem('planify_groq_key',key);
     var modal=document.getElementById('ia-apikey-modal');
     if(modal)modal.style.display='none';
-    var badge=document.getElementById('ia-model-badge');
-    if(badge){badge.textContent='ACTIF';badge.style.background='rgba(52,211,153,.2)';badge.style.color='#34d399';}
-    var btn=document.getElementById('ia-key-btn');
-    if(btn)btn.textContent='✅ Clé OK';
+    iaUpdateProviderUI(_iaProvider);
   };
   function iaUpdateModelBadge(){}
   /* Vérifier si clé déjà présente au chargement */
   (function(){
-    if(_groqKey){
-      var badge=document.getElementById('ia-model-badge');
-      if(badge){badge.textContent='ACTIF';badge.style.background='rgba(52,211,153,.2)';badge.style.color='#34d399';}
-      var btn=document.getElementById('ia-key-btn');
-      if(btn)btn.textContent='✅ Clé OK';
-    }
+    if(_groqKey||_geminiKey){iaUpdateProviderUI(_iaProvider);}
   })();
 
   function iaRestoreModelSelect(){
-    /* Vérifier clé Groq au démarrage */
     var k=localStorage.getItem('planify_groq_key')||'';
     if(k){_groqKey=k;}
+    var g=localStorage.getItem('planify_gemini_key')||'';
+    if(g){_geminiKey=g;}
+    _iaProvider=localStorage.getItem('planify_ia_provider')||'groq';
+    var sel=document.getElementById('ia-provider-select');
+    if(sel)sel.value=_iaProvider;
+    iaUpdateProviderUI(_iaProvider);
   }
 
-  /* ── Appel API Groq ── */
+  /* ── Appel API (Groq ou Gemini selon provider sélectionné) ── */
   async function iaCallClaude(){
     _busy=true;
     iaSetBusy(true);
     var typingEl=iaShowTyping();
 
     try{
-      var key=localStorage.getItem('planify_groq_key')||'';
-      if(!key){
+      if(_iaProvider==='gemini'){
+        /* ── Gemini 2.0 Flash ── */
+        var gKey=localStorage.getItem('planify_gemini_key')||'';
+        if(!gKey){
+          if(typingEl)typingEl.remove();
+          iaAppendAI('🔑 Configure d\'abord ta clé API Gemini en cliquant sur le bouton 🔑 Clé API en haut.\n\nGratuit sur aistudio.google.com');
+          _busy=false; iaSetBusy(false); return;
+        }
+        /* Construire l'historique au format Gemini */
+        var systemPromptText=buildSystemPrompt();
+        var geminiContents=[];
+        _msgs.slice(-20).forEach(function(m){
+          var text=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
+          if(text)geminiContents.push({role:m.role==='assistant'?'model':'user',parts:[{text:text}]});
+        });
+        var gResp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+gKey,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            system_instruction:{parts:[{text:systemPromptText}]},
+            contents:geminiContents,
+            generationConfig:{maxOutputTokens:2000,temperature:0.7}
+          })
+        });
         if(typingEl)typingEl.remove();
-        iaAppendAI('🔑 Configure d\'abord ta clé API Groq en cliquant sur le bouton 🔑 Clé API en haut.\n\nGratuit et sans CB sur console.groq.com');
-        _busy=false; iaSetBusy(false); return;
-      }
+        if(!gResp.ok){
+          var gErr=await gResp.json().catch(function(){return {};});
+          throw new Error((gErr.error&&gErr.error.message)||'Erreur Gemini '+gResp.status);
+        }
+        var gData=await gResp.json();
+        var rawText='';
+        try{rawText=gData.candidates[0].content.parts[0].text||'';}catch(e){rawText='';}
+        _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
+        var actions=null;var displayText=rawText;
+        var match=rawText.match(/<PLANIFY_ACTIONS>([\s\S]*?)<\/PLANIFY_ACTIONS>/);
+        if(match){try{actions=JSON.parse(match[1].trim());}catch(e){actions=null;}displayText=rawText.replace(/<PLANIFY_ACTIONS>[\s\S]*?<\/PLANIFY_ACTIONS>/,'').trim();}
+        if(actions&&actions.length>0){iaAppendAIPlan(displayText,actions);}else{iaAppendAI(displayText);}
 
-      /* Format OpenAI-compatible pour Groq */
-      var messages=[{role:'system',content:buildSystemPrompt()}];
-      _msgs.slice(-20).forEach(function(m){
-        var text=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
-        if(text)messages.push({role:m.role,content:text});
-      });
-
-      var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':'Bearer '+key
-        },
-        body:JSON.stringify({
-          model:'llama-3.3-70b-versatile',
-          messages:messages,
-          max_tokens:2000,
-          temperature:0.7
-        })
-      });
-
-      if(typingEl)typingEl.remove();
-
-      if(!resp.ok){
-        var err=await resp.json().catch(function(){return {};});
-        throw new Error(err.error&&err.error.message||'Erreur Groq '+resp.status);
-      }
-
-      var data=await resp.json();
-      var rawText='';
-      try{rawText=data.choices[0].message.content||'';}catch(e){rawText='';}
-
-      /* Ajouter à l'historique */
-      _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
-
-      /* Parser les actions Planify */
-      var actions=null;
-      var displayText=rawText;
-      var match=rawText.match(/<PLANIFY_ACTIONS>([\s\S]*?)<\/PLANIFY_ACTIONS>/);
-      if(match){
-        try{actions=JSON.parse(match[1].trim());}catch(e){actions=null;}
-        displayText=rawText.replace(/<PLANIFY_ACTIONS>[\s\S]*?<\/PLANIFY_ACTIONS>/,'').trim();
-      }
-
-      if(actions&&actions.length>0){
-        iaAppendAIPlan(displayText,actions);
       } else {
-        iaAppendAI(displayText);
+        /* ── Groq (défaut) ── */
+        var key=localStorage.getItem('planify_groq_key')||'';
+        if(!key){
+          if(typingEl)typingEl.remove();
+          iaAppendAI('🔑 Configure d\'abord ta clé API Groq en cliquant sur le bouton 🔑 Clé API en haut.\n\nGratuit et sans CB sur console.groq.com');
+          _busy=false; iaSetBusy(false); return;
+        }
+        var messages=[{role:'system',content:buildSystemPrompt()}];
+        _msgs.slice(-20).forEach(function(m){
+          var text=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
+          if(text)messages.push({role:m.role,content:text});
+        });
+        var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+          body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:messages,max_tokens:2000,temperature:0.7})
+        });
+        if(typingEl)typingEl.remove();
+        if(!resp.ok){
+          var err=await resp.json().catch(function(){return {};});
+          throw new Error(err.error&&err.error.message||'Erreur Groq '+resp.status);
+        }
+        var data=await resp.json();
+        var rawText='';
+        try{rawText=data.choices[0].message.content||'';}catch(e){rawText='';}
+        _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
+        var actions=null;var displayText=rawText;
+        var match=rawText.match(/<PLANIFY_ACTIONS>([\s\S]*?)<\/PLANIFY_ACTIONS>/);
+        if(match){try{actions=JSON.parse(match[1].trim());}catch(e){actions=null;}displayText=rawText.replace(/<PLANIFY_ACTIONS>[\s\S]*?<\/PLANIFY_ACTIONS>/,'').trim();}
+        if(actions&&actions.length>0){iaAppendAIPlan(displayText,actions);}else{iaAppendAI(displayText);}
       }
 
     }catch(e){
       if(typingEl)typingEl.remove();
-      iaAppendAI('⚠️ Erreur : '+e.message+'\n\nVérifiez ta clé Groq et ta connexion.');
+      iaAppendAI('⚠️ Erreur : '+e.message+'\n\nVérifiez ta clé API et ta connexion.');
     }
 
     _busy=false;
