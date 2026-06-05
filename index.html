@@ -493,7 +493,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <div class="auth-error" id="auth-error"></div>
     <div id="auth-loading" class="auth-loading" style="display:none">⏳ Connexion en cours…</div>
     <div id="auth-forms">
-      <button class="auth-btn-google" onclick="alert('JS OK'); authGoogle()">
+      <button class="auth-btn-google" onclick="authGoogle()">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
         Continuer avec Google
       </button>
@@ -5555,7 +5555,7 @@ function addShopItem(text){
       var key=localStorage.getItem('planify_groq_key')||'';
       if(!key){
         if(typingEl)typingEl.remove();
-        iaAppendAI('🔑 Configure d'abord ta clé API Groq en cliquant sur le bouton **🔑 Clé API** en haut.\n\nGratuit et sans CB sur [console.groq.com](https://console.groq.com)');
+        iaAppendAI('🔑 Configure d\'abord ta clé API Groq en cliquant sur le bouton 🔑 Clé API en haut.\n\nGratuit et sans CB sur console.groq.com');
         _busy=false; iaSetBusy(false); return;
       }
 
