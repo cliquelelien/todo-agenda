@@ -1407,6 +1407,50 @@ function toggleSettings(){
    - Tâche à faire → colorId "6" (orange dans GCal)
    ══════════════════════════════════════════════════════════════ */
 
+/* Construit le texte visible dans GCal (champ description) :
+   - descriptif de la tâche (desc)
+   - liste de courses si active ou non vide
+   Les deux sont séparés par une ligne vide.
+   Ce texte est lu à l'import GCal→Planify pour pré-remplir desc/shopping. */
+function buildGcalDescription(taskId){
+  const t=S.tasks.find(x=>x.id===taskId);
+  if(!t)return"";
+  const parts=[];
+  if(t.desc&&t.desc.trim())parts.push(t.desc.trim());
+  if(t.shopping&&(t.shopping.active||t.shopping.items&&t.shopping.items.length)){
+    const items=t.shopping.items||[];
+    if(items.length){
+      const lines=["🛒 Liste de courses :"];
+      items.forEach(function(i){lines.push((i.bought?"☑":"☐")+" "+i.text);});
+      parts.push(lines.join("\n"));
+    }
+  }
+  return parts.join("\n\n");
+}
+
+/* Parse un champ description GCal produit par buildGcalDescription :
+   retourne {desc, shopping} ou null si rien à extraire. */
+function parseGcalDescription(descStr){
+  if(!descStr||!descStr.trim())return null;
+  const SHOP_MARKER="🛒 Liste de courses :";
+  const shopIdx=descStr.indexOf(SHOP_MARKER);
+  let desc="";
+  let shopping=null;
+  if(shopIdx===-1){
+    desc=descStr.trim();
+  } else {
+    desc=descStr.slice(0,shopIdx).trim();
+    const shopBlock=descStr.slice(shopIdx+SHOP_MARKER.length).trim();
+    const items=shopBlock.split("\n").filter(l=>l.trim()).map(function(l){
+      const bought=l.startsWith("☑");
+      const text=l.replace(/^[☑☐]\s*/,"").trim();
+      return{text,bought};
+    }).filter(i=>i.text);
+    shopping={active:true,items};
+  }
+  return{desc,shopping};
+}
+
 function buildPlanifyMeta(taskId){
   const t=S.tasks.find(x=>x.id===taskId);
   const meta={
@@ -1440,9 +1484,11 @@ async function patchGcalMeta(gcalId){
   const ev=gcal.find(e=>e.id===gcalId);
   if(!ev||ev.eventType==="birthday"||ev.eventType==="fromGmail"||ev.readOnly)return;
   const metaStr=buildPlanifyMeta(gcalId);
+  const gcalDesc=buildGcalDescription(gcalId);
   const calId=ev.calendarId||'primary';
   await calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalId,{
-    extendedProperties:{private:{planify:metaStr}}
+    extendedProperties:{private:{planify:metaStr}},
+    description:gcalDesc
   }).catch(()=>{});
 }
 
@@ -1464,7 +1510,15 @@ function restoreMetaFromGcal(rawItems){
     if(meta.done&&!t.done){t.done=true;}
     if(meta.archived&&!t.archived){t.archived=true;}
     /* Les autres champs non-critiques sont mis à jour normalement */
-    if(meta.desc)t.desc=meta.desc;
+    if(meta.desc){t.desc=meta.desc;}
+    else if(!t.desc&&rawEv.description){
+      /* Fallback : parser le champ description GCal visible */
+      var parsedFb=parseGcalDescription(rawEv.description);
+      if(parsedFb){
+        if(parsedFb.desc)t.desc=parsedFb.desc;
+        if(parsedFb.shopping&&parsedFb.shopping.items&&parsedFb.shopping.items.length&&!t.shopping)t.shopping=parsedFb.shopping;
+      }
+    }
     if(meta.remind)t.remind=meta.remind;
     if(meta.reminders&&meta.reminders.length)t.reminders=meta.reminders;
     if(meta.recurrence)t.recurrence=meta.recurrence;
@@ -1927,7 +1981,8 @@ async function createGcalEvWithAssignee(title,desc,date,tS,tE,remindMin,taskId,d
     endObj={date:ds(gcalEndExcl)};
   }
   var colorId=taskId?gcalColorId(taskId):"6";
-  var body={summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId};
+  var gcalDesc=taskId?buildGcalDescription(taskId):(desc||"");
+  var body={summary:title,description:gcalDesc,reminders,start:startObj,end:endObj,colorId};
   if(taskId){
     var metaStr=buildPlanifyMeta(taskId);
     if(metaStr)body.extendedProperties={private:{planify:metaStr}};
@@ -2103,7 +2158,7 @@ async function fetchGcal(){
     if(data&&data.items){
       gcal=data.items.map(function(e){
         var calId=e._calId||'primary';
-        return{id:e.id,title:e.summary||"(sans titre)",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null,eventType:e.eventType||null,calendarId:calId,readOnly:e.organizer&&e.organizer.self===false&&e.guestsCanModify===false,extendedProperties:e.extendedProperties||null};
+        return{id:e.id,title:e.summary||"(sans titre)",description:e.description||"",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null,eventType:e.eventType||null,calendarId:calId,readOnly:e.organizer&&e.organizer.self===false&&e.guestsCanModify===false,extendedProperties:e.extendedProperties||null};
       });
       /* Restaurer les métadonnées Planify depuis extendedProperties GCal */
       restoreMetaFromGcal(allItems);
@@ -2150,6 +2205,12 @@ async function fetchGcal(){
               done:isDone,archived:false,_createdHere:true,_gcalImported:true};
             if(ts)newTask._pendingTS=ts;
             if(te)newTask._pendingTE=te;
+            /* Importer description GCal → desc + shopping */
+            var parsedDesc=parseGcalDescription(e.description||"");
+            if(parsedDesc){
+              if(parsedDesc.desc)newTask.desc=parsedDesc.desc;
+              if(parsedDesc.shopping&&parsedDesc.shopping.items&&parsedDesc.shopping.items.length)newTask.shopping=parsedDesc.shopping;
+            }
             S.tasks.push(newTask);
             existingIds.add(e.id);
             /* Couleur GCal si nécessaire */
@@ -2221,6 +2282,12 @@ async function fetchGcal(){
                   done:isDone,archived:false,_createdHere:true,_gcalImported:true,
                   _pendingTS:ts||null,_pendingTE:te||null,
                   _dayEventIds:dayEventIds};
+                /* Importer description GCal → desc + shopping */
+                var parsedDescM=parseGcalDescription(e.description||"");
+                if(parsedDescM){
+                  if(parsedDescM.desc)parentTask.desc=parsedDescM.desc;
+                  if(parsedDescM.shopping&&parsedDescM.shopping.items&&parsedDescM.shopping.items.length)parentTask.shopping=parsedDescM.shopping;
+                }
                 /* Si isDone : marquer tous les jours comme cochés */
                 if(isDone){
                   allDays.forEach(function(d){
@@ -2328,7 +2395,8 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
     endObj={date:ds(gcalEndExcl)};
   }
   var colorId=taskId?gcalColorId(taskId):"6";
-  var body={summary:title,description:desc||"",reminders,start:startObj,end:endObj,colorId};
+  var gcalDesc2=taskId?buildGcalDescription(taskId):(desc||"");
+  var body={summary:title,description:gcalDesc2,reminders,start:startObj,end:endObj,colorId};
   /* Embarquer les métadonnées Planify dès la création */
   if(taskId){
     var metaStr=buildPlanifyMeta(taskId);
@@ -2356,7 +2424,8 @@ async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd){
   var wasAllDay=existingEv?existingEv.allDay:true;
   var isNowAllDay=!tS;
   var method=(wasAllDay!==isNowAllDay)?'PUT':'PATCH';
-  var body={summary:title,description:desc||"",start:startObj2,end:endObj2,colorId};
+  var gcalDescU=buildGcalDescription(gcalId)||(desc||"");
+  var body={summary:title,description:gcalDescU,start:startObj2,end:endObj2,colorId};
   var metaStr=buildPlanifyMeta(gcalId);
   if(metaStr)body.extendedProperties={private:{planify:metaStr}};
   await calFetch(method,'/calendars/primary/events/'+gcalId,body);
@@ -2377,7 +2446,7 @@ async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,due
     excl3.setDate(excl3.getDate()+1);
     endObj3={date:ds(excl3)};
   }
-  var body={summary:title,description:desc||"",start:startObj3,end:endObj3,colorId};
+  var body={summary:title,description:buildGcalDescription(gcalId)||(desc||""),start:startObj3,end:endObj3,colorId};
   if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
   else{body.recurrence=[];}
   var existingEv=gcal.find(e=>e.id===gcalId);
