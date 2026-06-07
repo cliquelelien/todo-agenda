@@ -5578,7 +5578,8 @@ function addShopItem(text){
   /* ── Gestion clé API (Groq + Gemini) ── */
   var _groqKey=localStorage.getItem('planify_groq_key')||'';
   var _geminiKey=localStorage.getItem('planify_gemini_key')||'';
-  var _iaProvider=localStorage.getItem('planify_ia_provider')||'groq';
+  var _VALID_PROVIDERS=['groq_llama','groq_gemma','gemini_flash','gemma4'];
+  var _iaProvider=(function(){var p=localStorage.getItem('planify_ia_provider');return(_VALID_PROVIDERS.indexOf(p)>=0)?p:'groq_llama';})();
 
   /* Initialiser le sélecteur au bon provider */
   (function(){
@@ -5669,7 +5670,7 @@ function addShopItem(text){
     var typingEl=iaShowTyping();
 
     try{
-      if(_iaProvider==='gemini'){
+      if(cfg.backend==='gemini'){
         /* ── Gemini 2.0 Flash ── */
         var gKey=localStorage.getItem('planify_gemini_key')||'';
         if(!gKey){
