@@ -675,11 +675,13 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     </div>
     <div class="ia-model-bar">
       <span class="ia-model-label" id="ia-provider-label">⚡ Groq</span>
-      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.75);flex:1;" id="ia-model-name">Llama 3.3 70b</span>
+      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.75);flex:1;" id="ia-model-name">Gemma 2 9b</span>
       <!-- Sélecteur provider -->
-      <select id="ia-provider-select" onchange="iaOnProviderChange()" style="font-family:inherit;font-size:10px;font-weight:800;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 6px;cursor:pointer;outline:none;margin-right:4px;">
-        <option value="groq">⚡ Groq</option>
-        <option value="gemini">✨ Gemini</option>
+      <select id="ia-provider-select" onchange="iaOnProviderChange()" style="font-family:inherit;font-size:10px;font-weight:800;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 6px;cursor:pointer;outline:none;margin-right:4px;max-width:130px;">
+        <option value="groq_llama">⚡ Llama 3.3 70b</option>
+        <option value="groq_gemma">⚡ Gemma 2 9b</option>
+        <option value="gemini_flash">✨ Gemini 2.0 Flash</option>
+        <option value="gemma4">🌟 Gemma 4 (AI Studio)</option>
       </select>
       <button onclick="iaOpenKeyModal()" id="ia-key-btn" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 10px;font-family:inherit;font-size:10px;font-weight:800;color:#fff;cursor:pointer;" title="Configurer la clé API">🔑 Clé API</button>
       <span class="ia-model-badge free" id="ia-model-badge">GRATUIT</span>
@@ -5585,47 +5587,44 @@ function addShopItem(text){
     iaUpdateProviderUI(_iaProvider);
   })();
 
+  /* Config par provider */
+  var IA_PROVIDERS={
+    groq_llama:{label:'⚡ Groq',name:'Llama 3.3 70b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'llama-3.3-70b-versatile',backend:'groq'},
+    groq_gemma:{label:'⚡ Groq',name:'Gemma 2 9b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'gemma2-9b-it',backend:'groq'},
+    gemini_flash:{label:'✨ Gemini',name:'Gemini 2.0 Flash',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemini-2.0-flash',backend:'gemini'},
+    gemma4:{label:'🌟 AI Studio',name:'Gemma 4',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemma-3-27b-it',backend:'gemini'}
+  };
+
   function iaUpdateProviderUI(provider){
+    var cfg=IA_PROVIDERS[provider]||IA_PROVIDERS.groq_llama;
     var label=document.getElementById('ia-provider-label');
     var modelName=document.getElementById('ia-model-name');
     var badge=document.getElementById('ia-model-badge');
     var btn=document.getElementById('ia-key-btn');
-    if(provider==='gemini'){
-      if(label)label.textContent='✨ Gemini';
-      if(modelName)modelName.textContent='Gemini 2.0 Flash';
-      var hasKey=!!_geminiKey;
-      if(badge){badge.textContent=hasKey?'ACTIF':'GRATUIT';badge.style.background=hasKey?'rgba(52,211,153,.2)':'';badge.style.color=hasKey?'#34d399':'';}
-      if(btn)btn.textContent=hasKey?'✅ Clé OK':'🔑 Clé API';
-    } else {
-      if(label)label.textContent='⚡ Groq';
-      if(modelName)modelName.textContent='Llama 3.3 70b';
-      var hasKeyG=!!_groqKey;
-      if(badge){badge.textContent=hasKeyG?'ACTIF':'GRATUIT';badge.style.background=hasKeyG?'rgba(52,211,153,.2)':'';badge.style.color=hasKeyG?'#34d399':'';}
-      if(btn)btn.textContent=hasKeyG?'✅ Clé OK':'🔑 Clé API';
-    }
+    var hasKey=!!(cfg.keyVar==='_groqKey'?_groqKey:_geminiKey);
+    if(label)label.textContent=cfg.label;
+    if(modelName)modelName.textContent=cfg.name;
+    if(badge){badge.textContent=hasKey?'ACTIF':'CLÉ REQUISE';badge.style.background=hasKey?'rgba(52,211,153,.2)':'rgba(245,158,11,.2)';badge.style.color=hasKey?'#34d399':'#f59e0b';}
+    if(btn)btn.textContent=hasKey?'✅ Clé OK':'🔑 Clé API';
   }
 
   window.iaOnProviderChange=function(){
     var sel=document.getElementById('ia-provider-select');
-    _iaProvider=sel?sel.value:'groq';
+    _iaProvider=sel?sel.value:'groq_llama';
     localStorage.setItem('planify_ia_provider',_iaProvider);
     iaUpdateProviderUI(_iaProvider);
   };
 
   window.iaOpenKeyModal=function(){
+    var cfg=IA_PROVIDERS[_iaProvider]||IA_PROVIDERS.groq_llama;
     var modal=document.getElementById('ia-apikey-modal');
     var inp=document.getElementById('ia-apikey-input');
     var title=document.getElementById('ia-modal-title');
     var desc=document.getElementById('ia-modal-desc');
-    if(_iaProvider==='gemini'){
-      if(title)title.textContent='✨ Clé API Gemini';
-      if(desc)desc.innerHTML='Gratuit sur <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--bl);">aistudio.google.com</a> → Get API Key. Aucune CB requise.';
-      if(inp){inp.placeholder='AIza…';inp.value=_geminiKey||'';}
-    } else {
-      if(title)title.textContent='⚡ Clé API Groq';
-      if(desc)desc.innerHTML='Gratuit et sans carte bancaire sur <a href="https://console.groq.com" target="_blank" style="color:var(--bl);">console.groq.com</a> → API Keys → Create API Key';
-      if(inp){inp.placeholder='gsk_…';inp.value=_groqKey||'';}
-    }
+    var currentKey=cfg.keyVar==='_groqKey'?_groqKey:_geminiKey;
+    if(title)title.textContent=cfg.label+' — '+cfg.name;
+    if(desc)desc.innerHTML='Gratuit sur <a href="'+cfg.urlFull+'" target="_blank" style="color:var(--bl);">'+cfg.url+'</a> → API Keys → Create API Key. Aucune CB requise.';
+    if(inp){inp.placeholder=cfg.placeholder;inp.value=currentKey||'';}
     if(modal)modal.style.display='flex';
   };
   window.iaApiKeyCancel=function(){
@@ -5633,17 +5632,16 @@ function addShopItem(text){
     if(modal)modal.style.display='none';
   };
   window.iaApiKeySave=function(){
+    var cfg=IA_PROVIDERS[_iaProvider]||IA_PROVIDERS.groq_llama;
     var inp=document.getElementById('ia-apikey-input');
     var key=inp?inp.value.trim():'';
     if(!key){alert('Veuillez entrer une clé API.');return;}
-    if(_iaProvider==='gemini'){
-      if(key.length<10){alert('Clé Gemini invalide.');return;}
-      _geminiKey=key;
-      localStorage.setItem('planify_gemini_key',key);
+    if(cfg.keyVar==='_groqKey'){
+      if(!key.startsWith('gsk_')){alert('Clé Groq invalide — doit commencer par gsk_…');return;}
+      _groqKey=key;localStorage.setItem('planify_groq_key',key);
     } else {
-      if(!key.startsWith('gsk_')){alert('Clé Groq invalide. Elle doit commencer par gsk_…');return;}
-      _groqKey=key;
-      localStorage.setItem('planify_groq_key',key);
+      if(key.length<5){alert('Clé invalide.');return;}
+      _geminiKey=key;localStorage.setItem('planify_gemini_key',key);
     }
     var modal=document.getElementById('ia-apikey-modal');
     if(modal)modal.style.display='none';
@@ -5656,11 +5654,9 @@ function addShopItem(text){
   })();
 
   function iaRestoreModelSelect(){
-    var k=localStorage.getItem('planify_groq_key')||'';
-    if(k){_groqKey=k;}
-    var g=localStorage.getItem('planify_gemini_key')||'';
-    if(g){_geminiKey=g;}
-    _iaProvider=localStorage.getItem('planify_ia_provider')||'groq';
+    var k=localStorage.getItem('planify_groq_key')||'';if(k){_groqKey=k;}
+    var g=localStorage.getItem('planify_gemini_key')||'';if(g){_geminiKey=g;}
+    _iaProvider=localStorage.getItem('planify_ia_provider')||'groq_llama';
     var sel=document.getElementById('ia-provider-select');
     if(sel)sel.value=_iaProvider;
     iaUpdateProviderUI(_iaProvider);
@@ -5727,7 +5723,7 @@ function addShopItem(text){
         var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-          body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:messages,max_tokens:2000,temperature:0.7})
+          body:JSON.stringify({model:'gemma2-9b-it',messages:messages,max_tokens:2000,temperature:0.7})
         });
         if(typingEl)typingEl.remove();
         if(!resp.ok){
