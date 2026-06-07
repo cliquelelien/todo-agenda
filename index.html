@@ -681,7 +681,8 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
         <option value="groq_llama">⚡ Llama 3.3 70b</option>
         <option value="groq_gemma">⚡ Gemma 2 9b</option>
         <option value="gemini_flash">✨ Gemini 2.0 Flash</option>
-        <option value="gemma4">🌟 Gemma 4 (AI Studio)</option>
+        <option value="gemma4_26b">🌟 Gemma 4 26B (AI Studio)</option>
+        <option value="gemma4_31b">🌟 Gemma 4 31B (AI Studio)</option>
       </select>
       <button onclick="iaOpenKeyModal()" id="ia-key-btn" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 10px;font-family:inherit;font-size:10px;font-weight:800;color:#fff;cursor:pointer;" title="Configurer la clé API">🔑 Clé API</button>
       <span class="ia-model-badge free" id="ia-model-badge">GRATUIT</span>
@@ -5584,11 +5585,12 @@ function addShopItem(text){
     groq_llama:{label:'⚡ Groq',name:'Llama 3.3 70b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'llama-3.3-70b-versatile',backend:'groq'},
     groq_gemma:{label:'⚡ Groq',name:'Gemma 2 9b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'gemma2-9b-it',backend:'groq'},
     gemini_flash:{label:'✨ Gemini',name:'Gemini 2.0 Flash',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemini-2.0-flash',backend:'gemini'},
-    gemma4:{label:'🌟 AI Studio',name:'Gemma 4 27B',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemma-4-27b-it',backend:'gemini'}
+    gemma4_26b:{label:'🌟 AI Studio',name:'Gemma 4 26B',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemma-4-26b-a4b-it',backend:'gemini'},
+    gemma4_31b:{label:'🌟 AI Studio',name:'Gemma 4 31B',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemma-4-31b-it',backend:'gemini'}
   };
 
   var _VALID_PROVIDERS=Object.keys(IA_PROVIDERS);
-  var _iaProvider=(function(){var p=localStorage.getItem('planify_ia_provider');return(_VALID_PROVIDERS.indexOf(p)>=0)?p:'groq_llama';})();
+  var _iaProvider=(function(){var p=localStorage.getItem('planify_ia_provider');return(IA_PROVIDERS[p]!==undefined)?p:'groq_llama';})();
 
   /* Initialiser le sélecteur au bon provider */
   (function(){
