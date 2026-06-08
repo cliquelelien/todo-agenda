@@ -3775,10 +3775,13 @@ function renderTasks(){
 
   const appTasks=S.tasks.filter(t=>{
     if(t.archived)return false;
-    if(!t._createdHere)return false;
+    /* Exclure les entrées auxiliaires (cochage par jour, récurrence, archive par occurrence) */
     if(t.id.includes("__done__")||t.id.includes("__recur__")||t.id.includes("__arch__"))return false;
-    /* Exclure les tâches sans titre qui ne sont que des fantômes GCal */
-    if(!t.title&&!gcal.find(e=>e.id===t.id))return false;
+    /* Exclure les fantômes GCal : pas de titre ET pas d'event GCal correspondant ET pas _createdHere */
+    if(!t.title&&!t._createdHere&&!gcal.find(e=>e.id===t.id))return false;
+    /* Inclure toute tâche avec un titre, qu'elle soit _createdHere ou non
+       (compatibilité avec les tâches créées avant l'introduction du flag) */
+    if(!t.title)return false;
     return true;
   });
 
