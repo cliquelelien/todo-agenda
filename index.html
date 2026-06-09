@@ -2086,16 +2086,16 @@ async function restoreAllFromGcal(){
   if(!token){toast('🔒 Connectez-vous à Google d\'abord');return;}
   if(!confirm('Récupérer toutes les tâches depuis Google Agenda ?\n\nCela va effacer la liste locale et la reconstruire depuis GCal.\nLes tâches avec métadonnées Planify seront restaurées automatiquement.'))return;
   showSync('🔄 Récupération depuis GCal…');
-  /* Vider S.tasks — garder uniquement les entrées auxiliaires (cochages par jour) */
   S.tasks=S.tasks.filter(function(t){
     return t.id.includes('__done__')||t.id.includes('__arch__')||t.id.includes('__recur__');
   });
   lsSave();
+  toast('⏳ Étape 1 : S.tasks vidé → '+S.tasks.length+' entrées auxiliaires restantes');
   await fetchGcal();
-  /* Attendre que les IIFEs async (splitMultiDayEvents, resyncColors) se terminent */
+  toast('⏳ Étape 2 : fetchGcal terminé → gcal.length='+gcal.length+' | S.tasks='+S.tasks.length);
   await new Promise(function(r){setTimeout(r,3000);});
+  toast('⏳ Étape 3 : après délai → S.tasks='+S.tasks.length+' | tâches avec titre='+S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length);
   hideSync();
-  /* Basculer le filtre sur "Toutes" pour voir toutes les tâches récupérées */
   _taskFilter='all';
   var btnAll=document.getElementById('filter-all');
   var btnWeek=document.getElementById('filter-week');
@@ -2103,7 +2103,7 @@ async function restoreAllFromGcal(){
   if(btnWeek){btnWeek.classList.remove('active');}
   lsSave();
   renderTasks();renderAg();
-  toast('✅ '+S.tasks.filter(function(t){return !t.id.includes('__')&&t.title;}).length+' tâches récupérées depuis Google Agenda !');
+  toast('✅ Récup terminée : '+S.tasks.filter(function(t){return !t.id.includes('__')&&t.title;}).length+' tâches');
 }
 
 
