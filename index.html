@@ -2090,7 +2090,8 @@ async function restoreAllFromGcal(){
     return t.id.includes('__done__')||t.id.includes('__arch__')||t.id.includes('__recur__');
   });
   lsSave();
-  toast('⏳ Étape 2 : appel GCal (token='+token.slice(0,8)+'…)');
+  toast('⏳ Étape 2 : token='+(token?('OK len='+String(token).length):'NULL'));
+  if(!token){hideSync();toast('❌ Token null — reconnectez-vous via votre avatar');return;}
   try{
     await fetchGcal();
     toast('⏳ Étape 3 : fetchGcal OK → gcal='+gcal.length+' | S.tasks='+S.tasks.length);
