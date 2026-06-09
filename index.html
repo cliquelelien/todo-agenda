@@ -2092,9 +2092,18 @@ async function restoreAllFromGcal(){
   });
   lsSave();
   await fetchGcal();
+  /* Attendre que les IIFEs async (splitMultiDayEvents, resyncColors) se terminent */
+  await new Promise(function(r){setTimeout(r,3000);});
   hideSync();
+  /* Basculer le filtre sur "Toutes" pour voir toutes les tâches récupérées */
+  _taskFilter='all';
+  var btnAll=document.getElementById('filter-all');
+  var btnWeek=document.getElementById('filter-week');
+  if(btnAll){btnAll.classList.add('active');}
+  if(btnWeek){btnWeek.classList.remove('active');}
+  lsSave();
   renderTasks();renderAg();
-  toast('✅ Tâches récupérées depuis Google Agenda !');
+  toast('✅ '+S.tasks.filter(function(t){return !t.id.includes('__')&&t.title;}).length+' tâches récupérées depuis Google Agenda !');
 }
 
 
@@ -2250,6 +2259,8 @@ async function fetchGcal(){
           /* Ignorer les sous-événements déjà créés par Planify "Titre (Ji/N)" */
           if(/\(J\d+\/\d+\)$/.test(e.title||""))return;
           var startDate=e.start.slice(0,10);
+          /* colorId "7"=bleu Planify=fait, "6"=orange=à faire.
+             Events sans couleur Planify (null ou autre couleur) → à faire par défaut. */
           var isDone=(e.colorId==="7");
           /* Calculer la date de fin inclusive */
           var endInclStr=startDate;
