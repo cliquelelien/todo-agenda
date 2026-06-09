@@ -2083,25 +2083,41 @@ initFirebase();
 /* Calendar via fetch REST direct — pas de SDK GAPI */
 
 async function restoreAllFromGcal(){
-  if(!token){toast('🔒 Pas de token — reconnectez-vous');return;}
-  showSync('🔄 Récupération depuis GCal…');
-  toast('⏳ Étape 1 : vidage du cache local…');
+  /* Étape 1 */
+  toast('🔄 Étape 1/4 : vidage cache…');
+  await new Promise(function(r){setTimeout(r,800);});
+
+  if(!token){toast('❌ Token NULL — reconnectez-vous (avatar)');return;}
+
   S.tasks=S.tasks.filter(function(t){
     return t.id.includes('__done__')||t.id.includes('__arch__')||t.id.includes('__recur__');
   });
   lsSave();
-  toast('⏳ Étape 2 : token='+(token?('OK len='+String(token).length):'NULL'));
-  if(!token){hideSync();toast('❌ Token null — reconnectez-vous via votre avatar');return;}
+
+  /* Étape 2 */
+  toast('🔄 Étape 2/4 : token OK, appel GCal…');
+  await new Promise(function(r){setTimeout(r,800);});
+
+  showSync('🔄 Chargement GCal…');
+  var fetchOk=false;
   try{
     await fetchGcal();
-    toast('⏳ Étape 3 : fetchGcal OK → gcal='+gcal.length+' | S.tasks='+S.tasks.length);
+    fetchOk=true;
   }catch(err){
     hideSync();
-    toast('❌ Erreur fetchGcal : '+(err&&err.message||String(err)));
+    toast('❌ Erreur: '+(err&&err.message?err.message.slice(0,60):String(err).slice(0,60)));
     return;
   }
-  await new Promise(function(r){setTimeout(r,3000);});
-  toast('⏳ Étape 4 : '+S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length+' tâches avec titre');
+
+  /* Étape 3 */
+  toast('🔄 Étape 3/4 : gcal='+gcal.length+' events, attente…');
+  await new Promise(function(r){setTimeout(r,3500);});
+
+  /* Étape 4 */
+  var n=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length;
+  toast('🔄 Étape 4/4 : '+n+' tâches, rendu…');
+  await new Promise(function(r){setTimeout(r,500);});
+
   hideSync();
   _taskFilter='all';
   var btnAll=document.getElementById('tf-all-btn');
@@ -2110,7 +2126,8 @@ async function restoreAllFromGcal(){
   if(btnWeek){btnWeek.style.background='transparent';btnWeek.style.color='var(--tx2)';}
   lsSave();
   renderTasks();renderAg();
-  toast('✅ Terminé : '+S.tasks.filter(function(t){return !t.id.includes('__')&&t.title;}).length+' tâches');
+  await new Promise(function(r){setTimeout(r,300);});
+  toast('✅ '+n+' tâches récupérées !');
 }
 
 
