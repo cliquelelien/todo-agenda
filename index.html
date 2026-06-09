@@ -554,6 +554,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 
 <!-- TACHES -->
 <div class="panel active" id="panel-todo">
+  <div id="debug-bar" style="font-size:11px;background:#fff3cd;color:#856404;padding:4px 10px;border-radius:8px;margin-bottom:6px;display:none;"></div>
   <div id="search-results"></div>
   <div id="main-task-content">
   <div class="card">
@@ -3829,6 +3830,14 @@ function showRecurArchiveDialog(t,dueDate,cb){
 
 function renderTasks(){
   const tl=document.getElementById("list-todo"),dl=document.getElementById("list-done"),cd=document.getElementById("card-done");
+  /* Debug bar — montre les compteurs clés */
+  var db=document.getElementById('debug-bar');
+  if(db){
+    var nTasks=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length;
+    var nGcal=gcal.length;
+    db.style.display='block';
+    db.textContent='🔍 S.tasks='+nTasks+' | gcal='+nGcal+' | filtre='+_taskFilter+' | token='+(token?'OK':'NULL');
+  }
 
   /* Onglet tâches : uniquement les tâches créées dans cette app (_createdHere=true)
      Les événements GCal préexistants n'apparaissent PAS ici, uniquement dans le calendrier */
