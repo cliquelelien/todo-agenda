@@ -1276,6 +1276,26 @@ function _onGoogleSignIn(accessToken, profile){
   initApp();
   var doFetch=function(){
     fetchGcal().then(function(){
+      /* Si le localStorage était vide (tâches perdues), les importer automatiquement depuis GCal */
+      var hasTasks=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length>0;
+      if(!hasTasks&&gcal.length>0){
+        /* Déclencher un 2e fetchGcal : cette fois S.tasks est vide donc importGcalTasks
+           va tout importer depuis GCal comme nouvelles tâches */
+        fetchGcal().then(function(){
+          _taskFilter='all';
+          var btnAll=document.getElementById('tf-all-btn');
+          var btnWeek=document.getElementById('tf-week-btn');
+          if(btnAll){btnAll.style.background='#fff';btnAll.style.color='var(--bl)';}
+          if(btnWeek){btnWeek.style.background='transparent';btnWeek.style.color='var(--tx2)';}
+          renderTasks();renderAg();
+          if(curTab==='week')renderWeekQuick();
+          if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
+          updateCalendarBtn();scheduleRecapNotif();
+          var n=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length;
+          if(n>0)toast('✅ '+n+' tâches restaurées depuis Google Agenda');
+        });
+        return;
+      }
       renderTasks();renderAg();
       if(curTab==='week')renderWeekQuick();
       if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
@@ -1302,6 +1322,24 @@ function initFirebase(){
       initApp();
       var doFetch=function(){
         fetchGcal().then(function(){
+          /* Si le localStorage était vide (tâches perdues), les importer automatiquement depuis GCal */
+          var hasTasks=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length>0;
+          if(!hasTasks&&gcal.length>0){
+            fetchGcal().then(function(){
+              _taskFilter='all';
+              var btnAll=document.getElementById('tf-all-btn');
+              var btnWeek=document.getElementById('tf-week-btn');
+              if(btnAll){btnAll.style.background='#fff';btnAll.style.color='var(--bl)';}
+              if(btnWeek){btnWeek.style.background='transparent';btnWeek.style.color='var(--tx2)';}
+              renderTasks();renderAg();
+              if(curTab==='week')renderWeekQuick();
+              if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
+              updateCalendarBtn();scheduleRecapNotif();
+              var n=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length;
+              if(n>0)toast('✅ '+n+' tâches restaurées depuis Google Agenda');
+            });
+            return;
+          }
           renderTasks();renderAg();
           if(curTab==='week')renderWeekQuick();
           if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
