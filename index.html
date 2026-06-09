@@ -616,8 +616,8 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div class="ct" style="margin:0;">&#128204; &#192; faire</div>
       <div style="display:flex;gap:2px;background:var(--blbg);border-radius:8px;padding:2px;">
-        <button id="tf-week-btn" onclick="setTaskFilter('week')" style="padding:4px 12px;border:none;border-radius:6px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer;transition:all .15s;background:#fff;color:var(--bl);box-shadow:0 1px 4px rgba(26,86,160,.12);">&#128198; Semaine</button>
-        <button id="tf-all-btn" onclick="setTaskFilter('all')" style="padding:4px 12px;border:none;border-radius:6px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer;transition:all .15s;background:transparent;color:var(--tx2);">Toutes</button>
+        <button id="tf-week-btn" onclick="setTaskFilter('week')" style="padding:4px 12px;border:none;border-radius:6px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer;transition:all .15s;background:transparent;color:var(--tx2);">&#128198; Semaine</button>
+        <button id="tf-all-btn" onclick="setTaskFilter('all')" style="padding:4px 12px;border:none;border-radius:6px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer;transition:all .15s;background:#fff;color:var(--bl);box-shadow:0 1px 4px rgba(26,86,160,.12);">Toutes</button>
       </div>
     </div>
     <div class="tl" id="list-todo"></div>
@@ -971,7 +971,7 @@ function lsSave(){localStorage.setItem(LS_KEY,JSON.stringify(S));}
 let S=lsLoad(), gcal=[], token=null;
 let allCalendars=[], selectedCals=new Set(JSON.parse(localStorage.getItem('pfy_sel_cals')||'null')||[]);
 let curTab="todo", view="month";
-let _taskFilter="week"; // 'week' | 'all'
+let _taskFilter="all"; // 'week' | 'all'
 
 function setTaskFilter(f){
   _taskFilter=f;
@@ -1276,26 +1276,6 @@ function _onGoogleSignIn(accessToken, profile){
   initApp();
   var doFetch=function(){
     fetchGcal().then(function(){
-      /* Si le localStorage était vide (tâches perdues), les importer automatiquement depuis GCal */
-      var hasTasks=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length>0;
-      if(!hasTasks&&gcal.length>0){
-        /* Déclencher un 2e fetchGcal : cette fois S.tasks est vide donc importGcalTasks
-           va tout importer depuis GCal comme nouvelles tâches */
-        fetchGcal().then(function(){
-          _taskFilter='all';
-          var btnAll=document.getElementById('tf-all-btn');
-          var btnWeek=document.getElementById('tf-week-btn');
-          if(btnAll){btnAll.style.background='#fff';btnAll.style.color='var(--bl)';}
-          if(btnWeek){btnWeek.style.background='transparent';btnWeek.style.color='var(--tx2)';}
-          renderTasks();renderAg();
-          if(curTab==='week')renderWeekQuick();
-          if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
-          updateCalendarBtn();scheduleRecapNotif();
-          var n=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length;
-          if(n>0)toast('✅ '+n+' tâches restaurées depuis Google Agenda');
-        });
-        return;
-      }
       renderTasks();renderAg();
       if(curTab==='week')renderWeekQuick();
       if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
@@ -1322,24 +1302,6 @@ function initFirebase(){
       initApp();
       var doFetch=function(){
         fetchGcal().then(function(){
-          /* Si le localStorage était vide (tâches perdues), les importer automatiquement depuis GCal */
-          var hasTasks=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length>0;
-          if(!hasTasks&&gcal.length>0){
-            fetchGcal().then(function(){
-              _taskFilter='all';
-              var btnAll=document.getElementById('tf-all-btn');
-              var btnWeek=document.getElementById('tf-week-btn');
-              if(btnAll){btnAll.style.background='#fff';btnAll.style.color='var(--bl)';}
-              if(btnWeek){btnWeek.style.background='transparent';btnWeek.style.color='var(--tx2)';}
-              renderTasks();renderAg();
-              if(curTab==='week')renderWeekQuick();
-              if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
-              updateCalendarBtn();scheduleRecapNotif();
-              var n=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length;
-              if(n>0)toast('✅ '+n+' tâches restaurées depuis Google Agenda');
-            });
-            return;
-          }
           renderTasks();renderAg();
           if(curTab==='week')renderWeekQuick();
           if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
@@ -2121,51 +2083,20 @@ initFirebase();
 /* Calendar via fetch REST direct — pas de SDK GAPI */
 
 async function restoreAllFromGcal(){
-  /* Étape 1 */
-  toast('🔄 Étape 1/4 : vidage cache…');
-  await new Promise(function(r){setTimeout(r,800);});
-
-  if(!token){toast('❌ Token NULL — reconnectez-vous (avatar)');return;}
-
+  if(!token){toast('🔒 Reconnectez-vous via votre avatar');return;}
+  showSync('🔄 Récupération depuis GCal…');
   S.tasks=S.tasks.filter(function(t){
     return t.id.includes('__done__')||t.id.includes('__arch__')||t.id.includes('__recur__');
   });
   lsSave();
-
-  /* Étape 2 */
-  toast('🔄 Étape 2/4 : token OK, appel GCal…');
-  await new Promise(function(r){setTimeout(r,800);});
-
-  showSync('🔄 Chargement GCal…');
-  var fetchOk=false;
-  try{
-    await fetchGcal();
-    fetchOk=true;
-  }catch(err){
-    hideSync();
-    toast('❌ Erreur: '+(err&&err.message?err.message.slice(0,60):String(err).slice(0,60)));
-    return;
-  }
-
-  /* Étape 3 */
-  toast('🔄 Étape 3/4 : gcal='+gcal.length+' events, attente…');
-  await new Promise(function(r){setTimeout(r,3500);});
-
-  /* Étape 4 */
-  var n=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length;
-  toast('🔄 Étape 4/4 : '+n+' tâches, rendu…');
-  await new Promise(function(r){setTimeout(r,500);});
-
-  hideSync();
-  _taskFilter='all';
-  var btnAll=document.getElementById('tf-all-btn');
-  var btnWeek=document.getElementById('tf-week-btn');
-  if(btnAll){btnAll.style.background='#fff';btnAll.style.color='var(--bl)';}
-  if(btnWeek){btnWeek.style.background='transparent';btnWeek.style.color='var(--tx2)';}
-  lsSave();
-  renderTasks();renderAg();
-  await new Promise(function(r){setTimeout(r,300);});
-  toast('✅ '+n+' tâches récupérées !');
+  fetchGcal().then(function(){
+    setTimeout(function(){
+      setTaskFilter('all');
+      hideSync();
+      var n=S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length;
+      toast('✅ '+n+' tâches récupérées depuis Google Agenda');
+    },2000);
+  });
 }
 
 
@@ -4023,20 +3954,9 @@ function renderTasks(){
   tl.innerHTML="";dl.innerHTML="";
   const hiddenCount=todo.length-todoFiltered.length;
   if(!todoFiltered.length){
-    /* Diagnostic : affiche les compteurs pour aider au debug mobile */
-    const diagHtml='<div style="font-size:11px;color:var(--tx3);margin-top:8px;line-height:1.8;text-align:left;background:var(--blbg);border-radius:8px;padding:8px 10px;">'
-      +'📊 S.tasks='+S.tasks.length
-      +' | gcal='+gcal.length
-      +' | appTasks='+appTasks.length
-      +' | todo='+todo.length
-      +' | filtre='+_taskFilter
-      +'<br>tâches titres='+S.tasks.filter(function(t){return t.title&&!t.id.includes('__');}).length
-      +'<br>done='+S.tasks.filter(function(t){return t.title&&!t.id.includes('__')&&t.done;}).length
-      +' | archived='+S.tasks.filter(function(t){return t.title&&!t.id.includes('__')&&t.archived;}).length
-      +'</div>';
-    tl.innerHTML=(_taskFilter==='week'&&hiddenCount>0
-      ?'<div class="emp">Aucune tâche cette semaine 🎉<br><span style="font-size:11px;color:var(--tx3);">'+hiddenCount+' tâche'+(hiddenCount>1?'s':'')+' au-delà</span></div>'
-      :'<div class="emp">Aucune tâche 🎉</div>')+diagHtml;
+    tl.innerHTML=_taskFilter==='week'&&hiddenCount>0
+      ?'<div class="emp">Aucune tâche cette semaine 🎉<br><span style="font-size:11px;color:var(--tx3);">'+hiddenCount+' tâche'+(hiddenCount>1?'s':'')+' au-delà — cliquez sur "Toutes"</span></div>'
+      :'<div class="emp">Aucune tâche 🎉</div>';
   } else {
     todoFiltered.forEach(t=>tl.appendChild(buildTask(t)));
     if(_taskFilter==='week'&&hiddenCount>0){
