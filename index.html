@@ -3963,8 +3963,8 @@ async function planTask(tid,date,tS,tE){
     const recur=t.recurrence||null;
     if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==tid);
-    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",due:date,done:false,archived:false,remind:t.remind||0,recurrence:recur,dueEnd:t.dueEnd||null,_pendingTS:tS||null,_pendingTE:tE||null,_createdHere:true,_assignee:assignee});
-    lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();
+    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",due:date,done:false,archived:false,remind:t.remind||0,reminders:t.reminders||[],recurrence:recur,dueEnd:t.dueEnd||null,_pendingTS:tS||null,_pendingTE:tE||null,_createdHere:true,_assignee:assignee});
+    lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
     const recLbl={"DAILY":"↻ Chaque jour","WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
     const assignMsg=(assignee!=='me'&&getSpouseEmail())?(' · '+(assignee==='both'?'👫 Partagé':'👩 '+getSpouseName())):'';
     toast('📌 "'+t.title.slice(0,20)+'" planifié'+(tS?" à "+tS:"")+" · "+fD(date)+(recur?" · "+(recLbl[recur]||"↻"):"")+assignMsg);
@@ -4049,7 +4049,7 @@ async function addTask(){
         S.tasks.push({id:dayEventIds[0],title,desc,due:startDate,done:false,archived:false,
           remind,dueEnd,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,
           _dayEventIds:dayEventIds,_assignee:assignee});
-        lsSave();if(token&&dayEventIds[0])await patchGcalMeta(dayEventIds[0]);await fetchGcal();renderTasks();renderAg();
+        lsSave();if(token&&dayEventIds[0])await patchGcalMeta(dayEventIds[0]);await fetchGcal();renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
         const assignLbl=assignee!=='me'?(' · '+(assignee==='both'?'👫 Partagé':'👩 '+getSpouseName())):'';
         toast('📌 "'+title.slice(0,20)+'" → '+fD(startDate)+" – "+fD(dueEnd)+" ("+total+" événements GCal)"+assignLbl);
         return;
@@ -4062,7 +4062,7 @@ async function addTask(){
       if(ev&&ev.id){
         S.tasks.push({id:ev.id,title,desc,due:startDate,done:false,archived:false,remind,
           dueEnd:dueEnd||null,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,_assignee:assignee});
-        lsSave();await fetchGcal();renderTasks();renderAg();
+        lsSave();await fetchGcal();renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
         let msg='📌 "'+title.slice(0,20)+'"';
         if(due)msg+=' → '+fD(due);else msg+=' (aujourd\'hui)';
         if(tim)msg+=' à '+tim;
@@ -5035,6 +5035,13 @@ function scheduleNotif(task,gcalEvent){
   const start=gcalEvent.start;
   if(!start||!start.includes("T"))return;
   const eventTime=new Date(start).getTime();
+  /* Annuler les timers déjà programmés pour cette tâche avant de replanifier,
+     pour éviter les doublons si scheduleAllNotifs est appelé plusieurs fois */
+  window._scNotifTimers=window._scNotifTimers||{};
+  if(window._scNotifTimers[task.id]){
+    window._scNotifTimers[task.id].forEach(function(tm){clearTimeout(tm);});
+  }
+  window._scNotifTimers[task.id]=[];
   /* Construire liste de tous les rappels : toujours au moment de l'événement (0),
      plus les rappels supplémentaires éventuellement précisés par l'utilisateur */
   const reminders=[0];
@@ -5047,13 +5054,14 @@ function scheduleNotif(task,gcalEvent){
     const notifTime=eventTime-(remMin*60*1000);
     const delay=notifTime-Date.now();
     if(delay<-60000||delay>14*24*60*60*1000)return;
-    setTimeout(function(){
+    const tm=setTimeout(function(){
       if(Notification.permission!=="granted")return;
       const label=fmtRemLabel(remMin);
       const body=remMin>0?label+" — "+fT(start):"Maintenant — "+fT(start);
       const n=new Notification("📅 "+task.title,{body,tag:"task-"+task.id+"-r"+remMin,requireInteraction:false});
       n.onclick=function(){window.focus();n.close();};
     },Math.max(delay,0));
+    window._scNotifTimers[task.id].push(tm);
   });
 }
 
@@ -5328,7 +5336,7 @@ async function parseVoiceTask(txt){
     hideSync();
     if(ev&&ev.id){
       S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,_createdHere:true});
-      lsSave();await fetchGcal();
+      lsSave();await fetchGcal();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
       let msg='📌 "'+title.slice(0,25)+'" → '+fD(dateStr);
       if(timeStr)msg+=" à "+timeStr;
       toast(msg);
@@ -5350,7 +5358,7 @@ async function parseVoiceTask(txt){
     hideSync();
     if(ev&&ev.id){
       S.tasks.push({id:ev.id,title,desc:"",done:false,archived:false,remind,_createdHere:true});
-      lsSave();await fetchGcal();
+      lsSave();await fetchGcal();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
       toast('📌 "'+title.slice(0,25)+'" ajouté à Google Agenda (aujourd\'hui)');
       renderTasks();return;
     }
@@ -5723,7 +5731,7 @@ function saveTaskEdit(){
       });
       lsSave();
       hideSync();
-      await fetchGcal();renderTasks();renderAg();
+      await fetchGcal();renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
     })();
   } else if(token&&gcalEv){
     const date=t.due||(gcalEv.start.slice(0,10));
@@ -5734,7 +5742,7 @@ function saveTaskEdit(){
       patchAssigneePromise=patchGcalAssignee(gcalEv.id,t._assignee);
     }
     patchAssigneePromise.then(()=>{
-      updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();});});
+      updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});});
     });
   } else if(token&&t.due){
     /* Tâche locale sans event GCal connu (ex: copie récente) → créer dans GCal */
@@ -5773,7 +5781,7 @@ function saveTaskEdit(){
         }
       }
       hideSync();
-      await fetchGcal();renderTasks();renderAg();
+      await fetchGcal();renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
     })();
   } else {
     renderTasks();renderAg();
