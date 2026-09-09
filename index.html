@@ -5035,12 +5035,13 @@ function scheduleNotif(task,gcalEvent){
   const start=gcalEvent.start;
   if(!start||!start.includes("T"))return;
   const eventTime=new Date(start).getTime();
-  /* Construire liste de tous les rappels */
-  const reminders=[];
+  /* Construire liste de tous les rappels : toujours au moment de l'événement (0),
+     plus les rappels supplémentaires éventuellement précisés par l'utilisateur */
+  const reminders=[0];
   if(task.reminders&&task.reminders.length){
-    task.reminders.forEach(function(r){reminders.push(r.min||0);});
-  } else {
-    reminders.push(task.remind||0);
+    task.reminders.forEach(function(r){const m=r.min||0;if(reminders.indexOf(m)===-1)reminders.push(m);});
+  } else if(task.remind){
+    reminders.push(task.remind);
   }
   reminders.forEach(function(remMin){
     const notifTime=eventTime-(remMin*60*1000);
