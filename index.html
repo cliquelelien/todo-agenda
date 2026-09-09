@@ -2702,7 +2702,7 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
   }
   return await calFetch('POST','/calendars/primary/events',body);
 }
-async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd){
+async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd,remindMin){
   if(!token||!gcalId)return;
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -2723,12 +2723,14 @@ async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd){
   var isNowAllDay=!tS;
   var method=(wasAllDay!==isNowAllDay)?'PUT':'PATCH';
   var gcalDescU=buildGcalDescription(gcalId)||(desc||"");
-  var body={summary:title,description:gcalDescU,start:startObj2,end:endObj2,colorId};
+  remindMin=remindMin||0;
+  var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
+  var body={summary:title,description:gcalDescU,start:startObj2,end:endObj2,colorId,reminders};
   var metaStr=buildPlanifyMeta(gcalId);
   if(metaStr)body.extendedProperties={private:{planify:metaStr}};
   await calFetch(method,'/calendars/primary/events/'+gcalId,body);
 }
-async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd){
+async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd,remindMin){
   if(!token||!gcalId)return;
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -2744,7 +2746,9 @@ async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,due
     excl3.setDate(excl3.getDate()+1);
     endObj3={date:ds(excl3)};
   }
-  var body={summary:title,description:buildGcalDescription(gcalId)||(desc||""),start:startObj3,end:endObj3,colorId};
+  remindMin=remindMin||0;
+  var reminders3=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
+  var body={summary:title,description:buildGcalDescription(gcalId)||(desc||""),start:startObj3,end:endObj3,colorId,reminders:reminders3};
   if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
   else{body.recurrence=[];}
   var existingEv=gcal.find(e=>e.id===gcalId);
@@ -3661,7 +3665,8 @@ async function saveEvEdit(){
   const desc=document.getElementById("ev-descfield").value;
   const recur=document.getElementById("ev-recur").value||null;
   showSync("Mise à jour…");
-  await updateGcalEvWithRecur(evPending,newTitle,desc,date,ts,te,recur);
+  const _evTask=S.tasks.find(x=>x.id===evPending);
+  await updateGcalEvWithRecur(evPending,newTitle,desc,date,ts,te,recur,null,_evTask?_evTask.remind||0:0);
   /* Mettre à jour localement : méta + cache gcal */
   ensureMeta(evPending,newTitle);
   const meta=metaOf(evPending);
@@ -3961,7 +3966,7 @@ async function planTask(tid,date,tS,tE){
   hideSync();
   if(ev&&ev.id){
     const recur=t.recurrence||null;
-    if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur);hideSync();}
+    if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur,null,t.remind||0);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==tid);
     S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",due:date,done:false,archived:false,remind:t.remind||0,reminders:t.reminders||[],recurrence:recur,dueEnd:t.dueEnd||null,_pendingTS:tS||null,_pendingTE:tE||null,_createdHere:true,_assignee:assignee});
     lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
@@ -5742,7 +5747,7 @@ function saveTaskEdit(){
       patchAssigneePromise=patchGcalAssignee(gcalEv.id,t._assignee);
     }
     patchAssigneePromise.then(()=>{
-      updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});});
+      updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null,t.remind||0).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});});
     });
   } else if(token&&t.due){
     /* Tâche locale sans event GCal connu (ex: copie récente) → créer dans GCal */
@@ -6549,7 +6554,7 @@ function addShopItem(text){
         if(token){
           var gcalEvU=gcal.find(function(e){return e.id===t.id;});
           if(gcalEvU){
-            updateGcalEvWithRecur(gcalEvU.id,existing.title,existing.desc||'',existing.due||gcalEvU.start.slice(0,10),existing._pendingTS||null,existing._pendingTE||null,existing.recurrence||null,existing.dueEnd||null).then(function(){fetchGcal().then(function(){renderTasks();renderAg();});});
+            updateGcalEvWithRecur(gcalEvU.id,existing.title,existing.desc||'',existing.due||gcalEvU.start.slice(0,10),existing._pendingTS||null,existing._pendingTE||null,existing.recurrence||null,existing.dueEnd||null,existing.remind||0).then(function(){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});});
           }
         }
         toast('✏️ Tâche modifiée : "'+existing.title.slice(0,25)+'"');
