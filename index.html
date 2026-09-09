@@ -917,6 +917,10 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <label style="margin:0;">🔔 Rappels</label>
       <button type="button" onclick="addTeReminder()" style="font-family:inherit;font-size:11px;font-weight:800;background:var(--blbg);border:1.5px solid var(--blb);border-radius:8px;padding:3px 10px;cursor:pointer;color:var(--bl);">+ Ajouter</button>
     </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;padding:6px 9px;background:var(--blbg);border:1.5px solid var(--blb);border-radius:9px;font-size:13px;font-weight:700;color:var(--tx2);">
+      <span>✅ Au moment de l'événement</span>
+      <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--tx3);">toujours actif</span>
+    </div>
     <div id="te-reminders-list" style="margin-bottom:6px;"></div>
     <!-- kept for backward compat -->
     <input type="hidden" id="te-remind" value="0">
@@ -1792,7 +1796,8 @@ function saveRecapSettings(){
 
 /* ══ PARAMÈTRES RAPPELS MULTIPLES ══ */
 function addReminderRow(container,val){
-  var PRESET_LABELS={'0':'Au moment','5':'5 min','15':'15 min','30':'30 min','60':'1h','120':'2h','360':'6h','1440':'1 jour','2880':'2 jours','10080':'1 semaine'};
+  var PRESET_LABELS={'5':'5 min avant','15':'15 min avant','30':'30 min avant','60':'1h avant','120':'2h avant','360':'6h avant','1440':'1 jour avant','2880':'2 jours avant','10080':'1 semaine avant'};
+  if(!val||val==0)val=15;
   var row=document.createElement('div');
   row.style.cssText='display:flex;align-items:center;gap:6px;margin-bottom:5px;';
   var sel=document.createElement('select');
@@ -1814,10 +1819,11 @@ function addReminderRow(container,val){
 }
 function getRemindersFromUI(){
   var rows=document.querySelectorAll('#te-reminders-list select');
-  var result=[];
+  /* "Au moment" (0) est toujours inclus, non modifiable via l'UI */
+  var result=[{min:0}];
   rows.forEach(function(sel){
     var v=parseInt(sel.value)||0;
-    result.push({min:v});
+    if(v>0)result.push({min:v});
   });
   return result;
 }
@@ -2154,13 +2160,33 @@ function updateAssigneeUI(){
                  Elle voit l'event dans son propre agenda Google
    - 'both'   → idem : attendees:[spouse, me] — les deux voient l'event
 */
-async function createGcalEvWithAssignee(title,desc,date,tS,tE,remindMin,taskId,dueEnd,assignee){
+/* Construit l'objet reminders Google Calendar à partir soit d'un tableau
+   [{min:0},{min:15},...] (rappels multiples Planify), soit d'un simple nombre
+   (rétrocompatibilité). "Au moment" (0) est toujours garanti dans le résultat. */
+function buildGcalReminders(remindersArrOrNum){
+  var mins=[0];
+  if(Array.isArray(remindersArrOrNum)&&remindersArrOrNum.length){
+    remindersArrOrNum.forEach(function(r){
+      var m=(typeof r==='object')?(r.min||0):(r||0);
+      if(mins.indexOf(m)===-1)mins.push(m);
+    });
+  } else if(typeof remindersArrOrNum==='number'&&remindersArrOrNum>0){
+    mins.push(remindersArrOrNum);
+  }
+  var overrides=[];
+  mins.forEach(function(m){
+    overrides.push({method:"popup",minutes:m});
+    if(m>0)overrides.push({method:"email",minutes:m});
+  });
+  return {useDefault:false,overrides:overrides};
+}
+async function createGcalEvWithAssignee(title,desc,date,tS,tE,remindMin,taskId,dueEnd,assignee,remindersArr){
   /* Construire le body de base */
   if(!token)return null;
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
   remindMin=remindMin||0;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-  var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
+  var reminders=buildGcalReminders(remindersArr&&remindersArr.length?remindersArr:remindMin);
   var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
   var gcalEndDate=dueEnd||date;
   var endObj;
@@ -2676,12 +2702,12 @@ async function patchGcalColor(gcalId){
       if(meta){meta._colorSynced=colorId;lsSave();}
     });
 }
-async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
+async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd,remindersArr){
   if(!token)return null;
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
   remindMin=remindMin||0;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-  var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
+  var reminders=buildGcalReminders(remindersArr&&remindersArr.length?remindersArr:remindMin);
   var startObj=tS?{dateTime:date+"T"+tS+":00",timeZone:tz}:{date:date};
   var gcalEndDate=dueEnd||date;
   var endObj;
@@ -2702,7 +2728,7 @@ async function createGcalEv(title,desc,date,tS,tE,remindMin,taskId,dueEnd){
   }
   return await calFetch('POST','/calendars/primary/events',body);
 }
-async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd,remindMin){
+async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd,remindMin,remindersArr){
   if(!token||!gcalId)return;
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -2724,13 +2750,13 @@ async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd,remindMin){
   var method=(wasAllDay!==isNowAllDay)?'PUT':'PATCH';
   var gcalDescU=buildGcalDescription(gcalId)||(desc||"");
   remindMin=remindMin||0;
-  var reminders=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
+  var reminders=buildGcalReminders(remindersArr&&remindersArr.length?remindersArr:remindMin);
   var body={summary:title,description:gcalDescU,start:startObj2,end:endObj2,colorId,reminders};
   var metaStr=buildPlanifyMeta(gcalId);
   if(metaStr)body.extendedProperties={private:{planify:metaStr}};
   await calFetch(method,'/calendars/primary/events/'+gcalId,body);
 }
-async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd,remindMin){
+async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd,remindMin,remindersArr){
   if(!token||!gcalId)return;
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -2747,7 +2773,7 @@ async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,due
     endObj3={date:ds(excl3)};
   }
   remindMin=remindMin||0;
-  var reminders3=remindMin>0?{useDefault:false,overrides:[{method:"popup",minutes:remindMin},{method:"email",minutes:remindMin}]}:{useDefault:false,overrides:[{method:"popup",minutes:0}]};
+  var reminders3=buildGcalReminders(remindersArr&&remindersArr.length?remindersArr:remindMin);
   var body={summary:title,description:buildGcalDescription(gcalId)||(desc||""),start:startObj3,end:endObj3,colorId,reminders:reminders3};
   if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
   else{body.recurrence=[];}
@@ -3666,7 +3692,7 @@ async function saveEvEdit(){
   const recur=document.getElementById("ev-recur").value||null;
   showSync("Mise à jour…");
   const _evTask=S.tasks.find(x=>x.id===evPending);
-  await updateGcalEvWithRecur(evPending,newTitle,desc,date,ts,te,recur,null,_evTask?_evTask.remind||0:0);
+  await updateGcalEvWithRecur(evPending,newTitle,desc,date,ts,te,recur,null,_evTask?_evTask.remind||0:0,_evTask?_evTask.reminders:null);
   /* Mettre à jour localement : méta + cache gcal */
   ensureMeta(evPending,newTitle);
   const meta=metaOf(evPending);
@@ -3962,11 +3988,11 @@ async function planTask(tid,date,tS,tE){
   else if(existingGcal){showSync("Mise à jour…");await delGcalEv(existingGcal.id);}
   showSync("Envoi Google Agenda…");
   const assignee=t._assignee||'me';
-  const ev=await createGcalEvWithAssignee(t.title,t.desc,date,tS,tE,t.remind||0,tid,null,assignee);
+  const ev=await createGcalEvWithAssignee(t.title,t.desc,date,tS,tE,t.remind||0,tid,null,assignee,t.reminders);
   hideSync();
   if(ev&&ev.id){
     const recur=t.recurrence||null;
-    if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur,null,t.remind||0);hideSync();}
+    if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur,null,t.remind||0,t.reminders);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==tid);
     S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",due:date,done:false,archived:false,remind:t.remind||0,reminders:t.reminders||[],recurrence:recur,dueEnd:t.dueEnd||null,_pendingTS:tS||null,_pendingTE:tE||null,_createdHere:true,_assignee:assignee});
     lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
@@ -5493,12 +5519,13 @@ function openTaskEdit(tid){
     }
     endEl.value=dueEndVal;
   }
-  /* Rappels multiples */
+  /* Rappels : "Au moment" (0) est désormais fixe et implicite (badge non modifiable).
+     La liste éditable ne contient que les rappels additionnels (min>0). */
   const remList=document.getElementById('te-reminders-list');
   if(remList){
     remList.innerHTML='';
-    var rems=t.reminders&&t.reminders.length?t.reminders:[{min:t.remind||0}];
-    rems.forEach(function(r){addReminderRow(remList,r.min||0);});
+    var rems=t.reminders&&t.reminders.length?t.reminders:[];
+    rems.filter(function(r){return (r.min||0)>0;}).forEach(function(r){addReminderRow(remList,r.min);});
   }
   /* Compat: hidden input */
   const remSel2=document.getElementById("te-remind");
@@ -5581,7 +5608,7 @@ function duplicateTask(tid){
           else if(i===total-1&&te){dayTS="00:00";dayTE=te;}
         }
         const dayTitle=copy.title+" (J"+(i+1)+"/"+total+")";
-        const ev=await createGcalEvWithAssignee(dayTitle,copy.desc||"",d,dayTS,dayTE,copy.remind||0,null,null,assignee);
+        const ev=await createGcalEvWithAssignee(dayTitle,copy.desc||"",d,dayTS,dayTE,copy.remind||0,null,null,assignee,copy.reminders);
         if(ev&&ev.id)dayIds.push(ev.id);
       }
       if(dayIds.length){
@@ -5591,7 +5618,7 @@ function duplicateTask(tid){
       }
     } else {
       /* Mono-jour — null comme taskId pour éviter méta avec id temporaire */
-      const ev=await createGcalEvWithAssignee(copy.title,copy.desc||"",due,ts,te,copy.remind||0,null,null,assignee);
+      const ev=await createGcalEvWithAssignee(copy.title,copy.desc||"",due,ts,te,copy.remind||0,null,null,assignee,copy.reminders);
       if(ev&&ev.id){
         /* Mettre à jour l'id AVANT fetchGcal pour éviter import doublon */
         const t=S.tasks.find(x=>x.id===newId);
@@ -5719,7 +5746,7 @@ function saveTaskEdit(){
         }
         const dayTitle=t.title+" (J"+(i+1)+"/"+newTotal+")";
         const colorId=checkedDates.has(d)?"7":"6";
-        const ev=await createGcalEvWithAssignee(dayTitle,t.desc||"",d,dayTS,dayTE,t.remind||0,null,null,t._assignee||'me');
+        const ev=await createGcalEvWithAssignee(dayTitle,t.desc||"",d,dayTS,dayTE,t.remind||0,null,null,t._assignee||'me',t.reminders);
         if(ev&&ev.id){
           newIds.push(ev.id);
           if(colorId==="7"){
@@ -5747,7 +5774,7 @@ function saveTaskEdit(){
       patchAssigneePromise=patchGcalAssignee(gcalEv.id,t._assignee);
     }
     patchAssigneePromise.then(()=>{
-      updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null,t.remind||0).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});});
+      updateGcalEvWithRecur(gcalEv.id,t.title,t.desc,date,_ts,_te,t.recurrence,t.dueEnd||null,t.remind||0,t.reminders).then(()=>{hideSync();fetchGcal().then(()=>{renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});});
     });
   } else if(token&&t.due){
     /* Tâche locale sans event GCal connu (ex: copie récente) → créer dans GCal */
@@ -5769,7 +5796,7 @@ function saveTaskEdit(){
             else if(i===total2-1&&_te){dayTS2="00:00";dayTE2=_te;}
           }
           const dayTitle2=t.title+" (J"+(i+1)+"/"+total2+")";
-          const ev2=await createGcalEvWithAssignee(dayTitle2,t.desc||"",d,dayTS2,dayTE2,t.remind||0,null,null,t._assignee||'me');
+          const ev2=await createGcalEvWithAssignee(dayTitle2,t.desc||"",d,dayTS2,dayTE2,t.remind||0,null,null,t._assignee||'me',t.reminders);
           if(ev2&&ev2.id)dayIds2.push(ev2.id);
         }
         if(dayIds2.length){
@@ -5778,7 +5805,7 @@ function saveTaskEdit(){
         }
         gcalId=dayIds2[0]||null;
       } else {
-        const ev3=await createGcalEvWithAssignee(t.title,t.desc||"",t.due,_ts,_te,t.remind||0,t.id,null,t._assignee||'me');
+        const ev3=await createGcalEvWithAssignee(t.title,t.desc||"",t.due,_ts,_te,t.remind||0,t.id,null,t._assignee||'me',t.reminders);
         if(ev3&&ev3.id){
           const oldId=t.id;
           t.id=ev3.id;lsSave();
@@ -6554,7 +6581,7 @@ function addShopItem(text){
         if(token){
           var gcalEvU=gcal.find(function(e){return e.id===t.id;});
           if(gcalEvU){
-            updateGcalEvWithRecur(gcalEvU.id,existing.title,existing.desc||'',existing.due||gcalEvU.start.slice(0,10),existing._pendingTS||null,existing._pendingTE||null,existing.recurrence||null,existing.dueEnd||null,existing.remind||0).then(function(){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});});
+            updateGcalEvWithRecur(gcalEvU.id,existing.title,existing.desc||'',existing.due||gcalEvU.start.slice(0,10),existing._pendingTS||null,existing._pendingTE||null,existing.recurrence||null,existing.dueEnd||null,existing.remind||0,existing.reminders).then(function(){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});});
           }
         }
         toast('✏️ Tâche modifiée : "'+existing.title.slice(0,25)+'"');
