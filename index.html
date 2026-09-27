@@ -2090,7 +2090,7 @@ function _launchGoogleAuth(){
       }).catch(function(e){setAuthLoading(false);showAuthError(e.message);});
     }
   });
-  client.requestAccessToken({prompt:'select_account'});
+  client.requestAccessToken({prompt:''});
 }
 
 /* authEmail supprimé — auth Google uniquement */
