@@ -830,6 +830,10 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:340px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.25);">
       <h3 id="ia-modal-title" style="font-size:16px;font-weight:800;color:var(--tx);margin-bottom:6px;">⚡ Clé API Groq</h3>
       <p id="ia-modal-desc" style="font-size:12px;color:var(--tx2);margin-bottom:14px;line-height:1.5;">Gratuit et sans carte bancaire sur <a href="https://console.groq.com" target="_blank" style="color:var(--bl);">console.groq.com</a> → API Keys → Create API Key</p>
+      <div style="font-size:11px;font-weight:800;color:var(--bld);margin-bottom:4px;">✨ Assistant automatique (recommandé)</div>
+      <input type="url" id="ia-worker-input" placeholder="https://…workers.dev" autocomplete="off"
+        style="width:100%;font-family:inherit;font-size:13px;font-weight:600;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:10px 13px;outline:none;margin-bottom:12px;display:block;">
+      <div style="font-size:11px;color:var(--tx2);margin-bottom:6px;">Ou, sans assistant automatique, une clé personnelle :</div>
       <input type="password" id="ia-apikey-input" placeholder="gsk_…" autocomplete="off"
         style="width:100%;font-family:inherit;font-size:13px;font-weight:600;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:10px 13px;outline:none;margin-bottom:14px;display:block;">
       <div style="display:flex;gap:8px;">
@@ -6587,7 +6591,7 @@ function addShopItem(text){
   var _msgs=[]; // historique {role:'user'|'assistant', content:[...]}
   var _images=[]; // [{base64, mediaType, previewUrl}]
   var _micRecog=null, _micActive=false;
-  var _busy=false;
+  var _busy=false;var _selfFix=false;
   /* ── Config IA — API Anthropic native ── */
 
   /* ── Initialisation ── */
@@ -6598,7 +6602,7 @@ function addShopItem(text){
     _msgs=[];
     _images=[];
     iaRestoreModelSelect();
-    var isGemma=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b');
+    var isGemma=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b')&&!iaWorkerOn();
     var welcomeText=isGemma
       ? '👋 Bonjour ! Dites-moi ce que vous voulez faire :\n"**Déplace** mon RDV du 18 juin à 15h au 20 juin à 10h"\n"**Fixe** un RDV dentiste mardi à 14h"\n"**Supprime** le RDV de jeudi"\n\nJ\'agis directement, sans confirmation.'
       : '👋 Bonjour ! Je suis votre assistant de planification.\n\nJe peux **analyser des documents** (factures, courriers, contrats…), **planifier automatiquement** rendez-vous et tâches dans Planify + Google Agenda, et **décomposer vos objectifs** en étapes concrètes.\n\nQue souhaitez-vous planifier ?';
@@ -6722,6 +6726,127 @@ function addShopItem(text){
     try{r.start();}catch(e){_micActive=false;if(btn){btn.classList.remove('recording');btn.textContent='🎙️';}}
   };
 
+  /* ── Fiabilité : agenda, validation, annulation ── */
+  var IA_DAYS=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+  function iaDayName(d){return IA_DAYS[new Date(d+'T12:00:00').getDay()];}
+  function iaTitleOf(id){var t=S.tasks.find(function(x){return x.id===id;});if(t&&t.title)return t.title;var g=gcal.find(function(e){return e.id===id;});return g?g.title:'';}
+  function iaMin(hm){var p=String(hm||'').split(':');return (+p[0])*60+(+p[1]);}
+  function iaBusySlots(date){
+    var seen={},out=[];
+    eventsOn(date).forEach(function(e){
+      if(e.allDay||e._archived||e._virtual||!e.start||e.start.indexOf('T')<0||seen[e.id])return;
+      seen[e.id]=1;
+      var s=e.start.slice(0,10)===date?e.start.slice(11,16):'00:00';
+      var en=(e.end&&e.end.indexOf('T')>0)?(e.end.slice(0,10)===date?e.end.slice(11,16):'23:59'):addOneHour(s);
+      out.push({id:e.id,title:e.title||'',s:s,e:en});
+    });
+    return out;
+  }
+  function iaAgenda14(){
+    var out='AGENDA 14 JOURS (créneaux déjà occupés — ne jamais chevaucher) :\n';
+    var d=new Date();
+    for(var i=0;i<14;i++){
+      var k=ds(d),b=iaBusySlots(k).sort(function(a,c){return iaMin(a.s)-iaMin(c.s);});
+      out+='- '+iaDayName(k).slice(0,3)+' '+k+' : '+(b.length?b.map(function(x){return x.s+'-'+x.e+' '+x.title.slice(0,30);}).join(' ; '):'libre')+'\n';
+      d.setDate(d.getDate()+1);
+    }
+    return out;
+  }
+  function iaValidDate(x){return /^\d{4}-\d{2}-\d{2}$/.test(x||'')&&ds(new Date(x+'T12:00:00'))===x;}
+  function iaValidTime(x){return /^([01]\d|2[0-3]):[0-5]\d$/.test(x||'');}
+  function iaValidate(actions){
+    var issues=[],warns={},ok=[],orig=[];
+    (actions||[]).forEach(function(a,i){
+      var n='Action '+(i+1)+' : ';
+      if(!a||typeof a!=='object'||['task','update','delete'].indexOf(a.type)<0){issues.push(n+'type inconnu (utilise task, update ou delete)');return;}
+      if(a.type==='task'&&!(a.title&&String(a.title).trim())){issues.push(n+'titre manquant');return;}
+      if(a.type!=='task'&&!iaTitleOf(a.id)){issues.push(n+'id "'+a.id+'" introuvable (utilise exactement un id du contexte)');return;}
+      a=Object.assign({},a);
+      if(a.due&&!iaValidDate(a.due)){issues.push(n+'date invalide "'+a.due+'" (format AAAA-MM-JJ)');return;}
+      if(a.dueEnd&&!iaValidDate(a.dueEnd)){issues.push(n+'date de fin invalide');return;}
+      if(a.type==='task'&&a.timeStart&&!a.due){issues.push(n+'heure donnée sans date');return;}
+      if(a.timeStart&&!iaValidTime(a.timeStart)){issues.push(n+'heure de début invalide (format HH:MM)');return;}
+      if(a.timeEnd&&!iaValidTime(a.timeEnd)){issues.push(n+'heure de fin invalide (format HH:MM)');return;}
+      if(a.timeStart&&!a.timeEnd)a.timeEnd=addOneHour(a.timeStart);
+      if(a.timeStart&&a.timeEnd&&iaMin(a.timeEnd)<=iaMin(a.timeStart)){issues.push(n+'l\'heure de fin doit être après le début');return;}
+      if(a.due&&a.dueEnd&&a.dueEnd<a.due){issues.push(n+'la date de fin est avant le début');return;}
+      ok.push(a);orig.push(i);
+    });
+    var deleted={};ok.forEach(function(a){if(a.type==='delete')deleted[a.id]=1;});
+    var placed=[];
+    ok.forEach(function(a,j){
+      if(a.type==='delete')return;
+      var ex={},g=null,date=a.due,ts=a.timeStart,te=a.timeEnd;
+      if(a.type==='update'){
+        if(!(a.due||a.timeStart||a.timeEnd))return;
+        ex=S.tasks.find(function(x){return x.id===a.id;})||{};
+        g=gcal.find(function(e){return e.id===a.id;});
+        date=a.due||ex.due||(g&&g.start.slice(0,10));
+        ts=a.timeStart||ex._pendingTS||(g&&g.start.indexOf('T')>0?g.start.slice(11,16):null);
+        te=a.timeEnd||(a.timeStart?null:(ex._pendingTE||(g&&g.end&&g.end.indexOf('T')>0?g.end.slice(11,16):null)));
+      }
+      if(!date||!ts)return;
+      var sm=iaMin(ts),em=iaMin(te||addOneHour(ts));
+      if(em<=sm)em=sm+60;
+      var n='Action '+(orig[j]+1)+' : ';
+      function w(m){issues.push(n+m);warns[j]=(warns[j]?warns[j]+' · ':'')+m;}
+      iaBusySlots(date).forEach(function(b){
+        if(b.id===a.id||deleted[b.id])return;
+        if(sm<iaMin(b.e)&&iaMin(b.s)<em)w('chevauche « '+b.title.slice(0,30)+' » ('+b.s+'–'+b.e+')');
+      });
+      placed.forEach(function(q){if(q.date===date&&sm<q.e&&q.s<em)w('chevauche « '+q.t.slice(0,30)+' » (autre action du plan)');});
+      placed.push({date:date,s:sm,e:em,t:a.title||iaTitleOf(a.id)});
+    });
+    return {actions:ok,issues:issues,warns:warns};
+  }
+  var _snapMem={};
+  function iaSnapshot(){
+    var id='s'+Date.now(),tasks=JSON.parse(JSON.stringify(S.tasks));
+    _snapMem[id]=tasks;
+    try{
+      var all=JSON.parse(localStorage.getItem('planify_ia_snapshots')||'[]');
+      all.push({id:id,t:Date.now(),tasks:tasks});
+      while(all.length>8)all.shift();
+      localStorage.setItem('planify_ia_snapshots',JSON.stringify(all));
+    }catch(e){}
+    return id;
+  }
+  function iaUndo(id){
+    var snap=_snapMem[id];
+    if(!snap){try{var f=JSON.parse(localStorage.getItem('planify_ia_snapshots')||'[]').find(function(x){return x.id===id;});snap=f&&f.tasks;}catch(e){}}
+    if(!snap){toast('⚠️ Annulation impossible');return;}
+    var snapMap={},curMap={},nDel=0,nRes=0,nMod=0,nSkip=0;
+    snap.forEach(function(t){snapMap[t.id]=t;});
+    S.tasks.forEach(function(t){curMap[t.id]=t;});
+    S.tasks.slice().forEach(function(t){
+      if(snapMap[t.id]||isAuxTaskId(t.id))return;
+      S.tasks=S.tasks.filter(function(x){return x.id!==t.id&&(x.id||'').indexOf(t.id+'__')!==0;});
+      if(token)delGcalEv(t.id).catch(function(){});
+      nDel++;
+    });
+    snap.forEach(function(t){
+      if(curMap[t.id])return;
+      if(t.recurrence){nSkip++;return;}
+      var c=JSON.parse(JSON.stringify(t));S.tasks.push(c);nRes++;
+      if(token&&!isAuxTaskId(c.id)&&c.due){
+        createGcalEv(c.title,c.desc||'',c.due,c._pendingTS||null,c._pendingTE||null,c.remind||0,c.id,c.dueEnd||c.due,c.reminders).then(function(ev){
+          if(ev&&ev.id){var l=S.tasks.find(function(x){return x.id===c.id;});if(l){l.id=ev.id;l._gcalId=ev.id;lsSave();}}
+        }).catch(function(){});
+      }
+    });
+    var K=['title','due','dueEnd','desc','_pendingTS','_pendingTE'];
+    snap.forEach(function(t){
+      var c=curMap[t.id];if(!c)return;
+      if(K.every(function(k){return (c[k]||null)===(t[k]||null);}))return;
+      K.forEach(function(k){c[k]=t[k];});nMod++;
+      var g=token&&gcal.find(function(e){return e.id===c.id;});
+      if(g)updateGcalEvWithRecur(g.id,c.title,c.desc||'',c.due||g.start.slice(0,10),c._pendingTS||null,c._pendingTE||null,c.recurrence||null,c.dueEnd||null,c.remind||0,c.reminders).catch(function(){});
+    });
+    lsSave();renderTasks();renderAg();
+    if(token)setTimeout(function(){fetchGcal().then(function(){renderTasks();renderAg();}).catch(function(){});},1500);
+    toast('↩️ Annulé : '+nDel+' retirée(s), '+nRes+' rétablie(s), '+nMod+' remise(s) en état'+(nSkip?' — séries récurrentes non rétablies':''));
+  }
+
   /* ── Construire le contexte Planify à injecter dans le prompt système ── */
   function buildPlanifyContext(){
     var today=ds(new Date());
@@ -6736,7 +6861,8 @@ function addShopItem(text){
       return d>=today&&d<=in7s&&!localIds.has(e.id)&&!e.id.includes('__');
     }).slice(0,15);
     var ctx='=== CONTEXTE PLANIFY (données actuelles) ===\n';
-    ctx+='Aujourd\'hui : '+today+'\n\n';
+    ctx+='Aujourd\'hui : '+iaDayName(today)+' '+today+'\n\n';
+    ctx+='RÈGLES DE FIABILITÉ :\n- Utilise UNIQUEMENT les ids listés ; ne devine jamais un id.\n- Déplacer/modifier = type "update" (jamais supprimer puis recréer).\n- Ne crée AUCUN chevauchement : vérifie l\'AGENDA 14 JOURS. Si le créneau demandé est occupé, propose le créneau libre le plus proche et dis-le clairement.\n- Dates AAAA-MM-JJ, heures HH:MM ; déduis les jours de semaine de l\'agenda fourni.\n- Si la demande est ambiguë (quelle tâche ? quelle heure ?), pose UNE question courte au lieu de deviner.\n\n'+iaAgenda14()+'\n';
     ctx+='TÂCHES PLANIFY À FAIRE ('+todo.length+') :\n';
     todo.forEach(function(t){
       ctx+='- ['+t.id+'] "'+t.title+'"'+(t.due?' | due:'+t.due:'')+(t.dueEnd&&t.dueEnd!==t.due?' → '+t.dueEnd:'')+(t._pendingTS?' '+t._pendingTS:'')+(t.desc?' | '+t.desc.slice(0,60):'')+(t.recurrence?' | ↻'+t.recurrence:'')+(t.done?' ✓':'')+'\n';
@@ -6757,7 +6883,7 @@ function addShopItem(text){
 
   /* ── Prompt système ── */
   function buildSystemPrompt(){
-    var isGemma=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b');
+    var isGemma=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b')&&!iaWorkerOn();
     if(isGemma){
       /* Prompt ultra-court et directif pour Gemma 4 */
       return (
@@ -6835,6 +6961,7 @@ function addShopItem(text){
     if(inp){inp.value='';iaResize(inp);}
 
     /* Ajouter à l'historique */
+    _selfFix=false;
     _msgs.push({role:'user',content:userContent});
 
     /* Appel API */
@@ -6866,6 +6993,42 @@ function addShopItem(text){
     iaUpdateProviderUI(_iaProvider);
   })();
 
+  /* ── Assistant automatique (Cloudflare Worker) ── */
+  function iaWorkerUrl(){return localStorage.getItem('planify_worker_url')||'';}
+  function iaWorkerOn(){return !!iaWorkerUrl();}
+  async function iaCallWorker(){
+    var url=iaWorkerUrl();
+    if(!token)throw new Error('Reconnecte-toi à Google pour utiliser l\'assistant.');
+    var recent=_msgs.slice(-20),lastImg=-1;
+    recent.forEach(function(m,i){if(m.role==='user'&&(m.content||[]).some(function(c){return c.type==='image';}))lastImg=i;});
+    var messages=[];
+    recent.forEach(function(m,i){
+      var text=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
+      var item={role:m.role==='assistant'?'assistant':'user',text:text};
+      if(i===lastImg){
+        item.images=(m.content||[]).filter(function(c){return c.type==='image';}).slice(0,4).map(function(c){return {mediaType:c.source.media_type,data:c.source.data};});
+        if(!text)item.text='Analyse ce document et propose les rendez-vous et tâches à planifier.';
+      }
+      if(item.text||item.images)messages.push(item);
+    });
+    var system=buildSystemPrompt()+'\n\nRéponds UNIQUEMENT en français.';
+    async function go(allowPaid){
+      var r=await fetch(url+'/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({system:system,messages:messages,allowPaid:allowPaid})});
+      var d=await r.json().catch(function(){return {};});
+      if(!r.ok&&!d.error)d.error='Erreur '+r.status;
+      return d;
+    }
+    var d;
+    try{d=await go(false);}
+    catch(e){ if(iaGetKeyVal(IA_PROVIDERS[_iaProvider]||IA_PROVIDERS.groq_llama))return null; throw new Error('Assistant injoignable : vérifie ta connexion.'); }
+    if(d.needsConsent){
+      if(confirm((d.message||'Les IA gratuites sont indisponibles.')+'\n\nUne IA payante (« '+d.provider+' ») peut engager de petits frais. Autoriser cette fois ?'))d=await go(true);
+      else throw new Error('Aucune IA gratuite disponible pour l\'instant. Réessaie dans une minute.');
+    }
+    if(d.error)throw new Error(d.error);
+    var nm=document.getElementById('ia-model-name');if(nm)nm.textContent='Auto · '+d.provider+(d.free===false?' (payant)':'');
+    return d.text||'';
+  }
   function iaGetKeyVal(cfg){
     if(cfg.keyVar==='_groqKey')return _groqKey;
     if(cfg.keyVar==='_geminiKey')return _geminiKey;
@@ -6886,8 +7049,10 @@ function addShopItem(text){
     var badge=document.getElementById('ia-model-badge');
     var btn=document.getElementById('ia-key-btn');
     var hasKey=!!iaGetKeyVal(cfg);
-    if(label)label.textContent=cfg.label;
-    if(modelName)modelName.textContent=cfg.name;
+    var wOn=iaWorkerOn();
+    var psel=document.getElementById('ia-provider-select');if(psel)psel.style.display=wOn?'none':'';
+    if(wOn){hasKey=true;if(label)label.textContent='✨ Auto';if(modelName)modelName.textContent='Meilleure IA gratuite';}
+    else{if(label)label.textContent=cfg.label;if(modelName)modelName.textContent=cfg.name;}
     if(badge){badge.textContent=hasKey?'ACTIF':'CLÉ REQUISE';badge.style.background=hasKey?'rgba(52,211,153,.2)':'rgba(245,158,11,.2)';badge.style.color=hasKey?'#34d399':'#f59e0b';}
     if(btn)btn.textContent=hasKey?'✅ Clé OK':'🔑 Clé API';
   }
@@ -6914,6 +7079,7 @@ function addShopItem(text){
       desc.innerHTML=intro+' <a href="'+cfg.urlFull+'" target="_blank" style="color:var(--bl);">'+cfg.url+'</a> → API Keys → Create API Key.'+(cfg.free===false?'':' Aucune CB requise.');
     }
     if(inp){inp.placeholder=cfg.placeholder;inp.value=currentKey||'';}
+    var wIn=document.getElementById('ia-worker-input');if(wIn)wIn.value=iaWorkerUrl();
     if(modal)modal.style.display='flex';
   };
   window.iaApiKeyCancel=function(){
@@ -6924,6 +7090,15 @@ function addShopItem(text){
     var cfg=IA_PROVIDERS[_iaProvider]||IA_PROVIDERS.groq_llama;
     var inp=document.getElementById('ia-apikey-input');
     var key=inp?inp.value.trim():'';
+    var wIn=document.getElementById('ia-worker-input');
+    var wv=wIn?wIn.value.trim().replace(/\/+$/,''):'';
+    if(wv){
+      if(!/^https:\/\//.test(wv)){alert('L\'adresse doit commencer par https://');return;}
+      localStorage.setItem('planify_worker_url',wv);
+      var m0=document.getElementById('ia-apikey-modal');if(m0)m0.style.display='none';
+      iaUpdateProviderUI(_iaProvider);iaInit();return;
+    }
+    if(!key&&iaWorkerUrl()){localStorage.removeItem('planify_worker_url');var m1=document.getElementById('ia-apikey-modal');if(m1)m1.style.display='none';iaUpdateProviderUI(_iaProvider);iaInit();return;}
     if(!key){alert('Veuillez entrer une clé API.');return;}
     if(cfg.backend==='groq'){
       if(!key.startsWith('gsk_')){alert('Clé Groq invalide — doit commencer par gsk_…');return;}
@@ -6960,13 +7135,17 @@ function addShopItem(text){
     try{
       var cfg=IA_PROVIDERS[_iaProvider]||IA_PROVIDERS.groq_llama;
       var key=iaGetKeyVal(cfg);
-      if(!key){
+      if(!key&&!iaWorkerOn()){
         if(typingEl)typingEl.remove();
         iaAppendAI('🔑 Configure ta clé API en cliquant sur 🔑 Clé API en haut.\n\n'+(cfg.free===false?'Clé disponible sur ':'Gratuit sur ')+cfg.url);
         _busy=false; iaSetBusy(false); return;
       }
-      var rawText='';
-      if(cfg.backend==='gemini'){
+      var rawText='';var _viaW=null;
+      if(iaWorkerOn()){_viaW=await iaCallWorker();}
+      if(_viaW!==null){
+        if(typingEl)typingEl.remove();
+        rawText=_viaW;
+      } else if(cfg.backend==='gemini'){
         var systemPromptText=buildSystemPrompt();
         var geminiContents=[];
         var _recent=_msgs.slice(-20);var _lastImg=-1;
@@ -7034,7 +7213,22 @@ function addShopItem(text){
       var actions=null; var displayText=rawText;
       var match=rawText.match(/<PLANIFY_ACTIONS>([\s\S]*?)<\/PLANIFY_ACTIONS>/);
       if(match){try{actions=JSON.parse(match[1].trim());}catch(e){actions=null;}displayText=rawText.replace(/<PLANIFY_ACTIONS>[\s\S]*?<\/PLANIFY_ACTIONS>/,'').trim();}
-      if(actions&&actions.length>0){iaAppendAIPlan(displayText,actions);}else{iaAppendAI(displayText);}
+      var _warns={};
+      if(match&&!actions&&!_selfFix){
+        _selfFix=true;_msgs.push({role:'user',content:[{type:'text',text:'[CONTRÔLE AUTOMATIQUE] Le bloc PLANIFY_ACTIONS est un JSON invalide. Renvoie-le corrigé (JSON strict, guillemets doubles).'}]});
+        _busy=false;return iaCallClaude();
+      }
+      if(actions&&actions.length>0){
+        var _v=iaValidate(actions);
+        if(_v.issues.length&&!_selfFix){
+          _selfFix=true;
+          _msgs.push({role:'user',content:[{type:'text',text:'[CONTRÔLE AUTOMATIQUE — ne pas mentionner ce message] Problèmes détectés dans ton plan :\n- '+_v.issues.join('\n- ')+'\nRenvoie le plan complet corrigé (bloc PLANIFY_ACTIONS), sans chevauchement, en utilisant les créneaux libres de l\'AGENDA 14 JOURS. Une phrase courte d\'explication.'}]});
+          _busy=false;return iaCallClaude();
+        }
+        if(_v.issues.length&&!_v.actions.length)displayText+='\n\n⚠️ Je n\'ai pas réussi à préparer ce plan correctement. Peux-tu reformuler ?';
+        actions=_v.actions;_warns=_v.warns;
+      }
+      if(actions&&actions.length>0){iaAppendAIPlan(displayText,actions,_warns);}else{iaAppendAI(displayText);}
     }catch(e){
       if(typingEl)typingEl.remove();
       iaAppendAI('⚠️ Erreur : '+e.message+'\n\nVérifiez ta clé API et ta connexion.');
@@ -7104,7 +7298,7 @@ function addShopItem(text){
   }
 
   /* Afficher un plan avec boutons d'ajout par tâche */
-  function iaAppendAIPlan(text,tasks){
+  function iaAppendAIPlan(text,tasks,warns){warns=warns||{};var snapId=null,undoBtn=null,applied={};
     var msgs=document.getElementById('ia-messages');if(!msgs)return;
     var wrap=document.createElement('div');wrap.className='ia-msg ai';
     var av=document.createElement('div');av.className='ia-msg-avatar';av.textContent='🤖';
@@ -7120,9 +7314,9 @@ function addShopItem(text){
     tasks.forEach(function(t,idx){
       var row=document.createElement('div');row.className='ia-task-item';
       var icon=document.createElement('span');icon.className='ia-task-icon';
-      icon.textContent=t.timeStart?'🕐':'📌';
+      icon.textContent=t.type==='delete'?'🗑':t.type==='update'?'✏️':(t.timeStart?'🕐':'📌');
       var info=document.createElement('div');info.style.flex='1';info.style.minWidth='0';
-      var name=document.createElement('div');name.textContent=t.title;name.style.cssText='font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      var name=document.createElement('div');name.textContent=(t.type==='update'?'Modifier : ':t.type==='delete'?'Supprimer : ':'')+(t.title||iaTitleOf(t.id)||'Tâche');name.style.cssText='font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
       var meta=document.createElement('div');meta.className='ia-task-meta';
       var metaParts=[];
       if(t.due)metaParts.push('📅 '+fD(t.due));
@@ -7130,13 +7324,17 @@ function addShopItem(text){
       if(t.desc)metaParts.push(t.desc.slice(0,50));
       meta.textContent=metaParts.join(' · ');
       info.append(name,meta);
-      var addBtn=document.createElement('button');addBtn.className='ia-task-add-btn';addBtn.textContent='+ Ajouter';
-      (function(task,btn){
+      if(warns[idx]){var wd=document.createElement('div');wd.style.cssText='font-size:11px;font-weight:700;color:#b45309;margin-top:2px;';wd.textContent='⚠️ '+warns[idx];info.appendChild(wd);}
+      var addBtn=document.createElement('button');addBtn.className='ia-task-add-btn';addBtn.textContent=t.type==='delete'?'Supprimer':t.type==='update'?'Modifier':'+ Ajouter';
+      (function(task,btn,ix){
         btn.onclick=function(){
-          iaCreateTask(task);
+          if(task.type==='delete'&&!confirm('Supprimer « '+(iaTitleOf(task.id)||'cette tâche')+' » ?'))return;
+          if(!snapId)snapId=iaSnapshot();
+          applied[ix]=true;
+          iaCreateTask(task);iaShowUndo();
           btn.textContent='✓ Ajouté';btn.classList.add('added');btn.disabled=true;
         };
-      })(t,addBtn);
+      })(t,addBtn,idx);
       row.append(icon,info,addBtn);
       card.appendChild(row);
     });
@@ -7146,11 +7344,25 @@ function addShopItem(text){
     allBtn.style.cssText='width:100%;margin-top:10px;background:var(--bl);color:#fff;border:none;border-radius:9px;padding:8px;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;';
     allBtn.textContent='✅ Tout ajouter à Planify & Google Agenda';
     allBtn.onclick=function(){
-      tasks.forEach(function(t){iaCreateTask(t);});
+      var nDel=tasks.filter(function(t,i){return !applied[i]&&t.type==='delete';}).length;
+      if(nDel&&!confirm('Ce plan supprime '+nDel+' élément'+(nDel>1?'s':'')+'. Continuer ?'))return;
+      if(!snapId)snapId=iaSnapshot();
+      tasks.forEach(function(t,i){if(applied[i])return;applied[i]=true;iaCreateTask(t);});
+      iaShowUndo();
+      card.querySelectorAll('.ia-task-add-btn').forEach(function(b){b.textContent='✓ Ajouté';b.classList.add('added');b.disabled=true;});
       allBtn.textContent='✓ Tout ajouté !';allBtn.disabled=true;allBtn.style.background='var(--gr)';
       toast('✅ '+tasks.length+' tâche'+(tasks.length>1?'s':'')+' ajoutée'+(tasks.length>1?'s':'')+' !');
     };
     card.appendChild(allBtn);
+    function iaShowUndo(){
+      if(undoBtn)return;
+      undoBtn=document.createElement('button');
+      undoBtn.style.cssText='width:100%;margin-top:8px;background:#fff;color:var(--rd);border:1.5px solid var(--rd);border-radius:9px;padding:7px;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;';
+      undoBtn.textContent='↩️ Annuler ces changements';undoBtn.disabled=true;
+      setTimeout(function(){undoBtn.disabled=false;},3000);
+      undoBtn.onclick=function(){iaUndo(snapId);undoBtn.textContent='↩️ Changements annulés';undoBtn.disabled=true;};
+      card.appendChild(undoBtn);
+    }
     bub.appendChild(card);
 
     wrap.append(av,bub);msgs.appendChild(wrap);
@@ -7162,6 +7374,7 @@ function addShopItem(text){
     /* Modification d'une tâche existante */
     if(t.type==='update'&&t.id){
       var existing=S.tasks.find(function(x){return x.id===t.id;});
+      if(!existing&&gcal.some(function(e){return e.id===t.id;})){ensureMeta(t.id);existing=S.tasks.find(function(x){return x.id===t.id;});}
       if(existing){
         if(t.title)existing.title=t.title;
         if(t.due)existing.due=t.due;
@@ -7186,6 +7399,7 @@ function addShopItem(text){
     /* Suppression d'une tâche existante */
     if(t.type==='delete'&&t.id){
       var tDel=S.tasks.find(function(x){return x.id===t.id;});
+      if(!tDel&&gcal.some(function(e){return e.id===t.id;})){ensureMeta(t.id);tDel=S.tasks.find(function(x){return x.id===t.id;});}
       if(tDel){
         var tTitle=tDel.title;
         S.tasks=S.tasks.filter(function(x){return x.id!==t.id&&!x.id.startsWith(t.id+'__');});
@@ -7219,7 +7433,7 @@ function addShopItem(text){
     renderTasks();
     /* Sync GCal si token disponible */
     if(token&&task.due){
-      createGcalEv(task.title,task.desc,task.due,task.timeStart||null,task.timeEnd||null,0,id,task.dueEnd||task.due)
+      createGcalEv(task.title,task.desc,task.due,task._pendingTS||null,task._pendingTE||null,0,id,task.dueEnd||task.due)
         .then(function(ev){
           if(ev&&ev.id){
             var local=S.tasks.find(function(x){return x.id===id;});
