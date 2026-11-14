@@ -59,7 +59,9 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .tt-add-bar input#ti::placeholder{color:var(--tx3);font-weight:600;}
 .tt-add-opt{width:34px;height:34px;border-radius:10px;border:none;background:transparent;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s;}
 .tt-add-opt:hover,.tt-add-opt.active{background:var(--bll);color:var(--bl);}
-.tt-add-go{font-family:inherit;font-weight:800;font-size:13px;border:none;border-radius:10px;padding:9px 14px;background:var(--bl);color:#fff;cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(42,125,225,.25);}
+.tt-ai{position:relative;color:var(--bl);}
+.tt-ai .ai-badge{position:absolute;top:0;right:-1px;font-size:8px;font-weight:800;background:var(--bl);color:#fff;border-radius:6px;padding:0 3px;line-height:11px;}
+.tt-add-go{font-family:inherit;font-weight:800;font-size:13px;border:none;border-radius:10px;padding:9px 12px;background:var(--bl);color:#fff;cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(42,125,225,.25);}
 .tt-add-go:active{transform:scale(.97);}
 .tt-add-opts{display:none;border-top:1px solid var(--blb);margin-top:8px;padding-top:10px;}
 .tt-add-opts.open{display:block;}
@@ -657,6 +659,17 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <button type="button" class="tt-add-opt" id="tt-opt-btn" onclick="toggleAddOptions()" title="Date, r&#233;p&#233;tition, description&#8230;" aria-label="Options">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       </button>
+      <button type="button" class="tt-add-opt tt-ai" id="tt-ai-mic" onclick="ttAiVoice()" title="Assistant IA vocal : dicte un rendez-vous ou une tâche" aria-label="Micro IA">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg><span class="ai-badge">IA</span>
+      </button>
+      <button type="button" class="tt-add-opt tt-ai" id="tt-ai-cam" onclick="ttAiPhoto()" title="Assistant IA : prendre une photo (courrier, convocation…)" aria-label="Photo IA">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="ai-badge">IA</span>
+      </button>
+      <button type="button" class="tt-add-opt tt-ai" id="tt-ai-up" onclick="ttAiUpload()" title="Assistant IA : télécharger un document (PDF, image, texte…)" aria-label="Document IA">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span class="ai-badge">IA</span>
+      </button>
+      <input type="file" id="tt-ai-camfile" accept="image/*" capture="environment" style="display:none" onchange="ttAiFile(this)">
+      <input type="file" id="tt-ai-file" accept="image/*,application/pdf,.pdf,.txt,.csv,.ics,.md,.json,.eml,.html,.htm,text/*" multiple style="display:none" onchange="ttAiFile(this)">
       <button type="button" class="tt-add-go" onclick="addTask()">Ajouter</button>
     </div>
     <div class="tt-add-opts" id="tt-add-opts">
@@ -804,7 +817,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <select id="ia-provider-select" onchange="iaOnProviderChange()" style="font-family:inherit;font-size:10px;font-weight:800;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 6px;cursor:pointer;outline:none;margin-right:4px;max-width:130px;">
         <option value="groq_llama">⚡ Llama 3.3 70b</option>
         <option value="groq_gemma">⚡ Gemma 2 9b</option>
-        <option value="gemini_flash">✨ Gemini 2.0 Flash</option>
+        <option value="gemini_flash">✨ Gemini 2.5 Flash</option>
         <option value="gemma4_26b">🌟 Gemma 4 26B (AI Studio)</option>
         <option value="gemma4_31b">🌟 Gemma 4 31B (AI Studio)</option>
         <option value="glm_5_2">🧠 GLM-5.2 (Z.ai)</option>
@@ -4703,6 +4716,65 @@ function showRecurArchiveDialog(t,dueDate,cb){
 }
 
 /* ══ RENDER TASKS — affichage façon TickTick ══ */
+/* ══ Assistant IA depuis l'onglet Tâches (micro IA + document) ══ */
+var _ttAiRec=null,_ttAiActive=false;
+function ttAiGoIA(cb){goTab('ia');setTimeout(cb,300);}
+function ttAiVoice(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('🔒 Reconnaissance vocale non disponible sur ce navigateur');return;}
+  var btn=document.getElementById('tt-ai-mic');
+  if(_ttAiActive){try{_ttAiRec.stop();}catch(e){}return;}
+  var text='';
+  var r=new SR();r.lang='fr-FR';r.continuous=true;r.interimResults=false;
+  r.onresult=function(ev){for(var i=ev.resultIndex;i<ev.results.length;i++){if(ev.results[i].isFinal)text+=ev.results[i][0].transcript+' ';}};
+  r.onend=function(){
+    _ttAiActive=false;if(btn)btn.classList.remove('mic-active');
+    text=text.trim();
+    if(text)ttAiGoIA(function(){var inp=document.getElementById('ia-input');if(inp){inp.value=text;iaResize(inp);}iaSend();});
+  };
+  r.onerror=function(ev){if(ev.error==='not-allowed'||ev.error==='service-not-allowed')toast('🎙️ Autorise le micro dans le navigateur');};
+  _ttAiRec=r;_ttAiActive=true;if(btn)btn.classList.add('mic-active');
+  toast('🎙️ Je t\'écoute… re-clique sur le micro IA pour envoyer');
+  try{r.start();}catch(e){_ttAiActive=false;if(btn)btn.classList.remove('mic-active');}
+}
+function ttAiPhoto(){var f=document.getElementById('tt-ai-camfile');if(f)f.click();}
+function ttAiUpload(){var f=document.getElementById('tt-ai-file');if(f)f.click();}
+function ttAiIsText(f){
+  if(f.type&&f.type.indexOf('text/')===0)return true;
+  return /\.(txt|csv|ics|md|json|eml|html?)$/i.test(f.name||'');
+}
+function ttAiFile(input){
+  var files=Array.from(input.files||[]);
+  if(!files.length)return;
+  input.value='';
+  var media=files.filter(function(f){return (f.type&&f.type.indexOf('image/')===0)||f.type==='application/pdf'||/\.pdf$/i.test(f.name||'');});
+  var texts=files.filter(function(f){return !media.includes(f)&&ttAiIsText(f);});
+  var skipped=files.length-media.length-texts.length;
+  if(skipped>0)toast('⚠️ '+skipped+' fichier(s) non pris en charge (utilise PDF, image ou texte)');
+  if(!media.length&&!texts.length)return;
+  var PROMPT='Lis ce document : extrais chaque rendez-vous (date, heure, lieu, personne) et planifie-les dans Planify avec un rappel la veille.';
+  Promise.all(texts.map(function(f){return new Promise(function(res){var r=new FileReader();r.onload=function(){res('--- Fichier « '+f.name+' » ---\n'+String(r.result).slice(0,15000));};r.onerror=function(){res('');};r.readAsText(f);});}))
+  .then(function(chunks){
+    var extra=chunks.filter(Boolean).join('\n\n');
+    ttAiGoIA(function(){
+      var inp=document.getElementById('ia-input');if(inp)inp.value='';
+      var finish=function(){
+        var i2=document.getElementById('ia-input');
+        if(i2){i2.value=PROMPT+(extra?'\n\n'+extra:'');iaResize(i2);}
+        iaSend();
+      };
+      if(!media.length){finish();return;}
+      iaOnFileSelect({files:media,value:''});
+      var n=media.length,tries=0;
+      var iv=setInterval(function(){
+        var cnt=document.querySelectorAll('#ia-img-preview .ia-img-thumb').length;
+        tries++;
+        if(cnt>=n||tries>50){clearInterval(iv);if(cnt>0||extra)finish();}
+      },150);
+    });
+  });
+}
+
 var TT_SVG={
   check:'<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   cal:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
@@ -6566,22 +6638,35 @@ function addShopItem(text){
     if(!files.length)return;
     var prev=document.getElementById('ia-img-preview');
     files.forEach(function(f){
+      var isPdf=(f.type==='application/pdf');
+      var add=function(b64,mt,previewUrl){
+        var entry={base64:b64,mediaType:mt,previewUrl:previewUrl};
+        _images.push(entry);
+        var thumb=document.createElement('div');thumb.className='ia-img-thumb';
+        if(previewUrl){var img=document.createElement('img');img.src=previewUrl;thumb.appendChild(img);}
+        else{var pdf=document.createElement('div');pdf.textContent='📄 PDF';pdf.style.cssText='font-size:12px;font-weight:800;padding:14px 8px;color:var(--tx2);';thumb.appendChild(pdf);}
+        var del=document.createElement('button');del.className='ia-img-thumb-del';del.textContent='✕';
+        del.onclick=function(){var k=_images.indexOf(entry);if(k>-1)_images.splice(k,1);thumb.remove();};
+        thumb.appendChild(del);if(prev)prev.appendChild(thumb);
+      };
       var reader=new FileReader();
       reader.onload=function(ev){
-        var b64=ev.target.result.split(',')[1];
-        var mt=f.type||'image/jpeg';
-        _images.push({base64:b64,mediaType:mt,previewUrl:ev.target.result});
-        var thumb=document.createElement('div');thumb.className='ia-img-thumb';
-        var img=document.createElement('img');img.src=ev.target.result;
-        var del=document.createElement('button');del.className='ia-img-thumb-del';del.textContent='✕';
-        var idx=_images.length-1;
-        del.onclick=function(){_images.splice(idx,1);thumb.remove();};
-        thumb.append(img,del);if(prev)prev.appendChild(thumb);
+        var url=ev.target.result;
+        if(isPdf){add(url.split(',')[1],'application/pdf',null);return;}
+        var im=new Image();
+        im.onload=function(){
+          var sc=Math.min(1,1600/Math.max(im.width,im.height));
+          var cv=document.createElement('canvas');cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);
+          cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);
+          var out=cv.toDataURL('image/jpeg',0.85);
+          add(out.split(',')[1],'image/jpeg',out);
+        };
+        im.onerror=function(){add(url.split(',')[1],f.type||'image/jpeg',url);};
+        im.src=url;
       };
       reader.readAsDataURL(f);
     });
     input.value='';
-    /* Proposer un message d'analyse si pas de texte */
     var inp=document.getElementById('ia-input');
     if(inp&&!inp.value.trim()){inp.value='Analyse ce document et planifie les actions nécessaires';iaResize(inp);}
   };
@@ -6740,7 +6825,7 @@ function addShopItem(text){
 
     /* Afficher côté UI */
     var uiParts=[];
-    _images.forEach(function(img){uiParts.push('<img src="'+img.previewUrl+'" style="max-width:180px;border-radius:8px;margin-top:4px;">' );});
+    _images.forEach(function(img){uiParts.push(img.previewUrl?'<img src="'+img.previewUrl+'" style="max-width:180px;border-radius:8px;margin-top:4px;">':'📄 Document PDF');});
     if(text)uiParts.push(iaMarkdown(text));
     iaAppendUser(uiParts.join('<br>'));
 
@@ -6765,7 +6850,7 @@ function addShopItem(text){
   var IA_PROVIDERS={
     groq_llama:{label:'⚡ Groq',name:'Llama 3.3 70b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'llama-3.3-70b-versatile',backend:'groq',free:true},
     groq_gemma:{label:'⚡ Groq',name:'Gemma 2 9b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'gemma2-9b-it',backend:'groq',free:true},
-    gemini_flash:{label:'✨ Gemini',name:'Gemini 2.0 Flash',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemini-2.0-flash',backend:'gemini',free:true},
+    gemini_flash:{label:'✨ Gemini',name:'Gemini 2.5 Flash',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemini-2.5-flash',backend:'gemini',free:true},
     gemma4_26b:{label:'🌟 AI Studio',name:'Gemma 4 26B',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemma-4-26b-a4b-it',backend:'gemini',free:true},
     gemma4_31b:{label:'🌟 AI Studio',name:'Gemma 4 31B',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemma-4-31b-it',backend:'gemini',free:true},
     glm_5_2:{label:'🧠 GLM',name:'GLM-5.2',keyVar:'_glmKey',keyStore:'planify_glm_key',placeholder:'Clé Z.ai…',url:'z.ai',urlFull:'https://z.ai/manage-apikey/apikey-list',model:'glm-5.2',backend:'glm',free:false}
@@ -6884,9 +6969,18 @@ function addShopItem(text){
       if(cfg.backend==='gemini'){
         var systemPromptText=buildSystemPrompt();
         var geminiContents=[];
-        _msgs.slice(-20).forEach(function(m){
+        var _recent=_msgs.slice(-20);var _lastImg=-1;
+        _recent.forEach(function(m,i){if(m.role==='user'&&(m.content||[]).some(function(c){return c.type==='image';}))_lastImg=i;});
+        var _hasImg=_lastImg>-1;
+        _recent.forEach(function(m,i){
           var text=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
-          if(text)geminiContents.push({role:m.role==='assistant'?'model':'user',parts:[{text:text}]});
+          var parts=[];
+          if(i===_lastImg){
+            (m.content||[]).forEach(function(c){if(c.type==='image')parts.push({inlineData:{mimeType:c.source.media_type,data:c.source.data}});});
+            if(!text)text='Analyse ce document et propose les rendez-vous et tâches à planifier.';
+          }
+          if(text)parts.push({text:text});
+          if(parts.length)geminiContents.push({role:m.role==='assistant'?'model':'user',parts:parts});
         });
         /* Forcer le français et la concision au dernier message user */
         if(geminiContents.length>0&&geminiContents[geminiContents.length-1].role==='user'){
@@ -6897,9 +6991,12 @@ function addShopItem(text){
             : '\n\n[Réponds UNIQUEMENT en français.]';
         }
         var isGemmaModel=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b');
-        var gResp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+cfg.model+':generateContent?key='+key,{
+        var gModel=(_hasImg&&isGemmaModel)?'gemini-2.5-flash':cfg.model;
+        var genCfg={maxOutputTokens:_hasImg?1500:(isGemmaModel?400:800),temperature:isGemmaModel?0.4:0.7};
+        if(gModel.indexOf('gemini-2.5-flash')===0)genCfg.thinkingConfig={thinkingBudget:0};
+        var gResp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+gModel+':generateContent?key='+key,{
           method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({system_instruction:{parts:[{text:systemPromptText}]},contents:geminiContents,generationConfig:{maxOutputTokens:isGemmaModel?400:800,temperature:isGemmaModel?0.4:0.7}})
+          body:JSON.stringify({system_instruction:{parts:[{text:systemPromptText}]},contents:geminiContents,generationConfig:genCfg})
         });
         if(typingEl)typingEl.remove();
         if(!gResp.ok){var gErr=await gResp.json().catch(function(){return {};});throw new Error((gErr.error&&gErr.error.message)||'Erreur '+gResp.status);}
@@ -6907,15 +7004,26 @@ function addShopItem(text){
         try{rawText=gData.candidates[0].content.parts[0].text||'';}catch(e){rawText='';}
       } else {
         var messages=[{role:'system',content:buildSystemPrompt()}];
-        _msgs.slice(-20).forEach(function(m){
+        var _recent2=_msgs.slice(-20);var _lastImg2=-1;
+        _recent2.forEach(function(m,i){if(m.role==='user'&&(m.content||[]).some(function(c){return c.type==='image';}))_lastImg2=i;});
+        var _hasImg2=_lastImg2>-1;
+        if(_hasImg2&&cfg.backend==='glm')throw new Error('GLM ne lit pas les images : choisis Gemini ou Groq dans le sélecteur.');
+        if(_hasImg2&&_recent2[_lastImg2].content.some(function(c){return c.type==='image'&&c.source.media_type==='application/pdf';}))throw new Error('Groq ne lit pas les PDF : envoie une photo, ou choisis Gemini.');
+        _recent2.forEach(function(m,i){
           var text=(m.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('\n');
-          if(text)messages.push({role:m.role,content:text});
+          if(i===_lastImg2){
+            var arr=[{type:'text',text:text||'Analyse ce document et propose les rendez-vous et tâches à planifier.'}];
+            var nImg=0;
+            (m.content||[]).forEach(function(c){if(c.type==='image'&&nImg<4){nImg++;arr.push({type:'image_url',image_url:{url:'data:'+c.source.media_type+';base64,'+c.source.data}});}});
+            messages.push({role:'user',content:arr});
+          } else if(text)messages.push({role:m.role,content:text});
         });
+        var gqModel=_hasImg2?(localStorage.getItem('planify_groq_vision_model')||'qwen/qwen3.6-27b'):cfg.model;
         var apiUrl=cfg.backend==='glm'?'https://api.z.ai/api/paas/v4/chat/completions':'https://api.groq.com/openai/v1/chat/completions';
         var providerLabel=cfg.backend==='glm'?'GLM':'Groq';
         var resp=await fetch(apiUrl,{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-          body:JSON.stringify({model:cfg.model,messages:messages,max_tokens:2000,temperature:0.7})
+          body:JSON.stringify({model:gqModel,messages:messages,max_tokens:2000,temperature:0.7})
         });
         if(typingEl)typingEl.remove();
         if(!resp.ok){var err=await resp.json().catch(function(){return {};});throw new Error(err.error&&err.error.message||'Erreur '+providerLabel+' '+resp.status);}
