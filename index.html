@@ -817,7 +817,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <select id="ia-provider-select" onchange="iaOnProviderChange()" style="font-family:inherit;font-size:10px;font-weight:800;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 6px;cursor:pointer;outline:none;margin-right:4px;max-width:130px;">
         <option value="groq_llama">⚡ Llama 3.3 70b</option>
         <option value="groq_gemma">⚡ Gemma 2 9b</option>
-        <option value="gemini_flash">✨ Gemini 2.5 Flash</option>
+        <option value="gemini_flash">✨ Gemini (automatique)</option>
         <option value="gemma4_26b">🌟 Gemma 4 26B (AI Studio)</option>
         <option value="gemma4_31b">🌟 Gemma 4 31B (AI Studio)</option>
         <option value="glm_5_2">🧠 GLM-5.2 (Z.ai)</option>
@@ -6977,7 +6977,7 @@ function addShopItem(text){
   var IA_PROVIDERS={
     groq_llama:{label:'⚡ Groq',name:'Llama 3.3 70b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'llama-3.3-70b-versatile',backend:'groq',free:true},
     groq_gemma:{label:'⚡ Groq',name:'Gemma 2 9b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'gemma2-9b-it',backend:'groq',free:true},
-    gemini_flash:{label:'✨ Gemini',name:'Gemini 2.5 Flash',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemini-2.5-flash',backend:'gemini',free:true},
+    gemini_flash:{label:'✨ Gemini',name:'Gemini (auto)',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemini-2.5-flash',backend:'gemini',free:true},
     gemma4_26b:{label:'🌟 AI Studio',name:'Gemma 4 26B',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemma-4-26b-a4b-it',backend:'gemini',free:true},
     gemma4_31b:{label:'🌟 AI Studio',name:'Gemma 4 31B',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemma-4-31b-it',backend:'gemini',free:true},
     glm_5_2:{label:'🧠 GLM',name:'GLM-5.2',keyVar:'_glmKey',keyStore:'planify_glm_key',placeholder:'Clé Z.ai…',url:'z.ai',urlFull:'https://z.ai/manage-apikey/apikey-list',model:'glm-5.2',backend:'glm',free:false}
@@ -6992,6 +6992,38 @@ function addShopItem(text){
     if(sel)sel.value=_iaProvider;
     iaUpdateProviderUI(_iaProvider);
   })();
+
+  /* ── Choix automatique du modèle (jamais de nom figé) ── */
+  var _MODEL_PREF={
+    gemini:[/^gemini-[\d.]+-flash$/,/^gemini-[\d.]+-flash-lite$/],
+    groq:[/gpt-oss-120b/,/qwen/,/llama-3\.3-70b/,/llama/]
+  };
+  function iaVer(id){return ((id.match(/\d+(\.\d+)*/)||['0'])[0]).split('.').map(Number);}
+  function iaVerCmp(a,b){var x=iaVer(a),y=iaVer(b);for(var i=0;i<Math.max(x.length,y.length);i++){var d=(y[i]||0)-(x[i]||0);if(d)return d;}return 0;}
+  async function iaResolveModel(kind,key,force,exclude){
+    var ck='planify_model_'+kind,now=Date.now(),cached=null;
+    try{cached=JSON.parse(localStorage.getItem(ck)||'null');}catch(e){}
+    if(cached&&!force&&now-cached.t<12*3600e3&&cached.k===key.slice(-6))return cached.id;
+    var ids=[];
+    try{
+      if(kind==='gemini'){
+        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key='+encodeURIComponent(key));
+        var d=await r.json();
+        ids=(d.models||[]).filter(function(m){return (m.supportedGenerationMethods||[]).indexOf('generateContent')>=0;}).map(function(m){return m.name.replace('models/','');});
+      }else{
+        var r2=await fetch('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+key}});
+        ids=((await r2.json()).data||[]).map(function(m){return m.id;});
+      }
+    }catch(e){}
+    ids=ids.filter(function(x){return !(exclude||[]).includes(x);});
+    var best=null;
+    _MODEL_PREF[kind].forEach(function(re){if(best)return;var m=ids.filter(function(x){return re.test(x);}).sort(iaVerCmp);if(m.length)best=m[0];});
+    var fallback=kind==='gemini'?'gemini-flash-latest':'llama-3.3-70b-versatile';
+    var id=best||((cached&&!(exclude||[]).includes(cached.id))?cached.id:fallback);
+    try{localStorage.setItem(ck,JSON.stringify({id:id,t:now,k:key.slice(-6)}));}catch(e){}
+    return id;
+  }
+  var _iaSleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};
 
   /* ── Assistant automatique (Cloudflare Worker) ── */
   function iaWorkerUrl(){return localStorage.getItem('planify_worker_url')||'';}
@@ -7170,17 +7202,30 @@ function addShopItem(text){
             : '\n\n[Réponds UNIQUEMENT en français.]';
         }
         var isGemmaModel=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b');
-        var gModel=(_hasImg&&isGemmaModel)?'gemini-2.5-flash':cfg.model;
+        var gModel=(isGemmaModel&&!_hasImg)?cfg.model:(await iaResolveModel('gemini',key));
         var genCfg={maxOutputTokens:_hasImg?1500:(isGemmaModel?400:800),temperature:isGemmaModel?0.4:0.7};
-        if(gModel.indexOf('gemini-2.5-flash')===0)genCfg.thinkingConfig={thinkingBudget:0};
-        var gResp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+gModel+':generateContent?key='+key,{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({system_instruction:{parts:[{text:systemPromptText}]},contents:geminiContents,generationConfig:genCfg})
-        });
+        var gData=null,gTry=0,useThink=true;
+        while(true){
+          gTry++;
+          var gc=Object.assign({},genCfg);
+          if(useThink&&/flash/.test(gModel)&&gModel.indexOf('gemma')<0)gc.thinkingConfig={thinkingBudget:0};
+          var gResp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+gModel+':generateContent?key='+key,{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({system_instruction:{parts:[{text:systemPromptText}]},contents:geminiContents,generationConfig:gc})
+          });
+          if(gResp.ok){gData=await gResp.json();break;}
+          var gErr=await gResp.json().catch(function(){return {};});
+          var gMsg=(gErr.error&&gErr.error.message)||('Erreur '+gResp.status);
+          if(gTry<5&&useThink&&/thinking/i.test(gMsg)){useThink=false;continue;}
+          if(gTry<5&&(/no longer available|not found|not supported|deprecated|decommission/i.test(gMsg)||gResp.status===404)){
+            var gNew=await iaResolveModel('gemini',key,true,[gModel]);
+            if(gNew&&gNew!==gModel){gModel=gNew;continue;}
+          }
+          if(gTry<5&&(gResp.status===429||gResp.status>=500)){await _iaSleep(1500);continue;}
+          throw new Error(gMsg);
+        }
         if(typingEl)typingEl.remove();
-        if(!gResp.ok){var gErr=await gResp.json().catch(function(){return {};});throw new Error((gErr.error&&gErr.error.message)||'Erreur '+gResp.status);}
-        var gData=await gResp.json();
-        try{rawText=gData.candidates[0].content.parts[0].text||'';}catch(e){rawText='';}
+        try{rawText=gData.candidates[0].content.parts.filter(function(x){return !x.thought;}).map(function(x){return x.text||'';}).join('');}catch(e){rawText='';}
       } else {
         var messages=[{role:'system',content:buildSystemPrompt()}];
         var _recent2=_msgs.slice(-20);var _lastImg2=-1;
@@ -7197,15 +7242,27 @@ function addShopItem(text){
             messages.push({role:'user',content:arr});
           } else if(text)messages.push({role:m.role,content:text});
         });
-        var gqModel=_hasImg2?(localStorage.getItem('planify_groq_vision_model')||'qwen/qwen3.6-27b'):cfg.model;
+        var gqModel=_hasImg2?(localStorage.getItem('planify_groq_vision_model')||'qwen/qwen3.6-27b'):(cfg.backend==='groq'?await iaResolveModel('groq',key):cfg.model);
         var apiUrl=cfg.backend==='glm'?'https://api.z.ai/api/paas/v4/chat/completions':'https://api.groq.com/openai/v1/chat/completions';
         var providerLabel=cfg.backend==='glm'?'GLM':'Groq';
-        var resp=await fetch(apiUrl,{
-          method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-          body:JSON.stringify({model:gqModel,messages:messages,max_tokens:2000,temperature:0.7})
-        });
+        var resp,gqTry=0;
+        while(true){
+          gqTry++;
+          resp=await fetch(apiUrl,{
+            method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+            body:JSON.stringify({model:gqModel,messages:messages,max_tokens:2000,temperature:0.7})
+          });
+          if(resp.ok)break;
+          var err=await resp.json().catch(function(){return {};});
+          var emsg=(err.error&&err.error.message)||('Erreur '+providerLabel+' '+resp.status);
+          if(gqTry<5&&cfg.backend==='groq'&&!_hasImg2&&(/decommission|not found|no longer|does not exist/i.test(emsg)||resp.status===404)){
+            var gqNew=await iaResolveModel('groq',key,true,[gqModel]);
+            if(gqNew&&gqNew!==gqModel){gqModel=gqNew;continue;}
+          }
+          if(gqTry<5&&(resp.status===429||resp.status>=500)){await _iaSleep(1500);continue;}
+          throw new Error(emsg);
+        }
         if(typingEl)typingEl.remove();
-        if(!resp.ok){var err=await resp.json().catch(function(){return {};});throw new Error(err.error&&err.error.message||'Erreur '+providerLabel+' '+resp.status);}
         var data=await resp.json();
         try{rawText=data.choices[0].message.content||'';}catch(e){rawText='';}
       }
@@ -7231,7 +7288,9 @@ function addShopItem(text){
       if(actions&&actions.length>0){iaAppendAIPlan(displayText,actions,_warns);}else{iaAppendAI(displayText);}
     }catch(e){
       if(typingEl)typingEl.remove();
-      iaAppendAI('⚠️ Erreur : '+e.message+'\n\nVérifiez ta clé API et ta connexion.');
+      var _m=String(e.message||e);
+      var _keyIssue=/API key|api_key|invalid.*key|key.*invalid|401|403|permission|unauthor/i.test(_m);
+      iaAppendAI(_keyIssue?'🔑 Ta clé API semble invalide ou expirée. Appuie sur « 🔑 Clé API » pour la remplacer.':'⚠️ L\'assistant n\'a pas pu répondre pour le moment. Réessaie dans quelques secondes.\n\n('+_m.slice(0,140)+')');
     }
     _busy=false; iaSetBusy(false);
   }
