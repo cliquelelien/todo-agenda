@@ -815,8 +815,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.75);flex:1;" id="ia-model-name">Gemma 2 9b</span>
       <!-- Sélecteur provider -->
       <select id="ia-provider-select" onchange="iaOnProviderChange()" style="font-family:inherit;font-size:10px;font-weight:800;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 6px;cursor:pointer;outline:none;margin-right:4px;max-width:130px;">
-        <option value="groq_llama">⚡ Llama 3.3 70b</option>
-        <option value="groq_gemma">⚡ Gemma 2 9b</option>
+        <option value="groq_llama">⚡ Groq (automatique)</option>
         <option value="gemini_flash">✨ Gemini (automatique)</option>
         <option value="gemma4_26b">🌟 Gemma 4 26B (AI Studio)</option>
         <option value="gemma4_31b">🌟 Gemma 4 31B (AI Studio)</option>
@@ -6591,7 +6590,7 @@ function addShopItem(text){
   var _msgs=[]; // historique {role:'user'|'assistant', content:[...]}
   var _images=[]; // [{base64, mediaType, previewUrl}]
   var _micRecog=null, _micActive=false;
-  var _busy=false;var _selfFix=false;
+  var _busy=false;var _selfFix=false;var _fbTried=false;
   /* ── Config IA — API Anthropic native ── */
 
   /* ── Initialisation ── */
@@ -6961,7 +6960,7 @@ function addShopItem(text){
     if(inp){inp.value='';iaResize(inp);}
 
     /* Ajouter à l'historique */
-    _selfFix=false;
+    _selfFix=false;_fbTried=false;
     _msgs.push({role:'user',content:userContent});
 
     /* Appel API */
@@ -6975,7 +6974,7 @@ function addShopItem(text){
 
   /* Config par provider — déclaré EN PREMIER */
   var IA_PROVIDERS={
-    groq_llama:{label:'⚡ Groq',name:'Llama 3.3 70b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'llama-3.3-70b-versatile',backend:'groq',free:true},
+    groq_llama:{label:'⚡ Groq',name:'Groq (auto)',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'llama-3.3-70b-versatile',backend:'groq',free:true},
     groq_gemma:{label:'⚡ Groq',name:'Gemma 2 9b',keyVar:'_groqKey',keyStore:'planify_groq_key',placeholder:'gsk_…',url:'console.groq.com',urlFull:'https://console.groq.com',model:'gemma2-9b-it',backend:'groq',free:true},
     gemini_flash:{label:'✨ Gemini',name:'Gemini (auto)',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemini-2.5-flash',backend:'gemini',free:true},
     gemma4_26b:{label:'🌟 AI Studio',name:'Gemma 4 26B',keyVar:'_geminiKey',keyStore:'planify_gemini_key',placeholder:'AIza…',url:'aistudio.google.com',urlFull:'https://aistudio.google.com/app/apikey',model:'gemma-4-26b-a4b-it',backend:'gemini',free:true},
@@ -6984,7 +6983,7 @@ function addShopItem(text){
   };
 
   var _VALID_PROVIDERS=Object.keys(IA_PROVIDERS);
-  var _iaProvider=(function(){var p=localStorage.getItem('planify_ia_provider');return(IA_PROVIDERS[p]!==undefined)?p:'groq_llama';})();
+  var _iaProvider=(function(){var p=localStorage.getItem('planify_ia_provider');if(p==='groq_gemma')p='groq_llama';return(IA_PROVIDERS[p]!==undefined)?p:'groq_llama';})();
 
   /* Initialiser le sélecteur au bon provider */
   (function(){
@@ -7000,30 +6999,41 @@ function addShopItem(text){
   };
   function iaVer(id){return ((id.match(/\d+(\.\d+)*/)||['0'])[0]).split('.').map(Number);}
   function iaVerCmp(a,b){var x=iaVer(a),y=iaVer(b);for(var i=0;i<Math.max(x.length,y.length);i++){var d=(y[i]||0)-(x[i]||0);if(d)return d;}return 0;}
-  async function iaResolveModel(kind,key,force,exclude){
+  async function iaResolveModel(kind,key,force,exclude,temp){
     var ck='planify_model_'+kind,now=Date.now(),cached=null;
     try{cached=JSON.parse(localStorage.getItem(ck)||'null');}catch(e){}
     if(cached&&!force&&now-cached.t<12*3600e3&&cached.k===key.slice(-6))return cached.id;
     var ids=[];
     try{
       if(kind==='gemini'){
-        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key='+encodeURIComponent(key));
+        var r=await iaFetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key='+encodeURIComponent(key),{},10000);
         var d=await r.json();
         ids=(d.models||[]).filter(function(m){return (m.supportedGenerationMethods||[]).indexOf('generateContent')>=0;}).map(function(m){return m.name.replace('models/','');});
       }else{
-        var r2=await fetch('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+key}});
+        var r2=await iaFetch('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+key}},10000);
         ids=((await r2.json()).data||[]).map(function(m){return m.id;});
       }
     }catch(e){}
-    ids=ids.filter(function(x){return !(exclude||[]).includes(x);});
+    ids=ids.filter(function(x){return !(exclude||[]).includes(x)&&!/guard|whisper|tts|embed|orpheus|distil/i.test(x);});
     var best=null;
     _MODEL_PREF[kind].forEach(function(re){if(best)return;var m=ids.filter(function(x){return re.test(x);}).sort(iaVerCmp);if(m.length)best=m[0];});
     var fallback=kind==='gemini'?'gemini-flash-latest':'llama-3.3-70b-versatile';
     var id=best||((cached&&!(exclude||[]).includes(cached.id))?cached.id:fallback);
-    try{localStorage.setItem(ck,JSON.stringify({id:id,t:now,k:key.slice(-6)}));}catch(e){}
+    if(!temp)try{localStorage.setItem(ck,JSON.stringify({id:id,t:now,k:key.slice(-6)}));}catch(e){}
     return id;
   }
   var _iaSleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};
+  function iaFetch(url,opts,ms){
+    var c=new AbortController();var t=setTimeout(function(){c.abort();},ms||30000);
+    return fetch(url,Object.assign({},opts||{},{signal:c.signal})).finally(function(){clearTimeout(t);});
+  }
+  function iaAltProvider(){
+    var cur=IA_PROVIDERS[_iaProvider]||{};
+    if(cur.backend==='gemini'&&_groqKey)return 'groq_llama';
+    if(cur.backend==='groq'&&_geminiKey)return 'gemini_flash';
+    if(cur.backend==='glm')return _geminiKey?'gemini_flash':(_groqKey?'groq_llama':null);
+    return null;
+  }
 
   /* ── Assistant automatique (Cloudflare Worker) ── */
   function iaWorkerUrl(){return localStorage.getItem('planify_worker_url')||'';}
@@ -7045,7 +7055,7 @@ function addShopItem(text){
     });
     var system=buildSystemPrompt()+'\n\nRéponds UNIQUEMENT en français.';
     async function go(allowPaid){
-      var r=await fetch(url+'/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({system:system,messages:messages,allowPaid:allowPaid})});
+      var r=await iaFetch(url+'/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({system:system,messages:messages,allowPaid:allowPaid})},35000);
       var d=await r.json().catch(function(){return {};});
       if(!r.ok&&!d.error)d.error='Erreur '+r.status;
       return d;
@@ -7154,7 +7164,7 @@ function addShopItem(text){
     var k=localStorage.getItem('planify_groq_key')||'';if(k){_groqKey=k;}
     var g=localStorage.getItem('planify_gemini_key')||'';if(g){_geminiKey=g;}
     var z=localStorage.getItem('planify_glm_key')||'';if(z){_glmKey=z;}
-    _iaProvider=localStorage.getItem('planify_ia_provider')||'groq_llama';
+    _iaProvider=localStorage.getItem('planify_ia_provider')||'groq_llama';if(_iaProvider==='groq_gemma')_iaProvider='groq_llama';
     var sel=document.getElementById('ia-provider-select');
     if(sel)sel.value=_iaProvider;
     iaUpdateProviderUI(_iaProvider);
@@ -7203,16 +7213,16 @@ function addShopItem(text){
         }
         var isGemmaModel=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b');
         var gModel=(isGemmaModel&&!_hasImg)?cfg.model:(await iaResolveModel('gemini',key));
-        var genCfg={maxOutputTokens:_hasImg?1500:(isGemmaModel?400:800),temperature:isGemmaModel?0.4:0.7};
+        var genCfg={maxOutputTokens:_hasImg?2000:(isGemmaModel?600:2000),temperature:isGemmaModel?0.4:0.7};
         var gData=null,gTry=0,useThink=true;
         while(true){
           gTry++;
           var gc=Object.assign({},genCfg);
           if(useThink&&/flash/.test(gModel)&&gModel.indexOf('gemma')<0)gc.thinkingConfig={thinkingBudget:0};
-          var gResp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+gModel+':generateContent?key='+key,{
+          var gResp=await iaFetch('https://generativelanguage.googleapis.com/v1beta/models/'+gModel+':generateContent?key='+key,{
             method:'POST',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({system_instruction:{parts:[{text:systemPromptText}]},contents:geminiContents,generationConfig:gc})
-          });
+          },30000);
           if(gResp.ok){gData=await gResp.json();break;}
           var gErr=await gResp.json().catch(function(){return {};});
           var gMsg=(gErr.error&&gErr.error.message)||('Erreur '+gResp.status);
@@ -7245,19 +7255,24 @@ function addShopItem(text){
         var gqModel=_hasImg2?(localStorage.getItem('planify_groq_vision_model')||'qwen/qwen3.6-27b'):(cfg.backend==='groq'?await iaResolveModel('groq',key):cfg.model);
         var apiUrl=cfg.backend==='glm'?'https://api.z.ai/api/paas/v4/chat/completions':'https://api.groq.com/openai/v1/chat/completions';
         var providerLabel=cfg.backend==='glm'?'GLM':'Groq';
-        var resp,gqTry=0;
+        var resp,gqTry=0,gqExcl=[];
         while(true){
           gqTry++;
-          resp=await fetch(apiUrl,{
+          resp=await iaFetch(apiUrl,{
             method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
             body:JSON.stringify({model:gqModel,messages:messages,max_tokens:2000,temperature:0.7})
-          });
+          },30000);
           if(resp.ok)break;
           var err=await resp.json().catch(function(){return {};});
           var emsg=(err.error&&err.error.message)||('Erreur '+providerLabel+' '+resp.status);
           if(gqTry<5&&cfg.backend==='groq'&&!_hasImg2&&(/decommission|not found|no longer|does not exist/i.test(emsg)||resp.status===404)){
             var gqNew=await iaResolveModel('groq',key,true,[gqModel]);
             if(gqNew&&gqNew!==gqModel){gqModel=gqNew;continue;}
+          }
+          if(gqTry<5&&cfg.backend==='groq'&&!_hasImg2&&(resp.status===413||resp.status===429)){
+            gqExcl.push(gqModel);
+            var gqAlt=await iaResolveModel('groq',key,true,gqExcl,true);
+            if(gqAlt&&gqExcl.indexOf(gqAlt)<0){gqModel=gqAlt;continue;}
           }
           if(gqTry<5&&(resp.status===429||resp.status>=500)){await _iaSleep(1500);continue;}
           throw new Error(emsg);
@@ -7266,6 +7281,7 @@ function addShopItem(text){
         var data=await resp.json();
         try{rawText=data.choices[0].message.content||'';}catch(e){rawText='';}
       }
+      if(!String(rawText).trim())throw new Error('Réponse vide du modèle');
       _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
       var actions=null; var displayText=rawText;
       var match=rawText.match(/<PLANIFY_ACTIONS>([\s\S]*?)<\/PLANIFY_ACTIONS>/);
@@ -7288,7 +7304,14 @@ function addShopItem(text){
       if(actions&&actions.length>0){iaAppendAIPlan(displayText,actions,_warns);}else{iaAppendAI(displayText);}
     }catch(e){
       if(typingEl)typingEl.remove();
-      var _m=String(e.message||e);
+      var _m=String(e&&e.name==='AbortError'?'délai dépassé (réponse trop lente)':(e.message||e));
+      var _alt=iaAltProvider();
+      if(!_fbTried&&_alt&&!/API key|api_key|invalid.*key|key.*invalid|401|403/i.test(_m)){
+        _fbTried=true;var _saved=_iaProvider;_iaProvider=_alt;
+        toast('Bascule automatique vers '+IA_PROVIDERS[_alt].label.replace(/^\S+\s*/,''));
+        try{await iaCallClaude();}finally{_iaProvider=_saved;}
+        return;
+      }
       var _keyIssue=/API key|api_key|invalid.*key|key.*invalid|401|403|permission|unauthor/i.test(_m);
       iaAppendAI(_keyIssue?'🔑 Ta clé API semble invalide ou expirée. Appuie sur « 🔑 Clé API » pour la remplacer.':'⚠️ L\'assistant n\'a pas pu répondre pour le moment. Réessaie dans quelques secondes.\n\n('+_m.slice(0,140)+')');
     }
