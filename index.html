@@ -51,6 +51,71 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .btn-gh:hover{background:var(--blbg);}
 .btn-rd{background:var(--rd);color:#fff;}
 .btn-gr{background:var(--gr);color:#fff;}
+/* ══ Tâches — style TickTick ══ */
+.tt-add{background:var(--card-bg);border:1.5px solid var(--blb);border-radius:16px;box-shadow:var(--sh);margin-bottom:12px;padding:8px 10px;}
+.tt-add-bar{display:flex;align-items:center;gap:8px;}
+.tt-plus{font-size:22px;font-weight:700;color:var(--bl);line-height:1;width:20px;text-align:center;flex-shrink:0;}
+.tt-add-bar input#ti{flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:inherit;font-size:15px;font-weight:700;color:var(--tx);padding:9px 2px;}
+.tt-add-bar input#ti::placeholder{color:var(--tx3);font-weight:600;}
+.tt-add-opt{width:34px;height:34px;border-radius:10px;border:none;background:transparent;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s;}
+.tt-add-opt:hover,.tt-add-opt.active{background:var(--bll);color:var(--bl);}
+.tt-add-go{font-family:inherit;font-weight:800;font-size:13px;border:none;border-radius:10px;padding:9px 14px;background:var(--bl);color:#fff;cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(42,125,225,.25);}
+.tt-add-go:active{transform:scale(.97);}
+.tt-add-opts{display:none;border-top:1px solid var(--blb);margin-top:8px;padding-top:10px;}
+.tt-add-opts.open{display:block;}
+.tt-card{background:var(--card-bg);border:1.5px solid var(--blb);border-radius:16px;box-shadow:var(--sh);margin-bottom:12px;overflow:hidden;}
+.tt-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 4px;}
+.tt-title{font-size:18px;font-weight:800;color:var(--tx);}
+.tt-seg{display:flex;gap:2px;background:var(--blbg);border-radius:9px;padding:2px;}
+.tt-seg button{padding:5px 11px;border:none;border-radius:7px;font-family:inherit;font-weight:800;font-size:11.5px;cursor:pointer;transition:all .15s;}
+.tt-sec-h{display:flex;align-items:center;gap:6px;padding:12px 14px 5px;font-size:12px;font-weight:800;color:var(--tx2);cursor:pointer;user-select:none;}
+.tt-sec-h .chev{transition:transform .15s;flex-shrink:0;}
+.tt-sec.collapsed .tt-sec-h .chev{transform:rotate(-90deg);}
+.tt-sec.collapsed .tt-rows{display:none;}
+.tt-sec-h .cnt{font-weight:700;color:var(--tx3);}
+.tt-sec.overdue .tt-sec-h{color:var(--rd);}
+.tt-sec.overdue .tt-sec-h .cnt{color:var(--rd);opacity:.7;}
+.tt-row{display:flex;align-items:flex-start;gap:11px;padding:9px 8px 9px 14px;border-top:1px solid rgba(138,170,200,.22);background:var(--card-bg);transition:background .12s,opacity .22s,transform .22s;}
+.tt-rows>.tt-row:first-child{border-top:none;}
+.tt-row:hover{background:var(--blbg);}
+.tt-row.completing{opacity:.35;transform:translateX(6px);}
+.tt-row.completing .tt-name{text-decoration:line-through;}
+.tt-ck{width:20px;height:20px;border-radius:50%;border:2px solid #9fb6d3;flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.tt-ck:hover{border-color:var(--bl);background:var(--bll);}
+.tt-ck.od{border-color:var(--rd);}
+.tt-ck.on{background:var(--bl);border-color:var(--bl);}
+.tt-ck svg{display:none;}
+.tt-ck.on svg{display:block;}
+.tt-main{flex:1;min-width:0;cursor:pointer;}
+.tt-name{font-size:14.5px;font-weight:700;color:var(--tx);line-height:1.3;word-break:break-word;}
+.tt-row.done .tt-name{color:var(--tx3);text-decoration:line-through;}
+.tt-desc{font-size:12px;font-weight:600;color:var(--tx3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tt-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:4px;font-size:11.5px;font-weight:700;color:var(--tx3);}
+.tt-meta .m{display:inline-flex;align-items:center;gap:4px;}
+.tt-meta .m.od{color:var(--rd);}
+.tt-meta .m.today{color:var(--bl);}
+.tt-meta .m.tom{color:#e8710a;}
+.tt-meta .m.rec{color:#3b5fce;}
+.tt-row.done .tt-meta .m{color:var(--tx3);}
+.tt-more{width:30px;height:30px;flex-shrink:0;border:none;background:transparent;border-radius:8px;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .12s,background .12s;}
+.tt-row:hover .tt-more,.tt-more:focus{opacity:1;}
+@media(hover:none){.tt-more{opacity:.8;}}
+.tt-more:hover{background:var(--bll);color:var(--bl);}
+.tt-empty{text-align:center;padding:30px 16px;}
+.tt-empty .big{font-size:15px;font-weight:800;color:var(--tx2);}
+.tt-empty .sm{font-size:12px;font-weight:700;color:var(--tx3);margin-top:4px;}
+.tt-more-hint{text-align:center;font-size:12px;font-weight:700;color:var(--tx3);padding:10px;border-top:1px solid rgba(138,170,200,.22);cursor:pointer;}
+.tt-more-hint:hover{color:var(--bl);}
+.tt-menu{position:fixed;z-index:700;background:var(--card-bg);border:1.5px solid var(--blb);border-radius:12px;box-shadow:0 8px 28px rgba(26,86,160,.20);padding:6px;min-width:210px;max-width:280px;}
+.tt-mi{display:block;width:100%;text-align:left;font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:none;border:none;border-radius:8px;padding:9px 11px;cursor:pointer;}
+.tt-mi:hover{background:var(--blbg);}
+.tt-mi.danger{color:var(--rd);}
+.tt-mi.danger:hover{background:#fdecea;}
+.tt-mlabel{font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;padding:8px 11px 3px;}
+.tt-mchips{display:flex;flex-wrap:wrap;gap:4px;padding:2px 8px 8px;}
+.tt-chip{font-family:inherit;font-size:11px;font-weight:800;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);border-radius:14px;padding:3px 9px;cursor:pointer;}
+.tt-chip.on{background:var(--orbg);border-color:var(--or);color:#b37800;}
+
 /* Tasks */
 .tl{display:flex;flex-direction:column;gap:7px;margin-top:3px;}
 .ti{background:#fff;border:1.5px solid var(--blb);border-radius:12px;padding:11px 13px;transition:border-color .15s,box-shadow .15s;}
@@ -585,11 +650,16 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 <div class="panel active" id="panel-todo">
   <div id="search-results"></div>
   <div id="main-task-content">
-  <div class="card">
-    <div class="ct">&#9999;&#65039; Nouvelle t&#226;che</div>
-    <div class="ar">
-      <input type="text" id="ti" placeholder="Titre de la t&#226;che&#8230;" maxlength="100" style="width:100%;flex-basis:100%;">
+  <div class="tt-add" id="tt-add">
+    <div class="tt-add-bar">
+      <span class="tt-plus">+</span>
+      <input type="text" id="ti" placeholder="Ajouter une t&#226;che&#8230;" maxlength="100" autocomplete="off">
+      <button type="button" class="tt-add-opt" id="tt-opt-btn" onclick="toggleAddOptions()" title="Date, r&#233;p&#233;tition, description&#8230;" aria-label="Options">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </button>
+      <button type="button" class="tt-add-go" onclick="addTask()">Ajouter</button>
     </div>
+    <div class="tt-add-opts" id="tt-add-opts">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px;">
       <div style="display:flex;flex-direction:column;gap:3px;">
         <label style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;">Début</label>
@@ -601,6 +671,16 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
         <input type="date" id="tdat-end" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;width:100%;" oninput="onTdatEndInput()">
         <input type="time" id="ttim-end" style="font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 10px;outline:none;color-scheme:light;width:100%;" title="Heure de fin">
       </div>
+    </div>
+    <div style="margin-top:8px;">
+      <label style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px;">&#8635; R&#233;p&#233;ter</label>
+      <select id="ti-recur" class="recur-select">
+        <option value="">Ne se r&#233;p&#232;te pas</option>
+        <option value="DAILY">Chaque jour</option>
+        <option value="WEEKLY">Chaque semaine</option>
+        <option value="MONTHLY">Chaque mois</option>
+        <option value="YEARLY">Chaque ann&#233;e</option>
+      </select>
     </div>
     <div style="margin-top:8px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -622,7 +702,6 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
           <button id="assign-both" onclick="setAssignee('both')" class="assign-btn" style="flex:1;font-family:inherit;font-size:12px;font-weight:800;border-radius:9px;padding:7px 4px;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);cursor:pointer;transition:all .15s;">👫 Nous deux</button>
         </div>
       </div>
-      <button class="btn btn-bl" onclick="addTask()" style="width:100%;">+ Ajouter</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-weight:700;color:var(--tx2);">
       <span>&#128276; Rappel par d&#233;faut :</span>
@@ -640,21 +719,22 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
         <option value="10080">1 semaine avant</option>
       </select>
     </div>
+
+    </div>
   </div>
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div class="ct" style="margin:0;">&#128204; &#192; faire</div>
-      <div style="display:flex;gap:2px;background:var(--blbg);border-radius:8px;padding:2px;">
-        <button id="tf-today-btn" onclick="setTaskFilter('today')" style="padding:4px 10px;border:none;border-radius:6px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer;transition:all .15s;background:transparent;color:var(--tx2);">&#127774; Auj.</button>
-        <button id="tf-week-btn" onclick="setTaskFilter('week')" style="padding:4px 10px;border:none;border-radius:6px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer;transition:all .15s;background:#fff;color:var(--bl);box-shadow:0 1px 4px rgba(26,86,160,.12);">&#128198; 8j</button>
-        <button id="tf-all-btn" onclick="setTaskFilter('all')" style="padding:4px 10px;border:none;border-radius:6px;font-family:inherit;font-weight:800;font-size:11px;cursor:pointer;transition:all .15s;background:transparent;color:var(--tx2);">Toutes</button>
+  <div class="tt-card">
+    <div class="tt-head">
+      <div class="tt-title">&#192; faire</div>
+      <div class="tt-seg">
+        <button id="tf-today-btn" onclick="setTaskFilter('today')" style="background:transparent;color:var(--tx2);">Auj.</button>
+        <button id="tf-week-btn" onclick="setTaskFilter('week')" style="background:#fff;color:var(--bl);box-shadow:0 1px 4px rgba(26,86,160,.12);">8 j</button>
+        <button id="tf-all-btn" onclick="setTaskFilter('all')" style="background:transparent;color:var(--tx2);">Toutes</button>
       </div>
     </div>
-    <div class="tl" id="list-todo"></div>
+    <div id="list-todo"></div>
   </div>
-  <div class="card" id="card-done" style="display:none">
-    <div class="ct">&#9989; Termin&#233;es</div>
-    <div class="tl" id="list-done"></div>
+  <div class="tt-card" id="card-done" style="display:none">
+    <div id="list-done"></div>
   </div>
   <div style="text-align:center;margin:4px 0 8px">
     <button id="btn-archives" onclick="toggleArchives()" style="font-family:inherit;font-size:12px;font-weight:700;color:var(--tx3);background:none;border:1.5px solid var(--blb);border-radius:20px;padding:6px 18px;cursor:pointer;transition:all .15s;">
@@ -1127,6 +1207,10 @@ function eventsOn(d){
       return {...e,_baseId:t.id,_isMulti:true,_isFirst:isFirst,_isLast:isLast,
         _due:t.due,_dueEnd:t.dueEnd,_dayIdx:meta.dayIdx,_dayTotal:meta.total};
     }
+    if(e.recurringEventId){
+      const mt=S.tasks.find(x=>x.id===e.recurringEventId);
+      if(mt)return {...e,_baseId:mt.id,_virtual:true,_gcalInstance:true,_recurrence:mt.recurrence||'CUSTOM'};
+    }
     return e;
   });
 
@@ -1134,6 +1218,7 @@ function eventsOn(d){
   const localEvs=S.tasks
     .filter(t=>{
       if(t.archived||allGcalIds.has(t.id))return false;
+      if(seriesMasterSet().has(t.id))return false;
       if(!t.due)return false;
       const end=t.dueEnd||t.due;
       return d>=t.due&&d<=end;
@@ -1185,12 +1270,365 @@ function eventsOn(d){
   S.tasks.filter(t=>!t.archived&&t.recurrence&&t.due&&!allGcalIds.has(t.id)).forEach(t=>{
     if(t.due===d)return;
     if(gcalDatesOnD.has(t.id)||localIdsOnD.has(t.id))return;
+    if(seriesMasterSet().has(t.id)&&d<=(window._gcalWinEnd||'9999-12-31'))return;
+    if(occSkipped(t.id,d))return;
     if(matchesRecurrence(t.due,d,t.recurrence)){
       const virtId=t.id+"__recur__"+d;
       recurEvs.push({id:virtId,_baseId:t.id,title:t.title,start:d,end:d,allDay:true,_local:true,_virtual:true,_recurrence:t.recurrence});
     }
   });
   return [...gcalEvs,...localEvs,...archivedEvs,...recurEvs,...gcalMultiEvs];
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SÉRIES RÉCURRENTES — une série = UNE tâche (id = id de l'événement maître GCal)
+   • Google renvoie les occurrences (singleEvents) avec recurringEventId = id maître.
+   • Les occurrences ne sont JAMAIS des tâches : elles s'affichent dans le calendrier
+     et la tâche-série montre sa prochaine occurrence non cochée.
+   • Cochage par occurrence : entrées auxiliaires  <idSérie>__done__<date>
+   ══════════════════════════════════════════════════════════════ */
+var _smRef=null,_smLen=-1,_smVal=new Set();
+function seriesMasterSet(){
+  if(_smRef!==gcal||_smLen!==gcal.length){
+    _smRef=gcal;_smLen=gcal.length;_smVal=new Set();
+    for(var i=0;i<gcal.length;i++){if(gcal[i].recurringEventId)_smVal.add(gcal[i].recurringEventId);}
+  }
+  return _smVal;
+}
+function seriesInstances(mid){
+  var out=[];
+  for(var i=0;i<gcal.length;i++){if(gcal[i].recurringEventId===mid)out.push(gcal[i]);}
+  out.sort(function(a,b){return a.start<b.start?-1:(a.start>b.start?1:0);});
+  return out;
+}
+function evDate(e){return ((e&&e.start)||'').slice(0,10);}
+function isAuxTaskId(id){return typeof id==='string'&&id.indexOf('__')!==-1;}
+function isInstanceId(id){return /^[^_]+_\d{8}(T\d{6}Z?)?$/.test(id||'');}
+function instanceBaseId(id){var m=/^([^_]+)_\d{8}(T\d{6}Z?)?$/.exec(id||'');return m?m[1]:null;}
+function occDone(mid,date){var k=mid+'__done__'+date;var m=S.tasks.find(function(x){return x.id===k;});return !!(m&&m.done);}
+function occArchived(mid,date){var k=mid+'__arch__'+date;var m=S.tasks.find(function(x){return x.id===k;});return !!(m&&m.archived);}
+function occSkipped(mid,date){var k=mid+'__skip__'+date;return S.tasks.some(function(x){return x.id===k;});}
+var REC_KNOWN={DAILY:1,WEEKLY:1,MONTHLY:1,YEARLY:1};
+var REC_LABEL={"DAILY":"Chaque jour","WEEKLY":"Chaque semaine","MONTHLY":"Chaque mois","YEARLY":"Chaque année"};
+
+function inferRecurrence(dates){
+  if(!dates||dates.length<2)return 'CUSTOM';
+  var a=new Date(dates[0]+'T00:00:00'),b=new Date(dates[1]+'T00:00:00');
+  var g=Math.round((b-a)/864e5);
+  if(g===1)return 'DAILY';
+  if(g===7)return 'WEEKLY';
+  if(g>=28&&g<=31)return 'MONTHLY';
+  if(g>=365&&g<=366)return 'YEARLY';
+  return 'CUSTOM';
+}
+
+/* Prochaine occurrence non cochée / non archivée / non supprimée à partir d'aujourd'hui.
+   Source de vérité : les occurrences renvoyées par Google Agenda (exceptions incluses).
+   Série purement locale (hors GCal) : calcul à partir de la date de départ. */
+function seriesNext(t){
+  var today=ds(new Date());
+  var inst=seriesInstances(t.id);
+  if(inst.length){
+    for(var i=0;i<inst.length;i++){
+      var d=evDate(inst[i]);
+      if(d<today)continue;
+      if(occDone(t.id,d)||occArchived(t.id,d))continue;
+      return {date:d,ev:inst[i]};
+    }
+    return null;
+  }
+  if(!t.recurrence||!t.due||!REC_KNOWN[t.recurrence])return null;
+  var cand=nextDueFromToday(t.due,t.recurrence);var safety=0;
+  while(cand&&safety<500){
+    if(!occDone(t.id,cand)&&!occArchived(t.id,cand)&&!occSkipped(t.id,cand))break;
+    cand=nextOccurrence(cand,t.recurrence);safety++;
+  }
+  return cand?{date:cand,ev:null}:null;
+}
+
+/* Supprime localement TOUT ce qui se rattache à une série (tâche, coches, occurrences importées) */
+function purgeSeriesLocal(mid){
+  S.tasks=S.tasks.filter(function(x){
+    if(!x||!x.id)return true;
+    if(x.id===mid)return false;
+    if(x.id.indexOf(mid+'__')===0)return false;
+    if(instanceBaseId(x.id)===mid)return false;
+    return true;
+  });
+  gcal=gcal.filter(function(e){return e.id!==mid&&e.recurringEventId!==mid;});
+}
+
+/* Réconciliation après chaque fetchGcal :
+   1. migre les anciennes « tâches-occurrence » (modèle précédent) vers la série ;
+   2. crée / met à jour UNE tâche par série vivante dans GCal ;
+   3. importe l'état « fait » (couleur GCal 7) des occurrences ;
+   4. supprime les séries qui n'existent plus dans GCal. */
+function reconcileSeries(rawItems,ok){
+  var changed=false;
+  var inst={};
+  gcal.forEach(function(e){if(e.recurringEventId){(inst[e.recurringEventId]=inst[e.recurringEventId]||[]).push(e);}});
+  var rawById={};
+  (rawItems||[]).forEach(function(r){if(r&&r.recurringEventId)rawById[r.id]=r;});
+
+  /* 1. Anciennes tâches-occurrence */
+  var migrated=[];
+  S.tasks=S.tasks.filter(function(t){
+    if(!t||!t.id||t.id.indexOf('__')!==-1)return true;
+    var base=instanceBaseId(t.id);
+    if(!base)return true;
+    var ev=gcal.find(function(e){return e.id===t.id;});
+    var date=(ev?evDate(ev):'')||t.due||'';
+    if(date&&(t.done||t.archived))migrated.push({base:base,date:date,done:!!t.done,archived:!!t.archived});
+    changed=true;
+    return false;
+  });
+
+  /* 2 + 3. Une tâche par série vivante */
+  Object.keys(inst).forEach(function(mid){
+    var list=inst[mid].slice().sort(function(a,b){return a.start<b.start?-1:(a.start>b.start?1:0);});
+    var first=list[0];
+    if(!first||first.eventType==='birthday'||first.eventType==='fromGmail')return;
+    var raw=rawById[first.id];
+    var meta=null;
+    try{var priv=raw&&raw.extendedProperties&&raw.extendedProperties.private;if(priv&&priv.planify)meta=JSON.parse(priv.planify);}catch(ex){meta=null;}
+    if(meta&&meta.inbox)return;
+    var priv2=first.extendedProperties&&first.extendedProperties.private;
+    if(priv2&&priv2.planify_inbox==='1')return;
+    var dates=list.map(evDate);
+    if(dates[0]>='2099-01-01')return;
+    var master=S.tasks.find(function(x){return x.id===mid;});
+    if(!master){
+      master={id:mid,title:first.title||'(sans titre)',due:dates[0],done:false,archived:false,
+        recurrence:(meta&&meta.recurrence)||inferRecurrence(dates),
+        _createdHere:true,_seriesSeen:true,_gcalImported:!meta,_restoredFromGcal:!!meta};
+      if(!first.allDay){master._pendingTS=fT(first.start)||null;master._pendingTE=fT(first.end)||null;}
+      if(meta){
+        if(meta.desc)master.desc=meta.desc;
+        if(meta.pendingTS)master._pendingTS=meta.pendingTS;
+        if(meta.pendingTE)master._pendingTE=meta.pendingTE;
+        if(meta.remind)master.remind=meta.remind;
+        if(meta.reminders&&meta.reminders.length)master.reminders=meta.reminders;
+        if(meta.shopping)master.shopping=meta.shopping;
+        if(meta.assignee&&meta.assignee!=='me')master._assignee=meta.assignee;
+        if(meta.doneKeys&&meta.doneKeys.length){
+          meta.doneKeys.forEach(function(dk){
+            if(!S.tasks.some(function(x){return x.id===dk.id;}))S.tasks.push({id:dk.id,done:!!dk.done,archived:false});
+          });
+        }
+      } else {
+        var pd=parseGcalDescription(first.description||'');
+        if(pd){
+          if(pd.desc)master.desc=pd.desc;
+          if(pd.shopping&&pd.shopping.items&&pd.shopping.items.length)master.shopping=pd.shopping;
+        }
+      }
+      S.tasks.push(master);changed=true;
+    } else {
+      if(!master._seriesSeen){master._seriesSeen=true;changed=true;}
+      if(!master.recurrence){master.recurrence=inferRecurrence(dates);changed=true;}
+    }
+    /* Couleur GCal « 7 » = occurrence faite (autre appareil / état initial) */
+    list.forEach(function(e){
+      if(e.colorId!=='7')return;
+      var k=mid+'__done__'+evDate(e);
+      if(!S.tasks.some(function(x){return x.id===k;})){
+        S.tasks.push({id:k,_occOf:mid,_occDate:evDate(e),done:true,archived:false});changed=true;
+      }
+    });
+  });
+
+  /* Coches / archives des anciennes occurrences */
+  migrated.forEach(function(m){
+    if(!S.tasks.some(function(x){return x.id===m.base;}))return;
+    if(m.done){
+      var k=m.base+'__done__'+m.date;
+      var o=S.tasks.find(function(x){return x.id===k;});
+      if(!o)S.tasks.push({id:k,_occOf:m.base,_occDate:m.date,done:true,archived:false});
+      else o.done=true;
+    }
+    if(m.archived){
+      var k2=m.base+'__arch__'+m.date;
+      if(!S.tasks.some(function(x){return x.id===k2;}))S.tasks.push({id:k2,_archOf:m.base,_archDate:m.date,archived:true,done:true});
+    }
+  });
+
+  /* 4. Séries supprimées dans Google Agenda (ou ailleurs) */
+  if(ok){
+    var dead=new Set();
+    S.tasks=S.tasks.filter(function(t){
+      if(t&&t._seriesSeen&&!t.archived&&!inst[t.id]&&!gcal.some(function(e){return e.id===t.id;})){dead.add(t.id);changed=true;return false;}
+      return true;
+    });
+    if(dead.size){
+      S.tasks=S.tasks.filter(function(x){
+        var b=(x&&x.id&&x.id.indexOf('__')>0)?x.id.split('__')[0]:null;
+        return !(b&&dead.has(b));
+      });
+    }
+  }
+  if(changed)lsSave();
+}
+
+/* Tâches importées de GCal dont l'événement n'existe plus (supprimé dans Google Agenda).
+   Ne tourne que si TOUS les calendriers ont été lus sans erreur. */
+function purgeGhostTasks(gcalIds,ok,tMinS,tMaxS){
+  if(!ok||!token)return;
+  var masters=seriesMasterSet();
+  var before=S.tasks.length;
+  var removed=new Set();
+  S.tasks=S.tasks.filter(function(t){
+    if(!t||!t.id)return true;
+    if(isAuxTaskId(t.id))return true;
+    if(t.archived)return true;
+    if(!(t._gcalImported||t._restoredFromGcal))return true;
+    if(gcalIds.has(t.id)||masters.has(t.id))return true;
+    if(t._dayEventIds&&t._dayEventIds.length)return true;
+    if(t._pendingDate)return true;
+    var d=t.due||'';
+    if(!d||d<tMinS||d>tMaxS)return true;
+    removed.add(t.id);return false;
+  });
+  if(removed.size){
+    S.tasks=S.tasks.filter(function(x){
+      var b=(x&&x.id&&x.id.indexOf('__')>0)?x.id.split('__')[0]:null;
+      return !(b&&removed.has(b));
+    });
+  }
+  if(S.tasks.length!==before)lsSave();
+}
+
+/* Couleur GCal des occurrences cochées (bornée : 60 PATCH max par passage) */
+function resyncSeriesColors(){
+  if(!token||window._seriesResyncBusy)return;
+  var doneSet=new Set();
+  S.tasks.forEach(function(x){if(x&&x.id&&(x.done||x.archived)&&(x.id.indexOf('__done__')>0||x.id.indexOf('__arch__')>0))doneSet.add(x.id);});
+  var todo=[];
+  gcal.forEach(function(e){
+    if(!e.recurringEventId||e.readOnly||e.eventType==='birthday'||e.eventType==='fromGmail')return;
+    if(e.colorId==='7')return;
+    var d=evDate(e);
+    if(doneSet.has(e.recurringEventId+'__done__'+d)||doneSet.has(e.recurringEventId+'__arch__'+d))todo.push(e);
+  });
+  if(!todo.length)return;
+  window._seriesResyncBusy=true;
+  (async function(){
+    for(var i=0;i<todo.length&&i<60;i++){
+      var e=todo[i];
+      await calFetch('PATCH','/calendars/'+encodeURIComponent(e.calendarId||'primary')+'/events/'+e.id,{colorId:"7"})
+        .then(function(r){if(r)e.colorId="7";}).catch(function(){});
+      await new Promise(function(r){setTimeout(r,300);});
+    }
+    window._seriesResyncBusy=false;
+  })();
+}
+
+function syncInstanceColor(instId,done){
+  if(!token)return Promise.resolve();
+  var ev=gcal.find(function(e){return e.id===instId;});
+  if(!ev||ev.readOnly)return Promise.resolve();
+  var want=done?"7":"6";
+  if(ev.colorId===want)return Promise.resolve();
+  return calFetch('PATCH','/calendars/'+encodeURIComponent(ev.calendarId||'primary')+'/events/'+instId,{colorId:want})
+    .then(function(r){if(r)ev.colorId=want;}).catch(function(){});
+}
+function syncOccColorFor(mid,date,done){
+  var ev=gcal.find(function(e){return e.recurringEventId===mid&&evDate(e)===date;});
+  if(ev)syncInstanceColor(ev.id,done);
+}
+
+/* Cocher / décocher UNE occurrence d'une série */
+function toggleOccurrence(mid,date){
+  if(!mid||!date)return false;
+  var key=mid+'__done__'+date;
+  var occ=S.tasks.find(function(x){return x.id===key;});
+  if(!occ){occ={id:key,_occOf:mid,_occDate:date,done:false,archived:false};S.tasks.push(occ);}
+  occ.done=!occ.done;
+  lsSave();
+  renderTasks();renderAg();
+  if(token){syncOccColorFor(mid,date,occ.done);patchGcalMeta(mid);}
+  return occ.done;
+}
+
+/* ── Suppression ── */
+async function deleteSeriesFully(mid){
+  showSync("Suppression de la série…");
+  if(token)await delGcalEv(mid);
+  purgeSeriesLocal(mid);
+  lsSave();hideSync();
+  if(token)await fetchGcal();
+  renderTasks();renderAg();
+  if(token&&(seriesMasterSet().has(mid)||gcal.some(function(e){return e.id===mid;}))){
+    toast("⚠️ Google Agenda n'a pas supprimé cette série (droits insuffisants ?)");
+  } else toast("🗑 Série supprimée");
+}
+async function deleteOccurrence(mid,date,instId){
+  showSync("Suppression de l'occurrence…");
+  if(instId&&token)await delGcalEv(instId);
+  var sk=mid+'__skip__'+date;
+  if(!S.tasks.some(function(x){return x.id===sk;}))S.tasks.push({id:sk,_skipOf:mid,_skipDate:date});
+  S.tasks=S.tasks.filter(function(x){return x.id!==mid+'__done__'+date&&x.id!==mid+'__arch__'+date;});
+  lsSave();hideSync();
+  if(token&&instId)await fetchGcal();
+  renderTasks();renderAg();
+  toast("🗑 Occurrence du "+fD(date)+" supprimée");
+}
+function showRecurDeleteDialog(mid,date,instId){
+  var t=S.tasks.find(function(x){return x.id===mid;});
+  var ov=mk("div","ov");ov.style.zIndex="600";
+  var mo=mk("div","mo");mo.style.cssText="max-width:340px;width:100%;";
+  var h=mk("h3");h.textContent="🗑 Supprimer une tâche récurrente";
+  var sub=mk("p");sub.style.cssText="font-size:13px;color:var(--tx2);margin-bottom:16px;line-height:1.4;background:var(--blbg);border-radius:9px;padding:8px 11px;border-left:3px solid var(--bl);";
+  sub.textContent='"'+(t?t.title:'')+'"'+(date?' — '+fD(date):'');
+  var btns=mk("div");btns.style.cssText="display:flex;flex-direction:column;gap:8px;margin-top:4px;";
+  function close(){if(ov.parentNode)ov.parentNode.removeChild(ov);}
+  var b1=mk("button","btn btn-bl");
+  b1.style.cssText="width:100%;white-space:normal;text-align:left;padding:10px 14px;line-height:1.4;";
+  b1.innerHTML="<strong>Cette occurrence</strong><br><span style='font-size:11px;opacity:.85;font-weight:600;'>Supprimer uniquement le "+fD(date)+"</span>";
+  b1.onclick=function(){close();deleteOccurrence(mid,date,instId);};
+  var b2=mk("button","btn btn-rd");
+  b2.style.cssText="width:100%;white-space:normal;text-align:left;padding:10px 14px;line-height:1.4;";
+  b2.innerHTML="<strong>Toute la série</strong><br><span style='font-size:11px;opacity:.9;font-weight:600;'>Supprimer toutes les occurrences (passées et futures), aussi dans Google Agenda</span>";
+  b2.onclick=function(){close();deleteSeriesFully(mid);};
+  var b3=mk("button","btn btn-gh");
+  b3.style.cssText="width:100%;padding:9px 14px;color:var(--tx3);";
+  b3.textContent="Annuler";b3.onclick=close;
+  btns.append(b1,b2,b3);mo.append(h,sub,btns);ov.appendChild(mo);
+  ov.classList.add("open");
+  ov.addEventListener("click",function(e){if(e.target===ov)close();});
+  document.body.appendChild(ov);
+}
+
+/* Suppression d'une tâche (hors série) — locale ET Google Agenda */
+async function deleteTaskEverywhere(t){
+  var tFresh=S.tasks.find(function(x){return x.id===t.id;})
+    ||S.tasks.find(function(x){return x.title===t.title&&x.due===t.due&&!x.id.includes('__');})
+    ||t;
+  var mid=tFresh.id;
+  showSync("Suppression…");
+  try{
+    if(tFresh._dayEventIds&&tFresh._dayEventIds.length){
+      for(var i=0;i<tFresh._dayEventIds.length;i++){if(tFresh._dayEventIds[i])await delGcalEv(tFresh._dayEventIds[i]);}
+    } else {
+      var gEv=gcal.find(function(e){return e.id===mid;})||gcal.find(function(e){return e.id===tFresh.gcalId;});
+      if(gEv)await delGcalEv(gEv.id);
+      else if(token&&mid&&!mid.startsWith('planify_')&&!mid.includes('__'))await delGcalEv(mid);
+    }
+  }catch(e){}
+  hideSync();
+  var dayIds=tFresh._dayEventIds||[];
+  S.tasks=S.tasks.filter(function(x){
+    if(!x||!x.id)return true;
+    if(x.id===mid||x.id===t.id)return false;
+    if(x.id.indexOf(mid+'__')===0||x.id.indexOf(t.id+'__')===0)return false;
+    if(instanceBaseId(x.id)===mid)return false;
+    if(!tFresh.recurrence&&x.title===tFresh.title&&x.due===tFresh.due&&!x.id.includes('__'))return false;
+    for(var j=0;j<dayIds.length;j++){if(x.id===dayIds[j]||x.id.indexOf(dayIds[j]+'__')===0)return false;}
+    return true;
+  });
+  gcal=gcal.filter(function(e){return e.recurringEventId!==mid;});
+  lsSave();
+  if(token)await fetchGcal();
+  renderTasks();renderAg();
 }
 
 /* Vérifie si targetDate est une occurrence récurrente de baseDate */
@@ -1233,7 +1671,7 @@ function nextOccurrence(baseDate,freq){
 /* Prochaine échéance à venir (>= aujourd'hui) pour une tâche récurrente */
 function nextDueFromToday(baseDate,freq){
   if(!baseDate||!freq)return baseDate;
-  const today=new Date(ds(NOW)+"T00:00:00");
+  const today=new Date(ds(new Date())+"T00:00:00");
   let cur=new Date(baseDate+"T00:00:00");
   let safety=0;
   while(cur<today&&safety<1000){
@@ -1631,7 +2069,7 @@ function buildPlanifyMeta(taskId){
 async function patchGcalMeta(gcalId){
   /* PATCH uniquement les extendedProperties — ne touche pas au reste */
   if(!token||!gcalId)return;
-  const ev=gcal.find(e=>e.id===gcalId);
+  const ev=gcal.find(e=>e.id===gcalId)||gcal.find(e=>e.recurringEventId===gcalId);
   if(!ev||ev.eventType==="birthday"||ev.eventType==="fromGmail"||ev.readOnly)return;
   const metaStr=buildPlanifyMeta(gcalId);
   const gcalDesc=buildGcalDescription(gcalId);
@@ -1650,6 +2088,7 @@ function restoreMetaFromGcal(rawItems){
      Pour done/archived : on prend le MAX (true > false) entre local et GCal. */
   let changed=false;
   (rawItems||[]).forEach(function(rawEv){
+    if(rawEv.recurringEventId)return; /* occurrence de série : gérée par reconcileSeries */
     const priv=rawEv.extendedProperties&&rawEv.extendedProperties.private;
     if(!priv||!priv.planify)return;
     let meta;
@@ -1849,6 +2288,7 @@ function renderWeekQuick(){
      ni dans t.due / t.plannedDate, ni dans un événement GCal correspondant */
   var noDateTasks=S.tasks.filter(function(t){
     if(t.archived||t.done)return false;
+    if(!t.id||isAuxTaskId(t.id)||isInstanceId(t.id)||!t.title)return false;
     if(t._createdHere===false)return false;
     if(t.due&&t.due.trim()!=='')return false;
     if(t.plannedDate&&t.plannedDate.trim()!=='')return false;
@@ -1889,6 +2329,7 @@ function renderWeekQuick(){
       if(t.archived)return false;
       if(t._dayEventIds)return false; // gérées via dayEvItems
       if(allGcalIds2.has(t.id))return false; // gérées via dayGcal
+      if(seriesMasterSet().has(t.id))return false; // série : via ses occurrences
       if(t.plannedDate===date)return true;
       if(!t.due)return false;
       var end=t.dueEnd||t.due;
@@ -1904,10 +2345,12 @@ function renderWeekQuick(){
     var dayGcal=gcal.filter(function(e){
       if(!(e.start||'').startsWith(date)||e.allDay)return false;
       if(S.tasks.find(function(t){return t.id===e.id;}))return false;
+      if(e.recurringEventId&&S.tasks.find(function(t){return t.id===e.recurringEventId;}))return false;
       if(dayEvGcalIds.has(e.id))return false;
       return true;
     });
-    if(!dayTasks.length&&!dayEvItems.length&&!dayGcal.length)return;
+    var daySeries=eventsOn(date).filter(function(e){return e._virtual===true;});
+    if(!dayTasks.length&&!dayEvItems.length&&!dayGcal.length&&!daySeries.length)return;
     hasAny=true;
     var d2=new Date(date+'T00:00:00');
     var dayLbl=d2.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'});
@@ -1926,6 +2369,7 @@ function renderWeekQuick(){
       var fakeEv={id:t.id,title:t.title,start:ts2?(t.due+"T"+ts2):date,end:date,allDay:!ts2,_local:true,_recurrence:t.recurrence||null,_isMulti:isMulti,_isFirst:isFirst,_isLast:isLast,_due:t.due,_dueEnd:end};
       body.appendChild(buildDetRow(fakeEv,date));
     });
+    daySeries.forEach(function(e){body.appendChild(buildDetRow(e,date));});
     /* Sous-événements _dayEventIds avec cochage indépendant par jour */
     dayEvItems.forEach(function(item){
       var gcalDayEv=gcal.find(function(e){return e.id===item.eid;});
@@ -2310,7 +2754,7 @@ function restoreAllFromGcal(){
   ov.style.display='flex';
   function msg(t){var el=document.getElementById('restore-msg');if(el)el.textContent=t;}
   S.tasks=S.tasks.filter(function(t){
-    return t.id&&(t.id.includes('__done__')||t.id.includes('__arch__')||t.id.includes('__recur__'));
+    return t.id&&t.id.indexOf('__')!==-1;
   });
   lsSave();
   msg('Interrogation de Google Agenda…');
@@ -2393,7 +2837,7 @@ async function calFetch(method,path,body,_retries){
         if(r.status===403){resolve(null);return;}
         if(!r.ok){
           /* 410 sur DELETE = déjà supprimé → succès silencieux */
-          if(r.status===410&&method==='DELETE'){resolve({});return;}
+          if((r.status===410||r.status===404)&&method==='DELETE'){resolve({});return;}
           var err=null;try{err=await r.json();}catch(e2){}
           toast('❌ Erreur Google '+r.status+' : '+(err&&err.error&&err.error.message||r.statusText));
           resolve(null);return;
@@ -2445,7 +2889,9 @@ async function fetchGcal(){
   try{
     var tMin=new Date();tMin.setFullYear(tMin.getFullYear()-2);
     var tMax=new Date();tMax.setMonth(tMax.getMonth()+6);
-    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'500'});
+    var params=new URLSearchParams({timeMin:tMin.toISOString(),timeMax:tMax.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'2500'});
+    window._gcalWinEnd=ds(tMax);
+    var seenIds=new Set();
     /* Toujours fetcher primary, plus les autres calendriers sélectionnés */
     var calsToFetch=['primary'];
     if(selectedCals.size>0){
@@ -2454,15 +2900,22 @@ async function fetchGcal(){
     var allItems=[];
     var fetchErrors=[];
     await Promise.all(calsToFetch.map(async function(calId){
-      var data=await calFetch('GET','/calendars/'+encodeURIComponent(calId)+'/events?'+params);
-      if(data&&data.items){
-        data.items.forEach(function(e){
-          e._calId=calId;
-          if(!allItems.find(function(x){return x.id===e.id;}))allItems.push(e);
-        });
-      } else if(data===null){
-        fetchErrors.push(calId);
-      }
+      var pageToken=null,guard=0;
+      do{
+        var pp=new URLSearchParams(params.toString());
+        if(pageToken)pp.set('pageToken',pageToken);
+        var data=await calFetch('GET','/calendars/'+encodeURIComponent(calId)+'/events?'+pp);
+        if(data&&data.items){
+          data.items.forEach(function(e){
+            e._calId=calId;
+            if(!seenIds.has(e.id)){seenIds.add(e.id);allItems.push(e);}
+          });
+          pageToken=data.nextPageToken||null;
+        } else {
+          fetchErrors.push(calId);pageToken=null;
+        }
+        guard++;
+      }while(pageToken&&guard<20);
     }));
     if(fetchErrors.length>0&&allItems.length===0){
       hideSync();
@@ -2473,10 +2926,11 @@ async function fetchGcal(){
     if(data&&data.items){
       gcal=data.items.map(function(e){
         var calId=e._calId||'primary';
-        return{id:e.id,title:e.summary||"(sans titre)",description:e.description||"",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null,eventType:e.eventType||null,calendarId:calId,readOnly:e.organizer&&e.organizer.self===false&&e.guestsCanModify===false,extendedProperties:e.extendedProperties||null};
+        return{id:e.id,recurringEventId:e.recurringEventId||null,title:e.summary||"(sans titre)",description:e.description||"",start:e.start.dateTime||e.start.date,end:e.end.dateTime||e.end.date,allDay:!e.start.dateTime,colorId:e.colorId||null,eventType:e.eventType||null,calendarId:calId,readOnly:e.organizer&&e.organizer.self===false&&e.guestsCanModify===false,extendedProperties:e.extendedProperties||null};
       });
       /* Restaurer les métadonnées Planify depuis extendedProperties GCal */
       restoreMetaFromGcal(allItems);
+      reconcileSeries(allItems,fetchErrors.length===0);
       /* Recharger les notes Inbox depuis GCal */
       if(window.fetchInboxFromGcal)fetchInboxFromGcal();
       /* ══ Import automatique GCal → Planify ══
@@ -2496,6 +2950,7 @@ async function fetchGcal(){
         gcal.forEach(function(e){
           if(e.eventType==="birthday"||e.eventType==="fromGmail")return;
           if(existingIds.has(e.id))return;
+          if(e.recurringEventId)return; /* occurrences de série : gérées via la tâche-série */
           /* Ignorer les sous-événements déjà créés par Planify "Titre (Ji/N)" */
           if(/\(J\d+\/\d+\)$/.test(e.title||""))return;
           /* Ignorer les notes Inbox (date 2099 ou flag planify_inbox) */
@@ -2659,16 +3114,18 @@ async function fetchGcal(){
           lsSave();
         })();
       })();
+      resyncSeriesColors();
       /* Purger les tâches locales dont l'id existe dans GCal ET qui n'ont pas _createdHere
          Les tâches créées dans cette app (_createdHere) sont conservées même si elles sont dans GCal */
       var gcalIds=new Set(gcal.map(function(e){return e.id;}));
+      purgeGhostTasks(gcalIds,fetchErrors.length===0,ds(tMin),ds(tMax));
       var before=S.tasks.length;
       S.tasks=S.tasks.filter(function(t){
         if(t.archived)return true;        // TOUJOURS garder les archivées — elles ne reviendront jamais en "à faire"
         if(t._createdHere)return true;    // garder les tâches créées dans Planify
         if(gcalIds.has(t.id))return true; // garder tous les metas d'events GCal connus
         // Garder les entrées auxiliaires de cochage par jour (tâches multi-jours et récurrentes)
-        if(t.id&&t.id.includes("__done__")||t.id&&t.id.includes("__arch__")||t.id&&t.id.includes("__recur__")||t.id&&t.id.includes("__colsync__"))return true;
+        if(t.id&&t.id.indexOf("__")!==-1)return true;
         return false; // purger les orphelins (events supprimés de GCal)
       });
       if(S.tasks.length!==before)lsSave();
@@ -2756,11 +3213,21 @@ async function updateGcalEv(gcalId,title,desc,date,tS,tE,dueEnd,remindMin,remind
   if(metaStr)body.extendedProperties={private:{planify:metaStr}};
   await calFetch(method,'/calendars/primary/events/'+gcalId,body);
 }
-async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd,remindMin,remindersArr){
+async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,dueEnd,remindMin,remindersArr,opts){
   if(!token||!gcalId)return;
+  opts=opts||{};
   tS=tS||null; tE=tE||null; dueEnd=dueEnd||null;
   var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-  var colorId=gcalColorId(gcalId);
+  var ownEv=gcal.find(function(e){return e.id===gcalId;})||null;
+  var firstInst=ownEv?null:(gcal.find(function(e){return e.recurringEventId===gcalId;})||null);
+  var isSeries=!!firstInst||!!opts.series;
+  var refEv=ownEv||firstInst;
+  var calId=(refEv&&refEv.calendarId)||'primary';
+  var curEv=null;
+  if(isSeries){curEv=await calFetch('GET','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalId);}
+  if(isSeries&&curEv&&opts.keepStartDate&&curEv.start){var cs0=curEv.start.dateTime||curEv.start.date||'';if(cs0)date=cs0.slice(0,10);}
+  if(isSeries)dueEnd=null;
+  var colorId=isSeries?"6":gcalColorId(gcalId);
   var gcalEndDate3=dueEnd||date;
   var startObj3,endObj3;
   if(tS){
@@ -2774,26 +3241,36 @@ async function updateGcalEvWithRecur(gcalId,title,desc,date,tS,tE,recurrence,due
   }
   remindMin=remindMin||0;
   var reminders3=buildGcalReminders(remindersArr&&remindersArr.length?remindersArr:remindMin);
-  var body={summary:title,description:buildGcalDescription(gcalId)||(desc||""),start:startObj3,end:endObj3,colorId,reminders:reminders3};
-  if(recurrence){body.recurrence=["RRULE:FREQ="+recurrence];}
-  else{body.recurrence=[];}
-  var existingEv=gcal.find(e=>e.id===gcalId);
-  var wasAllDay=existingEv?existingEv.allDay:true;
+  var body={summary:title,description:buildGcalDescription(gcalId)||(desc||""),start:startObj3,end:endObj3,colorId:colorId,reminders:reminders3};
+  if(recurrence&&REC_KNOWN[recurrence]){
+    var rr=["RRULE:FREQ="+recurrence];
+    if(isSeries&&curEv&&curEv.recurrence){
+      var keep=curEv.recurrence.filter(function(r){return /^RRULE:/i.test(r);});
+      if(keep.length&&new RegExp('FREQ='+recurrence,'i').test(keep[0]))rr=curEv.recurrence;
+    }
+    body.recurrence=rr;
+  } else if(recurrence&&isSeries&&curEv&&curEv.recurrence){
+    body.recurrence=curEv.recurrence;
+  } else {
+    body.recurrence=[];
+  }
+  var wasAllDay=refEv?refEv.allDay:(curEv&&curEv.start?!curEv.start.dateTime:true);
   var isNowAllDay=!tS;
   var method=(wasAllDay!==isNowAllDay)?'PUT':'PATCH';
   var metaStr=buildPlanifyMeta(gcalId);
   if(metaStr)body.extendedProperties={private:{planify:metaStr}};
-  await calFetch(method,'/calendars/primary/events/'+gcalId,body);
+  await calFetch(method,'/calendars/'+encodeURIComponent(calId)+'/events/'+gcalId,body);
 }
 async function delGcalEv(gcalId){
   if(!token||!gcalId)return;
+  var ev=gcal.find(function(e){return e.id===gcalId;})||gcal.find(function(e){return e.recurringEventId===gcalId;});
+  var calId=(ev&&ev.calendarId)||'primary';
   try{
-    await calFetch('DELETE','/calendars/primary/events/'+gcalId);
+    await calFetch('DELETE','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalId);
   }catch(e){
-    /* 410 = déjà supprimé dans GCal → on continue proprement */
     if(!(e&&(e.status===410||e.code===410||(e.message&&e.message.includes('410')))))throw e;
   }
-  gcal=gcal.filter(function(e){return e.id!==gcalId;});
+  gcal=gcal.filter(function(e){return e.id!==gcalId&&e.recurringEventId!==gcalId;});
 }
 
 /* ══ TABS ══ */
@@ -3377,6 +3854,8 @@ function buildDetRow(e,forDate){
       meta.done=!meta.done;
       lsSave();window._lastDayClick=Date.now();
       renderTasks();renderAg();
+      if(token&&e._gcalInstance)syncInstanceColor(e.id,meta.done);
+      if(token&&isVirtual)patchGcalMeta(e._baseId);
       if(token){
         const parentId=isVirtual?e._baseId:baseId;
         const parentTask=S.tasks.find(x=>x.id===parentId);
@@ -3432,7 +3911,12 @@ function buildDetRow(e,forDate){
   const tags=mk("div","tgs");
 
   /* Tag date/heure */
-  if(gcalEv){
+  if(isVirtual){
+    const tgV=mk("div","tg tg-p");let lblV="📌 "+fD(displayDate);
+    if(!e.allDay&&e.start&&e.start.includes("T"))lblV+=" à "+fT(e.start)+(e.end&&e.end.includes("T")?" – "+fT(e.end):"");
+    else if(t&&t._pendingTS)lblV+=" à "+t._pendingTS+(t._pendingTE?" – "+t._pendingTE:"");
+    tgV.textContent=lblV;tags.appendChild(tgV);
+  } else if(gcalEv){
     const tg=mk("div","tg tg-p");let label="📌 ";
     label+=fD(gcalEv.start.slice(0,10));
     if(t&&t.dueEnd)label+=" – "+fD(t.dueEnd);
@@ -3586,10 +4070,7 @@ function buildDetRow(e,forDate){
   del.onclick=async(ev)=>{
     ev.stopPropagation();
     if(isVirtual){
-      if(confirm('Supprimer la récurrence de "'+e.title+'" ?')){
-        const base=S.tasks.find(x=>x.id===e._baseId);
-        if(base){base.recurrence=null;lsSave();renderAg();renderTasks();toast("↻ Récurrence supprimée");}
-      }
+      showRecurDeleteDialog(e._baseId,displayDate,e._gcalInstance?e.id:null);
     } else if(e._baseId&&S.tasks.find(x=>x.id===e._baseId)?._dayEventIds){
       if(!confirm('Supprimer la tâche complète "'+name.textContent+'" (tous les jours) ?'))return;
       const pt=S.tasks.find(x=>x.id===e._baseId);
@@ -3744,6 +4225,8 @@ function nextOccurrence(baseDate,freq){
 }
 
 function toggleEvDone(gcalId){
+  const _ge=gcal.find(e=>e.id===gcalId);
+  if(_ge&&_ge.recurringEventId&&S.tasks.some(x=>x.id===_ge.recurringEventId)){toggleOccurrence(_ge.recurringEventId,evDate(_ge));return;}
   ensureMeta(gcalId,"");
   const meta=metaOf(gcalId);
   meta.done=!meta.done;
@@ -4034,6 +4517,7 @@ async function addTask(){
   const remind=parseInt(document.getElementById("default-remind").value)||0;
   /* Capturer l'assignation avant de réinitialiser */
   const assignee=getSpouseEmail()?_currentAssignee:'me';
+  const recur=(document.getElementById("ti-recur")||{}).value||null;
   document.getElementById("ti").value="";document.getElementById("tdat").value="";
   document.getElementById("tdat-end").value="";
   const endRow=document.getElementById("tdat-end-row");if(endRow)endRow.style.display="none";
@@ -4041,10 +4525,13 @@ async function addTask(){
   const tiDesc=document.getElementById("ti-desc");if(tiDesc)tiDesc.value="";
   /* Réinitialiser le sélecteur à "Moi" */
   setAssignee('me');
+  {const _r=document.getElementById("ti-recur");if(_r)_r.value="";}
+  toggleAddOptions(false);
   /* Heure de fin : champ saisi > +1h auto */
   const timeEnd=timEnd||( tim?addOneHour(tim):null );
   if(token){
     const startDate=due||ds(new Date());
+    const recurOK=(recur&&!(dueEnd&&dueEnd!==startDate))?recur:null;
     showSync("Ajout dans Google Agenda…");
     /* ── Créer d’abord un enregistrement temporaire dans S.tasks (tmpId)
        afin que buildPlanifyMeta embarque dueEnd et tous les champs
@@ -4052,7 +4539,7 @@ async function addTask(){
     const tmpId=uid();
     const tmpTask={id:tmpId,title,desc,due:startDate,done:false,archived:false,
       remind,dueEnd:dueEnd||null,_pendingTS:tim||null,_pendingTE:timeEnd||null,
-      _createdHere:true,_assignee:assignee};
+      _createdHere:true,_assignee:assignee,recurrence:recurOK};
     S.tasks.unshift(tmpTask);
     if(dueEnd&&dueEnd!==startDate){
       /* Tâche multijours → un événement GCal d'UN JOUR par jour */
@@ -4092,11 +4579,14 @@ async function addTask(){
       S.tasks=S.tasks.filter(x=>x.id!==tmpId);
       if(ev&&ev.id){
         S.tasks.push({id:ev.id,title,desc,due:startDate,done:false,archived:false,remind,
-          dueEnd:dueEnd||null,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,_assignee:assignee});
-        lsSave();await fetchGcal();renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
+          dueEnd:dueEnd||null,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,_assignee:assignee,recurrence:recurOK});
+        lsSave();
+        if(recurOK){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,title,desc,startDate,tim,timeEnd,recurOK,null,remind,null,{series:true});hideSync();}
+        await fetchGcal();renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
         let msg='📌 "'+title.slice(0,20)+'"';
         if(due)msg+=' → '+fD(due);else msg+=' (aujourd\'hui)';
         if(tim)msg+=' à '+tim;
+        if(recurOK)msg+=' · ↻ '+(REC_LABEL[recurOK]||'').toLowerCase();
         if(assignee!=='me')msg+=' · '+(assignee==='both'?'👫 Partagé':'👩 '+getSpouseName());
         toast(msg);return;
       }
@@ -4107,7 +4597,7 @@ async function addTask(){
     toast('⚠️ Erreur GCal — tâche sauvegardée localement');
     return;
   }
-  S.tasks.unshift({id:uid(),title,desc,due,dueEnd,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,_assignee:assignee});
+  S.tasks.unshift({id:uid(),title,desc,due:(recur&&!due)?ds(new Date()):due,dueEnd:(recur?null:dueEnd),recurrence:recur||null,done:false,archived:false,gcalId:null,plannedDate:null,remind,_pendingTS:tim||null,_pendingTE:timeEnd||null,_createdHere:true,_assignee:assignee});
   lsSave();renderTasks();
   toast('🔒 Connectez-vous pour enregistrer dans Google Agenda');
 }
@@ -4212,64 +4702,85 @@ function showRecurArchiveDialog(t,dueDate,cb){
   document.body.appendChild(ov);
 }
 
+/* ══ RENDER TASKS — affichage façon TickTick ══ */
+var TT_SVG={
+  check:'<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cal:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  rec:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+  bell:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+  cart:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>',
+  dots:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>',
+  chev:'<svg class="chev" width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+var _ttCollapsed=(function(){try{return JSON.parse(localStorage.getItem('pfy_tt_collapsed')||'{}')||{};}catch(e){return {};}})();
+if(_ttCollapsed['done']===undefined)_ttCollapsed['done']=true;
+function ttToggleSection(key){
+  _ttCollapsed[key]=!_ttCollapsed[key];
+  try{localStorage.setItem('pfy_tt_collapsed',JSON.stringify(_ttCollapsed));}catch(e){}
+  renderTasks();
+}
+function ttDateLabel(d,today){
+  if(!d)return '';
+  var t0=new Date(today+'T00:00:00'),d0=new Date(d+'T00:00:00');
+  var diff=Math.round((d0-t0)/864e5);
+  if(diff===0)return "Aujourd'hui";
+  if(diff===1)return 'Demain';
+  if(diff===-1)return 'Hier';
+  var o={weekday:'short',day:'numeric',month:'short'};
+  if(d0.getFullYear()!==t0.getFullYear())o.year='numeric';
+  return d0.toLocaleDateString('fr-FR',o);
+}
+function ttCap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
+function ttMetaChip(cls,svg,text,title){
+  var m=mk('span','m'+(cls?' '+cls:''));
+  if(svg)m.insertAdjacentHTML('beforeend',svg);
+  if(text){var s=mk('span');s.textContent=text;m.appendChild(s);}
+  if(title)m.title=title;
+  return m;
+}
+function ttSection(key,label,count,rows,cls){
+  var sec=mk('div','tt-sec'+(cls?' '+cls:'')+(_ttCollapsed[key]?' collapsed':''));
+  var h=mk('div','tt-sec-h');
+  h.insertAdjacentHTML('beforeend',TT_SVG.chev);
+  var lb=mk('span','lbl');lb.textContent=label;
+  var ct=mk('span','cnt');ct.textContent=count;
+  h.append(lb,ct);
+  h.onclick=function(){ttToggleSection(key);};
+  var body=mk('div','tt-rows');
+  rows.forEach(function(r){body.appendChild(r);});
+  sec.append(h,body);
+  return sec;
+}
+
 function renderTasks(){
   const tl=document.getElementById("list-todo"),dl=document.getElementById("list-done"),cd=document.getElementById("card-done");
+  if(!tl||!dl)return;
+  const today=ds(new Date());
+  const tom=new Date();tom.setDate(tom.getDate()+1);const tomorrow=ds(tom);
+  const in7d=new Date();in7d.setDate(in7d.getDate()+7);const in7s=ds(in7d);
+  const in8d=new Date();in8d.setDate(in8d.getDate()+8);const in8s=ds(in8d);
 
-  /* Onglet tâches : uniquement les tâches créées dans cette app (_createdHere=true)
-     Les événements GCal préexistants n'apparaissent PAS ici, uniquement dans le calendrier */
-  const gcalIds=new Set(gcal.map(e=>e.id));
-
-  /* Tâches créées dans l'app (_createdHere).
-     Règle d'affichage :
-     - Tâche normale : toujours affichée (sauf archivée)
-     - Tâche récurrente : toujours affichée. La prochaine échéance est calculée dynamiquement.
-       La section "À faire" la montre si prochaine échéance dans les 15 jours OU si déjà visible (pas de filtre sur "terminée").
-  */
-  const today=ds(NOW);
-
+  /* Tâches de l'app : on exclut les entrées auxiliaires (coches/archives par occurrence)
+     et les anciennes « tâches-occurrence » (une série = UNE seule tâche). */
   const appTasks=S.tasks.filter(t=>{
-    if(!t||!t.id)return false; /* ignorer entrées corrompues sans id */
-    if(t.archived)return false;
-    /* Exclure les entrées auxiliaires (cochage par jour, récurrence, archive par occurrence) */
-    if(t.id&&t.id.includes("__done__")||t.id&&t.id.includes("__recur__")||t.id&&t.id.includes("__arch__"))return false;
-    /* Exclure les fantômes GCal : pas de titre ET pas d'event GCal correspondant ET pas _createdHere */
-    if(!t.title&&!t._createdHere&&!gcal.find(e=>e.id===t.id))return false;
-    /* Inclure toute tâche avec un titre, qu'elle soit _createdHere ou non
-       (compatibilité avec les tâches créées avant l'introduction du flag) */
+    if(!t||!t.id||t.archived)return false;
+    if(isAuxTaskId(t.id)||isInstanceId(t.id))return false;
     if(!t.title)return false;
     return true;
   });
 
-  /* Enrichir : pour les récurrentes, calculer la prochaine occurrence à partir d'aujourd'hui.
-     Si la tâche a démarré dans le passé, on avance jusqu'à la prochaine occurrence >= aujourd'hui.
-     Si cette occurrence est déjà cochée, on avance encore d'un cran pour trouver la suivante non cochée. */
+  const masters=seriesMasterSet();
   const enriched=appTasks.map(t=>{
-    const gcalEv=gcal.find(e=>e.id===t.id);
+    const gcalEv=gcal.find(e=>e.id===t.id)||null;
+    const isSeries=masters.has(t.id)||(!!t.recurrence&&!gcalEv&&!!REC_KNOWN[t.recurrence]);
     let due=gcalEv?gcalEv.start.slice(0,10):(t.due||null);
-    if(t.recurrence&&t.due&&!gcalEv){
-      /* Chercher la prochaine occurrence non cochée et non archivée >= aujourd'hui */
-      let candidate=nextDueFromToday(t.due,t.recurrence);
-      let safety=0;
-      while(candidate&&safety<500){
-        const occKey=t.id+"__done__"+candidate;
-        const archKey=t.id+"__arch__"+candidate;
-        const occDone=S.tasks.find(x=>x.id===occKey)?.done||false;
-        const occArch=S.tasks.find(x=>x.id===archKey)?.archived||false;
-        if(!occDone&&!occArch)break; // trouvé
-        /* Cette occurrence est déjà traitée → avancer */
-        candidate=nextOccurrence(candidate,t.recurrence);
-        safety++;
-      }
-      due=candidate;
-    }
-    /* État coché de l'occurrence courante */
-    let isDoneOcc=t.done;
-    if(t.recurrence&&due&&!gcalEv){
-      const occKey=t.id+"__done__"+due;
-      isDoneOcc=S.tasks.find(x=>x.id===occKey)?.done||false;
-    }
-    /* Pour tâche multi-jours (locale ou GCal) : terminée seulement si TOUS les jours cochés */
-    if(!t.recurrence&&t.dueEnd&&t.dueEnd!==t.due){
+    let nextEv=null,isDoneOcc=!!t.done;
+    if(isSeries){
+      /* Série : UNE ligne = prochaine occurrence non cochée */
+      const nx=seriesNext(t);
+      due=nx?nx.date:null;nextEv=nx?nx.ev:null;isDoneOcc=false;
+    } else if(t.dueEnd&&t.dueEnd!==t.due){
+      /* Multi-jours : terminée seulement si TOUS les jours sont cochés */
       const startDate=t.due||(gcalEv?gcalEv.start.slice(0,10):null);
       if(!startDate){isDoneOcc=false;}
       else{
@@ -4278,84 +4789,94 @@ function renderTasks(){
         isDoneOcc=allDays.length>0&&allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
       }
     }
-    /* Archivage de l'occurrence courante */
-    let isArchOcc=false;
-    if(t.recurrence&&due&&!gcalEv){
-      const archKey=t.id+"__arch__"+due;
-      isArchOcc=S.tasks.find(x=>x.id===archKey)?.archived||false;
+    return{...t,_gcalEv:gcalEv,_isSeries:isSeries,_nextEv:nextEv,due,_isDoneOcc:isDoneOcc};
+  });
+  /* Date de regroupement : une tâche multi-jours en cours apparaît dans « Aujourd'hui » */
+  enriched.forEach(t=>{
+    let gd=t.due||null;
+    if(!t._isSeries&&t.dueEnd&&t.due){
+      if(t.dueEnd<today)gd=t.dueEnd;else if(t.due<today)gd=today;
     }
-    return{...t,_gcalEv:gcalEv||null,due,_isDoneOcc:isDoneOcc,_isArchOcc:isArchOcc};
+    t._gd=gd;
   });
 
-  /* Séparer todo / done.
-     Récurrentes locales : toujours visibles dans "À faire" si la prochaine occurrence
-     est dans les 14 jours (ou dans le passé non cochée), et non cochée/archivée.
-     Une fois cochée, passe dans "Terminées". */
-  const in14=new Date(NOW);in14.setDate(in14.getDate()+8);const in14s=ds(in14);
-
-  const todo=enriched.filter(t=>{
-    if(t._isArchOcc)return false;
-    if(t._isDoneOcc)return false;
-    if(t.recurrence&&!gcal.find(e=>e.id===t.id)){
-      if(!t.due)return false;
-      /* Toujours visible si échéance passée (en retard) ou dans les 14 jours à venir */
-      return t.due<=in14s;
-    }
-    /* Tâche multi-jours : visible dans "À faire" tant que tous les jours ne sont pas cochés */
-    if(t.dueEnd&&!t.recurrence){
-      const startDate=t.due||(t._gcalEv?t._gcalEv.start.slice(0,10):null);
-      if(startDate&&t.dueEnd!==startDate){
-        return !t._isDoneOcc&&!t.done;
-      }
-    }
-    return !t.done;
-  }).sort((a,b)=>taskSortKey(a).localeCompare(taskSortKey(b)));
-
-  /* Filtre Semaine : 14 prochains jours + tâches passées non résolues + tâches sans date
-     + toujours afficher les tâches avec heure précise (journalier avec heure) */
-  const in7=new Date(today);in7.setDate(in7.getDate()+8);const in7s=ds(in7);
-  const todoFiltered=(_taskFilter==='today')?todo.filter(t=>{
-    const due=t.due||(t._gcalEv?t._gcalEv.start.slice(0,10):null);
-    if(!due)return true;  // sans date : toujours visible
-    return due<=today;    // aujourd'hui et en retard
-  }):(_taskFilter==='week')?todo.filter(t=>{
-    const due=t.due||(t._gcalEv?t._gcalEv.start.slice(0,10):null);
-    if(!due)return true;           // sans date : toujours visible
-    if(due>in7s)return false;      // au-delà de 8 jours : masqué
+  const todo=enriched.filter(t=>t._isSeries?!!t.due:(!t.done&&!t._isDoneOcc));
+  const visible=todo.filter(t=>{
+    const d=t._gd;
+    if(_taskFilter==='today')return !d||d<=today;
+    if(_taskFilter==='week')return !d||d<=in8s;
     return true;
-  }):todo;
+  });
+  const hiddenCount=todo.length-visible.length;
 
-  const done=enriched.filter(t=>{
-    if(t._isArchOcc)return false;
-    if(t.recurrence&&!gcal.find(e=>e.id===t.id)){
-      return t._isDoneOcc===true;
-    }
-    /* Tâche multi-jours : terminée seulement si TOUS les jours sont cochés (_isDoneOcc) */
-    if(t.dueEnd&&t.dueEnd!==t.due&&!t.recurrence){
-      return t._isDoneOcc===true&&!t.archived;
-    }
-    return t.done&&!t.archived;
-  }).sort((a,b)=>taskSortKeyDesc(b).localeCompare(taskSortKeyDesc(a)));
+  /* Regroupement par échéance */
+  const groups=new Map();
+  function addTo(key,order,label,t){
+    if(!groups.has(key))groups.set(key,{key:key,order:order,label:label,items:[]});
+    groups.get(key).items.push(t);
+  }
+  visible.forEach(t=>{
+    const d=t._gd;
+    if(!d)addTo('nodate',9000,'Sans date',t);
+    else if(d<today)addTo('overdue',0,'En retard',t);
+    else if(d===today)addTo('today',1,"Aujourd'hui",t);
+    else if(d===tomorrow)addTo('tomorrow',2,'Demain',t);
+    else if(d<=in7s){
+      const dd=new Date(d+'T00:00:00');
+      const diff=Math.round((dd-new Date(today+'T00:00:00'))/864e5);
+      addTo('d'+d,2+diff,ttCap(dd.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})),t);
+    } else addTo('later',8000,'Plus tard',t);
+  });
+  function tkey(t){
+    const ref=t._nextEv||t._gcalEv;
+    let ts='';
+    if(ref&&!ref.allDay&&ref.start&&ref.start.indexOf('T')>-1)ts=fT(ref.start);
+    else if(t._pendingTS)ts=t._pendingTS;
+    return (t._gd||'9999')+' '+(ts||'99:99')+' '+(t.title||'').toLowerCase();
+  }
 
-  tl.innerHTML="";dl.innerHTML="";
-  const hiddenCount=todo.length-todoFiltered.length;
-  if(!todoFiltered.length){
-    tl.innerHTML=_taskFilter==='today'
-      ?'<div class="emp">Rien pour aujourd\'hui 🎉'+(hiddenCount>0?'<br><span style="font-size:11px;color:var(--tx3);">'+hiddenCount+' tâche'+(hiddenCount>1?'s':'')+' à venir</span>':'')+'</div>'
-      :_taskFilter==='week'&&hiddenCount>0
-      ?'<div class="emp">Aucune tâche cette semaine 🎉<br><span style="font-size:11px;color:var(--tx3);">'+hiddenCount+' tâche'+(hiddenCount>1?'s':'')+' au-delà — cliquez sur "Toutes"</span></div>'
-      :'<div class="emp">Aucune tâche 🎉</div>';
+  tl.innerHTML="";
+  if(!visible.length){
+    const emp=mk('div','tt-empty');
+    const big=mk('div','big');big.textContent=_taskFilter==='today'?'Rien pour aujourd\'hui':'Tout est fait';
+    const sm=mk('div','sm');
+    sm.textContent=hiddenCount>0?(hiddenCount+' tâche'+(hiddenCount>1?'s':'')+' à venir — « Toutes » pour les voir'):'Profitez-en ✨';
+    emp.append(big,sm);tl.appendChild(emp);
   } else {
-    todoFiltered.forEach(t=>tl.appendChild(buildTask(t)));
-    if(_taskFilter==='week'&&hiddenCount>0){
-      const more=document.createElement('div');
-      more.style.cssText='text-align:center;font-size:11px;font-weight:700;color:var(--tx3);padding:8px 0 2px;';
-      more.textContent='+ '+hiddenCount+' tâche'+(hiddenCount>1?'s':'')+' hors semaine (vue "Toutes")';
+    Array.from(groups.values()).sort((a,b)=>a.order-b.order).forEach(g=>{
+      g.items.sort((a,b)=>tkey(a).localeCompare(tkey(b)));
+      tl.appendChild(ttSection('t:'+g.key,g.label,g.items.length,g.items.map(buildTask),g.key==='overdue'?'overdue':''));
+    });
+    if(hiddenCount>0){
+      const more=mk('div','tt-more-hint');
+      more.textContent='+ '+hiddenCount+' tâche'+(hiddenCount>1?'s':'')+' plus tard · voir « Toutes »';
+      more.onclick=function(){setTaskFilter('all');};
       tl.appendChild(more);
     }
   }
-  cd.style.display=done.length?"block":"none";
-  done.forEach(t=>dl.appendChild(buildTask(t)));
+
+  /* Terminées : tâches cochées + occurrences cochées des séries (14 derniers jours) */
+  dl.innerHTML="";
+  const doneItems=[];
+  const cutD=new Date();cutD.setDate(cutD.getDate()-14);const cutS=ds(cutD);
+  enriched.forEach(t=>{
+    if(t._isSeries){
+      const pref=t.id+'__done__';
+      S.tasks.forEach(x=>{
+        if(!x||!x.done||!x.id||x.id.indexOf(pref)!==0)return;
+        const d=x.id.slice(pref.length);
+        if(d<cutS||occArchived(t.id,d))return;
+        doneItems.push({k:d,build:()=>buildDoneOccRow(t,d)});
+      });
+    } else if(t._isDoneOcc){
+      doneItems.push({k:(t._gcalEv?t._gcalEv.start:t.due)||'',build:()=>buildTask(t)});
+    }
+  });
+  doneItems.sort((a,b)=>b.k.localeCompare(a.k));
+  cd.style.display=doneItems.length?"block":"none";
+  if(doneItems.length){
+    dl.appendChild(ttSection('done','Terminées',doneItems.length,doneItems.slice(0,60).map(x=>x.build()),'doneSec'));
+  }
   const ca=document.getElementById("card-archives");
   if(ca&&ca.style.display!=="none")renderArchives();
 }
@@ -4381,7 +4902,7 @@ function renderArchives(){
   const al=document.getElementById("list-archives");
   if(!al)return;
   /* Trier: plus récent en premier — par gcal.start, ou due, ou date d'archivage */
-  const archived=S.tasks.filter(t=>t.archived).sort((a,b)=>{
+  const archived=S.tasks.filter(t=>t.archived&&t.title&&!isAuxTaskId(t.id)).sort((a,b)=>{
     const ka=taskSortKeyDesc(a), kb=taskSortKeyDesc(b);
     return kb.localeCompare(ka);
   });
@@ -4439,152 +4960,8 @@ function buildArchivedTask(t){
   top.append(icon,body,unarch,del);item.appendChild(top);
   return item;
 }
-function buildTask(t){
-  const item=mk("div","ti");item.dataset.id=t.id;
-  const gcalEv=t._gcalEv||gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
-  const today=ds(NOW);
-
-  /* État coché : utilise _isDoneOcc si enrichi, sinon t.done */
-  const isDoneNow = (t._isDoneOcc!==undefined) ? t._isDoneOcc : t.done;
-  if(isDoneNow)item.classList.add("done");
-
-  /* Surbrillance overdue :
-     - date passée (avant aujourd'hui) → overdue
-     - date = aujourd'hui ET heure définie ET heure déjà passée → overdue aussi */
-  let overdue=false;
-  if(!isDoneNow){
-    const overdueDate=t.dueEnd||t.due;
-    if(overdueDate&&overdueDate<today){
-      overdue=true;
-    } else if(gcalEv&&!gcalEv.allDay&&gcalEv.start.includes("T")){
-      overdue=new Date(gcalEv.start)<NOW;
-    } else if(t.due&&t.due===today&&t._pendingTS){
-      const [hh,mm]=(t._pendingTS||"").split(":").map(Number);
-      if(!isNaN(hh)){const taskTime=new Date();taskTime.setHours(hh,mm||0,0,0);overdue=taskTime<NOW;}
-    }
-  }
-  if(overdue)item.classList.add("overdue");
-
-  const top=mk("div","ti-top");
-  const chk=mk("div","ck"+(isDoneNow?" on":""));
-  chk.innerHTML='<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
-
-  chk.onclick=()=>{
-    if(gcalEv&&t.dueEnd){
-      /* Tâche multi-jours GCal : cochage par jour avec clé __done__ + sync couleur */
-      const startDate=t.due||gcalEv.start.slice(0,10);
-      if(t.dueEnd===startDate){toggleEvDone(t.id);return;}
-      const allDays=[];
-      const cur=new Date(startDate+"T00:00:00");
-      const endD=new Date(t.dueEnd+"T00:00:00");
-      while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
-      const allDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
-      allDays.forEach(d=>{
-        const key=t.id+"__done__"+d;
-        let m=S.tasks.find(x=>x.id===key);
-        if(!m){m={id:key,done:false,archived:false};S.tasks.push(m);}
-        m.done=!allDone;
-      });
-      lsSave();renderTasks();renderAg();
-      /* Un seul PATCH : couleur + méta */
-      if(token&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
-        const newAllDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
-        const colorId=newAllDone?"7":"6";
-        const calId=gcalEv.calendarId||'primary';
-        const metaStr=buildPlanifyMeta(gcalEv.id);
-        const patchBody={colorId};
-        if(metaStr)patchBody.extendedProperties={private:{planify:metaStr}};
-        calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalEv.id,patchBody)
-          .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=colorId;lsSave();}}).catch(()=>{});
-      }
-    } else if(gcalEv){
-      toggleEvDone(t.id);
-    } else if(t.recurrence&&t.due){
-      const occKey=t.id+"__done__"+t.due;
-      const alreadyDone=S.tasks.find(x=>x.id===occKey)?.done||false;
-      if(alreadyDone){
-        const occMeta=S.tasks.find(x=>x.id===occKey);
-        if(occMeta)occMeta.done=false;
-        lsSave();renderTasks();renderAg();
-      } else {
-        showRecurCheckDialog(t,t.due,()=>{renderTasks();renderAg();});
-      }
-    } else if(t.dueEnd&&t.dueEnd!==t.due){
-      /* Multi-jours : le clic global coche/décoche tous les jours */
-      const allDays=[];
-      const cur=new Date(t.due+"T00:00:00");
-      const endD=new Date(t.dueEnd+"T00:00:00");
-      while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
-      const allDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
-      allDays.forEach(d=>{
-        const key=t.id+"__done__"+d;
-        let m=S.tasks.find(x=>x.id===key);
-        if(!m){m={id:key,done:false,archived:false};S.tasks.push(m);}
-        m.done=!allDone;
-      });
-      lsSave();renderTasks();renderAg();
-    } else {
-      t.done=!t.done;
-      lsSave();renderTasks();
-      if(token){
-        var simpleEv=gcal.find(function(e){return e.id===t.id;});
-        if(simpleEv&&simpleEv.eventType!=="birthday"&&simpleEv.eventType!=="fromGmail"&&!simpleEv.readOnly){
-          var simpleColor=(t.done||t.archived)?"7":"6";
-          var simpleMeta=buildPlanifyMeta(t.id);
-          var simplePatch={colorId:simpleColor};
-          if(simpleMeta)simplePatch.extendedProperties={private:{planify:simpleMeta}};
-          calFetch('PATCH','/calendars/'+encodeURIComponent(simpleEv.calendarId||'primary')+'/events/'+t.id,simplePatch)
-            .then(function(){simpleEv.colorId=simpleColor;t._colorSynced=simpleColor;lsSave();}).catch(function(){});
-        }
-      }
-    }
-  };
-  const body=mk("div","tb");
-  const name=mk("div","tn");
-  /* Fallback sur le titre GCal si la tâche locale n'a pas de titre */
-  name.textContent=t.title||(gcalEv?gcalEv.title:"")||"(sans titre)";
-  /* Le clic sur le titre ouvre toujours l'édition locale (récurrence, rappel, etc.)
-     Pour les tâches GCal on ouvre aussi openTaskEdit qui synchronise ensuite */
-  name.onclick=()=>openTaskEdit(t.id);
-  name.style.textDecoration="underline dotted";name.style.cursor="pointer";
-  const tags=mk("div","tgs");
-  /* Échéance : toujours affichée pour les tâches locales (récurrentes ou non) */
-  if(t.due&&!gcalEv){
-    const isPast=t.due<today||overdue;
-    const overdueLbl=(overdue||isPast)?" ov":"";
-    const tg=mk("div","tg tg-d"+overdueLbl);
-    let dueLbl="";
-    if(t.recurrence){
-      dueLbl=isPast?"⚠️ En retard : ":"📅 Prochaine : ";
-    }else{
-      dueLbl=overdue?"⚠️ En retard : ":"📅 Échéance : ";
-    }
-    tg.textContent=dueLbl+fD(t.due)+(t.dueEnd?" – "+fD(t.dueEnd):"");
-    tags.appendChild(tg);
-  }
-  if(gcalEv){
-    const tg=mk("div","tg tg-p");let label="📌 ";
-    label+=fD(gcalEv.start.slice(0,10));
-    if(t.dueEnd)label+=" – "+fD(t.dueEnd);
-    if(!gcalEv.allDay&&gcalEv.start.includes("T"))label+=" à "+fT(gcalEv.start)+(gcalEv.end&&gcalEv.end.includes("T")?" – "+fT(gcalEv.end):"");
-    tg.textContent=label;tags.appendChild(tg);
-  }
-  if(t.recurrence){
-    const recLbl={"DAILY":"↻ Chaque jour","WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
-    const tgR=mk("div","tg");tgR.style="background:#e8f0fe;color:#3b5fce;border:1px solid #a8bff5;";
-    tgR.textContent=recLbl[t.recurrence]||"↻ Récurrent";tags.appendChild(tgR);
-  }
-  /* Badge assignation */
-  if(t._assignee&&t._assignee!=='me'&&getSpouseEmail()){
-    const badgeLbl=assigneeBadgeLabel(t._assignee);
-    if(badgeLbl){
-      const tgA=mk("div","tg "+(t._assignee==='both'?'tg-both':'tg-spouse'));
-      tgA.textContent=badgeLbl;
-      tags.appendChild(tgA);
-    }
-  }
-  body.append(name,tags);
-
+/* ── Lignes de tâche ── */
+function _ttAppendDayRows(body,t,gcalEv){
   /* ── Lignes par jour pour tâches multi-jours ── */
   if(t.dueEnd&&t.dueEnd!==t.due&&!t.recurrence){
     const startDate=t.due||(gcalEv?gcalEv.start.slice(0,10):null);
@@ -4667,161 +5044,255 @@ function buildTask(t){
       row.append(dc,dlbl);
       dayRows.appendChild(row);
     });
-    body.appendChild(dayRows);
+    dayRows.addEventListener('click',function(ev){ev.stopPropagation();});body.appendChild(dayRows);
     } // end if(startDate)
   }
 
-  /* ── 4 boutons d'action ── */
-  const actions=mk("div","task-actions");
 
-  /* 1. Rappel 🔔 */
-  const remWrap=mk("div");remWrap.style="position:relative;";
-  const remBtn=mk("button","ta-btn remind");
-  const remVal=t.remind||0;
-  remBtn.title=fmtRemind(remVal);
-  remBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
-  if(remVal>0)remBtn.classList.add("active");
-  const remPop=mk("div","remind-popup");
-  const REMIND_OPTS=[["0","Désactivé",""],["5","5 min avant",""],["15","15 min avant",""],["30","30 min avant",""],["60","1h avant",""],["120","2h avant",""],["360","6h avant",""],["1440","1 jour avant",""],["2880","2 jours avant",""],["10080","1 semaine avant",""],["custom","Personnalisé…",""]];
-  REMIND_OPTS.forEach(([v,lbl])=>{
-    const opt=mk("div","remind-opt"+(String(remVal)===v?" selected":""));
-    const checkSvg='<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="var(--or)" stroke-width="2" stroke-linecap="round"/></svg>';
-    const emptySpc='<span style="width:12px;display:inline-block"></span>';
-    opt.innerHTML=(String(remVal)===v?checkSvg:emptySpc)+' '+lbl;
-    opt.onclick=(e)=>{
-      e.stopPropagation();
-      if(v==='custom'){
-        customRow.style.display='flex';
-        customInput.focus();
-        return;
-      }
-      customRow.style.display='none';
-      const _orig=S.tasks.find(x=>x.id===t.id);
-      if(_orig){_orig.remind=parseInt(v)||0;lsSave();}
-      const _remVal=(_orig?_orig.remind:0);
-      remBtn.classList.toggle("active",_remVal>0);
-      remBtn.title=fmtRemind(_remVal);
-      remPop.querySelectorAll('.remind-opt').forEach(o=>{
-        o.classList.remove('selected');
-        o.innerHTML=emptySpc+' '+o.dataset.lbl;
-      });
-      opt.classList.add('selected');
-      opt.innerHTML=checkSvg+' '+lbl;
-      setTimeout(()=>remPop.classList.remove("open"),120);
-      renderTasks();
-    };
-    opt.dataset.lbl=lbl;
-    remPop.appendChild(opt);
-  });
-  /* Ligne saisie personnalisée */
-  const customRow=mk('div');
-  customRow.style='display:none;align-items:center;gap:4px;padding:5px 8px;';
-  const customInput=mk('input');
-  customInput.type='number';customInput.min='1';customInput.max='43200';customInput.placeholder='Ex: 90';
-  customInput.style='width:58px;font-family:inherit;font-size:12px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:8px;padding:4px 6px;outline:none;';
-  customInput.onclick=e=>e.stopPropagation();
-  const customUnit=mk('select');
-  customUnit.style='font-family:inherit;font-size:12px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:8px;padding:4px 5px;outline:none;';
-  customUnit.innerHTML='<option value="1">min</option><option value="60">h</option><option value="1440">j</option>';
-  customUnit.onclick=e=>e.stopPropagation();
-  const customOk=mk('button');
-  customOk.textContent='OK';
-  customOk.style='font-family:inherit;font-size:12px;font-weight:700;background:var(--or);color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;';
-  customOk.onclick=(e)=>{
-    e.stopPropagation();
-    const mins=Math.round(parseFloat(customInput.value)||0)*parseInt(customUnit.value);
-    if(mins>0){
-      const _orig2=S.tasks.find(x=>x.id===t.id);
-      if(_orig2){_orig2.remind=mins;lsSave();}
-      remBtn.classList.add('active');
-      remBtn.title=fmtRemind(mins);
-      renderTasks();
+}
+
+function buildTask(t){
+  const today=ds(new Date());
+  const tom=new Date();tom.setDate(tom.getDate()+1);const tomorrow=ds(tom);
+  const gcalEv=t._gcalEv||gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId)||null;
+  const isSeries=!!t._isSeries;
+  const isDoneNow=(t._isDoneOcc!==undefined)?t._isDoneOcc:t.done;
+  const isMulti=!isSeries&&!!(t.dueEnd&&t.dueEnd!==t.due);
+  const refEv=t._nextEv||gcalEv;
+  let ts=null,te=null;
+  if(refEv&&!refEv.allDay&&refEv.start&&refEv.start.indexOf('T')>-1){ts=fT(refEv.start);te=(refEv.end&&refEv.end.indexOf('T')>-1)?fT(refEv.end):null;}
+  else if(t._pendingTS){ts=t._pendingTS;te=t._pendingTE||null;}
+
+  let overdue=false;
+  if(!isDoneNow){
+    const od=isMulti?t.dueEnd:t.due;
+    if(od&&od<today)overdue=true;
+    else if(od===today&&ts){
+      const hh=parseInt(ts.split(':')[0],10),mm=parseInt(ts.split(':')[1],10)||0;
+      if(!isNaN(hh)){const tt=new Date();tt.setHours(hh,mm,0,0);overdue=tt<new Date();}
     }
-    customRow.style.display='none';
-    remPop.classList.remove('open');
-  };
-  customRow.append(customInput,customUnit,customOk);
-  remPop.appendChild(customRow);
-  remBtn.onclick=(e)=>{e.stopPropagation();remPop.classList.toggle("open");};
-  document.addEventListener("click",()=>remPop.classList.remove("open"),{capture:false});
-  remWrap.append(remBtn,remPop);
-
-  /* 2. Planifier 📅 — à gauche de la croix */
-  const dragBtn=mk("button","ta-btn plan");
-  dragBtn.title="Planifier dans le calendrier";
-  dragBtn.setAttribute("aria-label","Planifier dans le calendrier");
-  dragBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
-  dragBtn.addEventListener("click",e=>{
-    e.stopPropagation();
-    enterPlanMode(t.id);
-  });
-
-  /* 3. Supprimer × */
-  const del=mk("button","ta-btn del");
-  del.title="Supprimer la tâche";
-  del.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-  del.onclick=async()=>{
-    if(!confirm('Supprimer "'+t.title+'" ?'))return;
-    /* Chercher la tâche par id exact OU par titre+due (si id a changé après render) */
-    const tFresh=S.tasks.find(x=>x.id===t.id)
-      ||S.tasks.find(x=>x.title===t.title&&x.due===t.due&&!x.id.includes('__'))
-      ||t;
-    /* Trouver l'event GCal : par id frais, par gcalId, ou par titre dans le cache gcal */
-    const gcalEvFresh=gcal.find(e=>e.id===tFresh.id)
-      ||gcal.find(e=>e.id===tFresh.gcalId)
-      ||(tFresh._dayEventIds?null:gcal.find(e=>e.title===tFresh.title&&!e.id.includes('__')));
-    showSync("Suppression…");
-    if(tFresh._dayEventIds&&tFresh._dayEventIds.length){
-      for(const eid of tFresh._dayEventIds){
-        if(eid)await delGcalEv(eid);
-      }
-    } else if(gcalEvFresh){
-      await delGcalEv(gcalEvFresh.id);
-    } else if(token&&tFresh.id&&!tFresh.id.startsWith('planify_')&&!tFresh.id.includes('__')){
-      await calFetch('DELETE','/calendars/primary/events/'+tFresh.id).catch(function(){});
-    }
-    hideSync();
-    /* Supprimer de S.tasks par id ET par titre+due (double filet) */
-    S.tasks=S.tasks.filter(x=>{
-      if(x.id===tFresh.id)return false;
-      if(x.id===t.id)return false;
-      if(x.id.startsWith(tFresh.id+"__"))return false;
-      if(x.id.startsWith(t.id+"__"))return false;
-      if(x.title===tFresh.title&&x.due===tFresh.due&&!x.id.includes('__'))return false;
-      const idsToClean=tFresh._dayEventIds||[];
-      for(const eid of idsToClean){
-        if(x.id===eid||x.id.startsWith(eid+"__"))return false;
-      }
-      return true;
-    });
-    lsSave();
-    await fetchGcal();
-    renderTasks();renderAg();
-  };
-
-  actions.append(remWrap,dragBtn,del);
-  top.append(chk,body,actions);item.appendChild(top);
-
-  if(isDoneNow){
-    const arch=mk("button","btn btn-gh");
-    arch.style="font-size:11px;padding:4px 10px;margin-top:7px;";
-    arch.innerHTML="🗄 Archiver";
-    arch.onclick=()=>{
-      if(t.recurrence&&t.due){
-        showRecurArchiveDialog(t,t.due,()=>{renderTasks();renderAg();});
-      } else {
-        const real=S.tasks.find(x=>x.id===t.id);
-        if(real){real.archived=true;real.done=true;real._colorSynced=null;real._createdHere=true;}
-        lsSave();renderTasks();toast("🗄 Archivé");
-        /* Sync couleur (bleu) + méta vers GCal si l'event existe */
-        const gId=real&&(gcalEv?gcalEv.id:real.id);
-        if(token&&gId){patchGcalColor(gId).catch(()=>{});patchGcalMeta(gId);}
-      }
-    };
-    item.appendChild(arch);
   }
-  if(!gcalEv){const desc=mk("textarea","td-desc");desc.placeholder="Ajouter un descriptif…";desc.value=t.desc||"";desc.style.display="none";desc.oninput=()=>{t.desc=desc.value;lsSave();};item.appendChild(desc);}
-  return item;
+
+  const row=mk('div','tt-row'+(isDoneNow?' done':'')+(overdue?' od':''));
+  row.dataset.id=t.id;
+  const ck=mk('div','tt-ck'+(isDoneNow?' on':'')+(overdue?' od':''));
+  ck.insertAdjacentHTML('beforeend',TT_SVG.check);
+
+  const doCheck=function(){
+    if(t._isSeries){toggleOccurrence(t.id,t.due);return;}
+    if(gcalEv&&t.dueEnd){
+      /* Tâche multi-jours GCal : cochage par jour avec clé __done__ + sync couleur */
+      const startDate=t.due||gcalEv.start.slice(0,10);
+      if(t.dueEnd===startDate){toggleEvDone(t.id);return;}
+      const allDays=[];
+      const cur=new Date(startDate+"T00:00:00");
+      const endD=new Date(t.dueEnd+"T00:00:00");
+      while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
+      const allDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
+      allDays.forEach(d=>{
+        const key=t.id+"__done__"+d;
+        let m=S.tasks.find(x=>x.id===key);
+        if(!m){m={id:key,done:false,archived:false};S.tasks.push(m);}
+        m.done=!allDone;
+      });
+      lsSave();renderTasks();renderAg();
+      /* Un seul PATCH : couleur + méta */
+      if(token&&gcalEv.eventType!=="birthday"&&gcalEv.eventType!=="fromGmail"&&!gcalEv.readOnly){
+        const newAllDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
+        const colorId=newAllDone?"7":"6";
+        const calId=gcalEv.calendarId||'primary';
+        const metaStr=buildPlanifyMeta(gcalEv.id);
+        const patchBody={colorId};
+        if(metaStr)patchBody.extendedProperties={private:{planify:metaStr}};
+        calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalEv.id,patchBody)
+          .then(()=>{const pm=S.tasks.find(x=>x.id===gcalEv.id);if(pm){pm._colorSynced=colorId;lsSave();}}).catch(()=>{});
+      }
+    } else if(gcalEv){
+      toggleEvDone(t.id);
+    } else if(t.dueEnd&&t.dueEnd!==t.due){
+      /* Multi-jours : le clic global coche/décoche tous les jours */
+      const allDays=[];
+      const cur=new Date(t.due+"T00:00:00");
+      const endD=new Date(t.dueEnd+"T00:00:00");
+      while(cur<=endD){allDays.push(ds(cur));cur.setDate(cur.getDate()+1);}
+      const allDone=allDays.every(d=>S.tasks.find(x=>x.id===t.id+"__done__"+d)?.done);
+      allDays.forEach(d=>{
+        const key=t.id+"__done__"+d;
+        let m=S.tasks.find(x=>x.id===key);
+        if(!m){m={id:key,done:false,archived:false};S.tasks.push(m);}
+        m.done=!allDone;
+      });
+      lsSave();renderTasks();renderAg();
+    } else {
+      t.done=!t.done;
+      lsSave();renderTasks();
+      if(token){
+        var simpleEv=gcal.find(function(e){return e.id===t.id;});
+        if(simpleEv&&simpleEv.eventType!=="birthday"&&simpleEv.eventType!=="fromGmail"&&!simpleEv.readOnly){
+          var simpleColor=(t.done||t.archived)?"7":"6";
+          var simpleMeta=buildPlanifyMeta(t.id);
+          var simplePatch={colorId:simpleColor};
+          if(simpleMeta)simplePatch.extendedProperties={private:{planify:simpleMeta}};
+          calFetch('PATCH','/calendars/'+encodeURIComponent(simpleEv.calendarId||'primary')+'/events/'+t.id,simplePatch)
+            .then(function(){simpleEv.colorId=simpleColor;t._colorSynced=simpleColor;lsSave();}).catch(function(){});
+        }
+      }
+    }
+  };
+  ck.onclick=function(ev){
+    ev.stopPropagation();
+    if(!isDoneNow){row.classList.add('completing');ck.classList.add('on');setTimeout(doCheck,230);}
+    else doCheck();
+  };
+
+  const main=mk('div','tt-main');
+  main.onclick=function(){openTaskEdit(t.id);};
+  const name=mk('div','tt-name');
+  name.textContent=t.title||(gcalEv?gcalEv.title:'')||'(sans titre)';
+  main.appendChild(name);
+  if(t.desc&&t.desc.trim()){
+    const dsc=mk('div','tt-desc');dsc.textContent=t.desc.trim().split('\n')[0];main.appendChild(dsc);
+  }
+  const meta=mk('div','tt-meta');
+  if(t.due){
+    let label=isMulti?(ttDateLabel(t.due,today)+' → '+ttDateLabel(t.dueEnd,today)):ttDateLabel(t.due,today);
+    if(ts)label+=' · '+ts+((te&&te!==ts)?'–'+te:'');
+    const gd=t._gd||t.due;
+    const cls=overdue?'od':(gd===today?'today':(gd===tomorrow?'tom':''));
+    meta.appendChild(ttMetaChip(cls,TT_SVG.cal,label));
+  }
+  if(isMulti){
+    const days=[];const c=new Date(t.due+'T00:00:00'),e2=new Date(t.dueEnd+'T00:00:00');
+    while(c<=e2){days.push(ds(c));c.setDate(c.getDate()+1);}
+    const nd=days.filter(d=>S.tasks.find(x=>x.id===t.id+'__done__'+d)?.done).length;
+    meta.appendChild(ttMetaChip('',null,nd+'/'+days.length+' jours'));
+  }
+  if(isSeries||t.recurrence){
+    meta.appendChild(ttMetaChip('rec',TT_SVG.rec,REC_LABEL[t.recurrence]||'Récurrent'));
+  }
+  if((t.remind||0)>0)meta.appendChild(ttMetaChip('',TT_SVG.bell,'',fmtRemind(t.remind)));
+  if(t.shopping&&t.shopping.items&&t.shopping.items.length){
+    const bought=t.shopping.items.filter(i=>i.bought).length;
+    meta.appendChild(ttMetaChip('',TT_SVG.cart,bought+'/'+t.shopping.items.length));
+  }
+  if(t._assignee&&t._assignee!=='me'&&getSpouseEmail()){
+    const lbl=assigneeBadgeLabel(t._assignee);
+    if(lbl){const tg=mk('span','tg '+(t._assignee==='both'?'tg-both':'tg-spouse'));tg.textContent=lbl;meta.appendChild(tg);}
+  }
+  if(meta.childNodes.length)main.appendChild(meta);
+  if(isMulti)_ttAppendDayRows(main,t,gcalEv);
+
+  const more=mk('button','tt-more');more.type='button';more.title='Plus d\'actions';
+  more.insertAdjacentHTML('beforeend',TT_SVG.dots);
+  more.onclick=function(ev){ev.stopPropagation();ttOpenMenu(more,t,gcalEv,null);};
+  row.append(ck,main,more);
+  return row;
+}
+
+/* Occurrence cochée d'une série (liste « Terminées ») */
+function buildDoneOccRow(t,date){
+  const today=ds(new Date());
+  const row=mk('div','tt-row done');
+  const ck=mk('div','tt-ck on');ck.insertAdjacentHTML('beforeend',TT_SVG.check);
+  ck.onclick=function(ev){ev.stopPropagation();toggleOccurrence(t.id,date);};
+  const main=mk('div','tt-main');
+  main.onclick=function(){openTaskEdit(t.id);};
+  const name=mk('div','tt-name');name.textContent=t.title;
+  const meta=mk('div','tt-meta');
+  meta.appendChild(ttMetaChip('',TT_SVG.cal,ttDateLabel(date,today)));
+  meta.appendChild(ttMetaChip('rec',TT_SVG.rec,REC_LABEL[t.recurrence]||'Récurrent'));
+  main.append(name,meta);
+  const more=mk('button','tt-more');more.type='button';
+  more.insertAdjacentHTML('beforeend',TT_SVG.dots);
+  more.onclick=function(ev){ev.stopPropagation();ttOpenMenu(more,t,null,date);};
+  row.append(ck,main,more);
+  return row;
+}
+
+/* ── Menu contextuel ── */
+function ttCloseMenu(){var m=document.getElementById('tt-menu');if(m)m.remove();}
+document.addEventListener('click',function(e){if(!e.target.closest('#tt-menu')&&!e.target.closest('.tt-more'))ttCloseMenu();});
+window.addEventListener('scroll',ttCloseMenu,true);
+
+function ttOpenMenu(btn,t,gcalEv,occDate){
+  ttCloseMenu();
+  const m=mk('div','tt-menu');m.id='tt-menu';
+  function item(label,fn,cls){
+    const it=mk('button','tt-mi'+(cls?' '+cls:''));it.type='button';it.textContent=label;
+    it.onclick=function(ev){ev.stopPropagation();ttCloseMenu();fn();};
+    m.appendChild(it);
+  }
+  const isDone=occDate?true:((t._isDoneOcc!==undefined)?t._isDoneOcc:t.done);
+  if(!occDate){
+    item('Modifier',function(){openTaskEdit(t.id);});
+    if(!t._isSeries)item('Planifier dans le calendrier',function(){enterPlanMode(t.id);});
+    const lab=mk('div','tt-mlabel');lab.textContent='Rappel';m.appendChild(lab);
+    const chips=mk('div','tt-mchips');
+    const cur=(S.tasks.find(x=>x.id===t.id)||{}).remind||0;
+    [[0,'Aucun'],[5,'5 min'],[15,'15 min'],[30,'30 min'],[60,'1 h'],[1440,'1 j'],[10080,'1 sem.']].forEach(function(o){
+      const c=mk('button','tt-chip'+(cur===o[0]?' on':''));c.type='button';c.textContent=o[1];
+      c.onclick=function(ev){
+        ev.stopPropagation();
+        const orig=S.tasks.find(x=>x.id===t.id);
+        if(orig){orig.remind=o[0];orig.reminders=o[0]>0?[{min:o[0]}]:[];lsSave();}
+        ttCloseMenu();renderTasks();
+        if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
+      };
+      chips.appendChild(c);
+    });
+    m.appendChild(chips);
+    item('Dupliquer',function(){duplicateTask(t.id);});
+  }
+  if(isDone)item(occDate?'Archiver cette occurrence':'Archiver',function(){ttArchive(t,gcalEv,occDate);});
+  item(occDate?'Supprimer cette occurrence':'Supprimer',function(){ttDelete(t,occDate);},'danger');
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect();
+  const mw=m.offsetWidth,mh=m.offsetHeight;
+  let left=Math.min(Math.max(8,r.right-mw),window.innerWidth-mw-8);
+  let top=r.bottom+4;
+  if(top+mh>window.innerHeight-8)top=Math.max(8,r.top-mh-4);
+  m.style.left=left+'px';m.style.top=top+'px';
+}
+
+function ttArchive(t,gcalEv,occDate){
+  if(occDate){
+    const archKey=t.id+'__arch__'+occDate;
+    let arch=S.tasks.find(x=>x.id===archKey);
+    if(!arch){arch={id:archKey,_archOf:t.id,_archDate:occDate,archived:true,done:true};S.tasks.push(arch);}
+    else arch.archived=true;
+    const k=t.id+'__done__'+occDate;
+    let occ=S.tasks.find(x=>x.id===k);
+    if(!occ){occ={id:k,_occOf:t.id,_occDate:occDate,done:true,archived:false};S.tasks.push(occ);}
+    else occ.done=true;
+    lsSave();renderTasks();renderAg();toast('🗄 Occurrence archivée');
+    return;
+  }
+  const real=S.tasks.find(x=>x.id===t.id);
+  if(real){real.archived=true;real.done=true;real._colorSynced=null;real._createdHere=true;}
+  lsSave();renderTasks();renderAg();toast('🗄 Archivé');
+  const gId=real&&(gcalEv?gcalEv.id:real.id);
+  if(token&&gId){patchGcalColor(gId).catch(()=>{});patchGcalMeta(gId);}
+}
+
+function ttDelete(t,occDate){
+  if(occDate){
+    if(!confirm('Supprimer l\'occurrence du '+fD(occDate)+' ?'))return;
+    const ev=gcal.find(e=>e.recurringEventId===t.id&&evDate(e)===occDate);
+    deleteOccurrence(t.id,occDate,ev?ev.id:null);
+    return;
+  }
+  if(t._isSeries){showRecurDeleteDialog(t.id,t.due,t._nextEv?t._nextEv.id:null);return;}
+  if(!confirm('Supprimer "'+t.title+'" ?'))return;
+  deleteTaskEverywhere(t);
+}
+
+/* Panneau d'options de la barre d'ajout */
+function toggleAddOptions(force){
+  const box=document.getElementById('tt-add-opts'),btn=document.getElementById('tt-opt-btn');
+  if(!box)return;
+  const open=(typeof force==='boolean')?force:!box.classList.contains('open');
+  box.classList.toggle('open',open);
+  if(btn)btn.classList.toggle('active',open);
 }
 
 /* ══ MINI CALENDAR ══ */
@@ -5099,6 +5570,7 @@ function scheduleNotif(task,gcalEvent){
 function scheduleAllNotifs(){
   if(!("Notification" in window)||Notification.permission!=="granted")return;
   S.tasks.forEach(function(t){const ev=gcal.find(function(e){return e.id===t.id;});if(ev)scheduleNotif(t,ev);});
+  seriesMasterSet().forEach(function(mid){const t=S.tasks.find(function(x){return x.id===mid;});if(!t)return;const nx=seriesNext(t);if(nx&&nx.ev)scheduleNotif(t,nx.ev);});
 }
 
 /* ══ NOTIFICATION RÉCAPITULATIVE ══ */
@@ -5489,6 +5961,7 @@ function onEvTendInput(){
 /* ══ ÉDITION TÂCHE LOCALE ══ */
 let _editTaskId=null;
 function openTaskEdit(tid){
+  {const _ge=gcal.find(e=>e.id===tid);if(_ge&&_ge.recurringEventId&&S.tasks.some(x=>x.id===_ge.recurringEventId))tid=_ge.recurringEventId;}
   let t=S.tasks.find(x=>x.id===tid);
   /* Si la tâche vient de GCal et n'a pas encore de méta locale, en créer une */
   if(!t){
@@ -5530,7 +6003,10 @@ function openTaskEdit(tid){
   /* Compat: hidden input */
   const remSel2=document.getElementById("te-remind");
   if(remSel2)remSel2.value=String(t.remind||0);
-  document.getElementById("te-recur").value=t.recurrence||"";
+  {const _sel=document.getElementById("te-recur");
+   if(t.recurrence&&![..._sel.options].some(o=>o.value===t.recurrence)){const _o=document.createElement('option');_o.value=t.recurrence;_o.textContent='↻ Personnalisée (Google Agenda)';_sel.appendChild(_o);}
+   _sel.value=t.recurrence||"";}
+  window._teInitDue=dueVal;
   /* Shopping list */
   const shop=t.shopping||{active:false,items:[]};
   _shopItems=(shop.items||[]).map(i=>({text:i.text,bought:!!i.bought}));
@@ -5762,6 +6238,15 @@ function saveTaskEdit(){
         return newDays.includes(d);
       });
       lsSave();
+      hideSync();
+      await fetchGcal();renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
+    })();
+  } else if(token&&!gcalEv&&seriesMasterSet().has(t.id)){
+    /* Série récurrente : mise à jour directe de l'événement maître */
+    const dateS=t.due||evDate(seriesInstances(t.id)[0]);
+    showSync("Mise à jour de la série…");
+    (async function(){
+      await updateGcalEvWithRecur(t.id,t.title,t.desc,dateS,_ts,_te,t.recurrence,null,t.remind||0,t.reminders,{series:true,keepStartDate:(t.due===window._teInitDue)});
       hideSync();
       await fetchGcal();renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
     })();
