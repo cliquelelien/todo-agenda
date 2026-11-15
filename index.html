@@ -6996,7 +6996,7 @@ function addShopItem(text){
 
   /* ── Choix automatique du modèle (jamais de nom figé) ── */
   var _MODEL_PREF={
-    gemini:[/^gemini-[\d.]+-flash$/,/^gemini-[\d.]+-flash-lite$/],
+    gemini:[/^gemini-[\d.]+-flash$/,/^gemini-[\d.]+-flash-lite$/,/^gemini-flash-latest$/,/^gemini-flash-lite-latest$/],
     groq:[/gpt-oss-120b/,/qwen/,/llama-3\.3-70b/,/llama/]
   };
   function iaVer(id){return ((id.match(/\d+(\.\d+)*/)||['0'])[0]).split('.').map(Number);}
@@ -7032,6 +7032,14 @@ function addShopItem(text){
     if(left<2500)return Promise.reject(Object.assign(new Error('délai dépassé'),{name:'AbortError'}));
     var c=new AbortController();_iaCtl=c;var t=setTimeout(function(){c.abort();},Math.min(ms||30000,left));
     return fetch(url,Object.assign({},opts||{},{signal:c.signal})).finally(function(){clearTimeout(t);});
+  }
+  async function iaResolveVision(key){
+    try{var r=await iaFetch('https://api.groq.com/openai/v1/models',{headers:{Authorization:'Bearer '+key}},8000);
+      var ids=((await r.json()).data||[]).map(function(m){return m.id;});
+      var re=[/llama-4-scout/,/llama-4-maverick/,/vision/,/qwen.*vl/,/qwen/],b=null;
+      re.forEach(function(x){if(!b){var m=ids.filter(function(i){return x.test(i);});if(m.length)b=m[0];}});
+      if(b)return b;}catch(e){}
+    return 'meta-llama/llama-4-scout-17b-16e-instruct';
   }
   window.iaCancel=function(){_iaCancelled=true;if(_iaCtl)try{_iaCtl.abort();}catch(e){}};
   /* ids courts (T1, T2…) : fiables pour les petits modèles, convertis en vrais ids */
@@ -7251,7 +7259,7 @@ function addShopItem(text){
         var gModel=(isGemmaModel&&!_hasImg)?cfg.model:(await iaResolveModel('gemini',key));
         systemPromptText=buildSystemPrompt(gModel.indexOf('gemma')<0);
         var genCfg={maxOutputTokens:_hasImg?3000:(isGemmaModel?1500:3000),temperature:isGemmaModel?0.4:0.7};
-        var gData=null,gTry=0,useThink=true,useJson=true;
+        var gExcl=[],gData=null,gTry=0,useThink=true,useJson=true;
         while(true){
           gTry++;
           var gc=Object.assign({},genCfg);
@@ -7266,14 +7274,16 @@ function addShopItem(text){
           var gMsg=(gErr.error&&gErr.error.message)||('Erreur '+gResp.status);
           if(gTry<5&&useThink&&/thinking/i.test(gMsg)){useThink=false;continue;}
           if(gTry<5&&useJson&&/mime|schema|json/i.test(gMsg)){useJson=false;continue;}
-          if(gTry<5&&(/no longer available|not found|not supported|deprecated|decommission/i.test(gMsg)||gResp.status===404)){
-            var gNew=await iaResolveModel('gemini',key,true,[gModel]);
-            if(gNew&&gNew!==gModel){gModel=gNew;continue;}
+          if(gTry<6&&(/no longer available|not found|not supported|deprecated|decommission|high demand|overloaded|unavailable/i.test(gMsg)||[404,429,503].indexOf(gResp.status)>=0)){
+            gExcl.push(gModel);
+            var gNew=await iaResolveModel('gemini',key,true,gExcl,true);
+            if(gNew&&gExcl.indexOf(gNew)<0){iaStatus('Modèle saturé, bascule vers '+gNew+'…');gModel=gNew;continue;}
           }
           if(gTry<3&&(gResp.status===429||gResp.status>=500)){iaStatus('Serveur occupé, nouvelle tentative…');await _iaSleep(2000);continue;}
           throw new Error(gMsg);
         }
         if(typingEl)typingEl.remove();
+        var _nm=document.getElementById('ia-model-name');if(_nm&&!iaWorkerOn())_nm.textContent='Gemini · '+gModel;
         try{rawText=gData.candidates[0].content.parts.filter(function(x){return !x.thought;}).map(function(x){return x.text||'';}).join('');}catch(e){rawText='';}
       } else {
         var messages=[{role:'system',content:buildSystemPrompt()}];
@@ -7291,7 +7301,7 @@ function addShopItem(text){
             messages.push({role:'user',content:arr});
           } else if(text)messages.push({role:m.role,content:text});
         });
-        var gqModel=_hasImg2?(localStorage.getItem('planify_groq_vision_model')||'qwen/qwen3.6-27b'):(cfg.backend==='groq'?await iaResolveModel('groq',key):cfg.model);
+        var gqModel=_hasImg2?(localStorage.getItem('planify_groq_vision_model')||await iaResolveVision(key)):(cfg.backend==='groq'?await iaResolveModel('groq',key):cfg.model);
         var apiUrl=cfg.backend==='glm'?'https://api.z.ai/api/paas/v4/chat/completions':'https://api.groq.com/openai/v1/chat/completions';
         var providerLabel=cfg.backend==='glm'?'GLM':'Groq';
         var resp,gqTry=0,gqExcl=[],_gj=!_hasImg2;
@@ -7319,6 +7329,7 @@ function addShopItem(text){
         }
         if(typingEl)typingEl.remove();
         var data=await resp.json();
+        var _nm2=document.getElementById('ia-model-name');if(_nm2&&!iaWorkerOn())_nm2.textContent=providerLabel+' · '+gqModel;
         try{rawText=data.choices[0].message.content||'';}catch(e){rawText='';}
       }
       if(!String(rawText).trim())throw new Error('Réponse vide du modèle');
@@ -7353,7 +7364,7 @@ function addShopItem(text){
         return;
       }
       var _keyIssue=/API key|api_key|invalid.*key|key.*invalid|401|403|permission|unauthor/i.test(_m);
-      iaAppendAI(_keyIssue?'🔑 Ta clé API semble invalide ou expirée. Appuie sur « 🔑 Clé API » pour la remplacer.':'⚠️ L\'assistant n\'a pas pu répondre pour le moment. Réessaie dans quelques secondes.\n\n('+_m.slice(0,140)+')');
+      iaAppendAI(_keyIssue?'🔑 Ta clé API semble invalide ou expirée. Appuie sur « 🔑 Clé API » pour la remplacer.':'⚠️ L\'assistant n\'a pas pu répondre pour le moment. Réessaie dans quelques secondes.'+(/demand|overload|unavailable|503/i.test(_m)?' Les modèles Google sont saturés : ajoute une clé Groq (secours automatique) ou réessaie plus tard.':'')+'\n\n('+_m.slice(0,140)+')');
     }
     _busy=false; iaSetBusy(false);
   }
