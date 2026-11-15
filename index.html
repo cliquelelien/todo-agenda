@@ -6746,7 +6746,7 @@ function addShopItem(text){
     var d=new Date();
     for(var i=0;i<14;i++){
       var k=ds(d),b=iaBusySlots(k).sort(function(a,c){return iaMin(a.s)-iaMin(c.s);});
-      out+='- '+iaDayName(k).slice(0,3)+' '+k+' : '+(b.length?b.map(function(x){return x.s+'-'+x.e+' '+x.title.slice(0,30);}).join(' ; '):'libre')+'\n';
+      out+='- '+iaDayName(k).slice(0,3)+' '+k+' : '+(b.length?b.map(function(x){return x.s+'-'+x.e+' '+x.title.slice(0,30)+' ['+iaH(x.id)+']';}).join(' ; '):'libre')+'\n';
       d.setDate(d.getDate()+1);
     }
     return out;
@@ -6851,7 +6851,7 @@ function addShopItem(text){
     var today=ds(new Date());
     var in7=new Date();in7.setDate(in7.getDate()+8);var in7s=ds(in7);
     var tasks=(S.tasks||[]).filter(function(t){return !t.archived&&t.id&&!t.id.includes('__done__')&&!t.id.includes('__arch__');});
-    var todo=tasks.filter(function(t){return !t.done;}).slice(0,30);
+    var todo=tasks.filter(function(t){return !t.done;}).slice(0,40);
     var done=tasks.filter(function(t){return t.done;}).slice(0,5);
     /* Événements GCal des 8 prochains jours non présents dans S.tasks */
     var localIds=new Set(S.tasks.map(function(t){return t.id;}));
@@ -6864,12 +6864,12 @@ function addShopItem(text){
     ctx+='RÈGLES DE FIABILITÉ :\n- Utilise UNIQUEMENT les ids listés ; ne devine jamais un id.\n- Déplacer/modifier = type "update" (jamais supprimer puis recréer).\n- Ne crée AUCUN chevauchement : vérifie l\'AGENDA 14 JOURS. Si le créneau demandé est occupé, propose le créneau libre le plus proche et dis-le clairement.\n- Dates AAAA-MM-JJ, heures HH:MM ; déduis les jours de semaine de l\'agenda fourni.\n- Si la demande est ambiguë (quelle tâche ? quelle heure ?), pose UNE question courte au lieu de deviner.\n\n'+iaAgenda14()+'\n';
     ctx+='TÂCHES PLANIFY À FAIRE ('+todo.length+') :\n';
     todo.forEach(function(t){
-      ctx+='- ['+t.id+'] "'+t.title+'"'+(t.due?' | due:'+t.due:'')+(t.dueEnd&&t.dueEnd!==t.due?' → '+t.dueEnd:'')+(t._pendingTS?' '+t._pendingTS:'')+(t.desc?' | '+t.desc.slice(0,60):'')+(t.recurrence?' | ↻'+t.recurrence:'')+(t.done?' ✓':'')+'\n';
+      ctx+='- ['+iaH(t.id)+'] "'+t.title+'"'+(t.due?' | due:'+t.due:'')+(t.dueEnd&&t.dueEnd!==t.due?' → '+t.dueEnd:'')+(t._pendingTS?' '+t._pendingTS:'')+(t.desc?' | '+t.desc.slice(0,60):'')+(t.recurrence?' | ↻'+t.recurrence:'')+(t.done?' ✓':'')+'\n';
     });
     if(gcalSoon.length){
       ctx+='\nÉVÉNEMENTS GOOGLE AGENDA À VENIR ('+gcalSoon.length+') :\n';
       gcalSoon.forEach(function(e){
-        ctx+='- ['+e.id+'] "'+e.title+'" | '+e.start.slice(0,10)+(e.start.includes('T')?' à '+e.start.slice(11,16):'')+'\n';
+        ctx+='- ['+iaH(e.id)+'] "'+e.title+'" | '+e.start.slice(0,10)+(e.start.includes('T')?' à '+e.start.slice(11,16):'')+'\n';
       });
     }
     if(done.length){
@@ -6881,7 +6881,9 @@ function addShopItem(text){
   }
 
   /* ── Prompt système ── */
-  function buildSystemPrompt(){
+  function buildSystemPrompt(jm){var p=buildSystemPrompt0();if(!jm)return p;
+    return p+'\n\nFORMAT DE SORTIE (PRIORITAIRE, remplace toute consigne de balises) : réponds UNIQUEMENT par un objet JSON valide, sans markdown ni balises : {"reply":"message court en français","actions":[{"type":"task|update|delete","id":"T3","title":"…","due":"AAAA-MM-JJ","dueEnd":"AAAA-MM-JJ","timeStart":"HH:MM","timeEnd":"HH:MM","desc":"…"}]}. "actions" vaut [] si rien à créer/modifier/supprimer. Pour update/delete, "id" = EXACTEMENT un identifiant T… de la liste ou de l\'agenda. Si une action est demandée, remplis TOUJOURS "actions" (ne te contente pas de la décrire).';}
+  function buildSystemPrompt0(){
     var isGemma=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b')&&!iaWorkerOn();
     if(isGemma){
       /* Prompt ultra-court et directif pour Gemma 4 */
@@ -6933,7 +6935,7 @@ function addShopItem(text){
 
   /* ── Envoyer un message ── */
   window.iaSend=function(){
-    if(_busy)return;
+    if(_busy){iaCancel();return;}
     var inp=document.getElementById('ia-input');
     var text=(inp?inp.value.trim():'');
     if(!text&&_images.length===0)return;
@@ -6963,7 +6965,7 @@ function addShopItem(text){
     _selfFix=false;_fbTried=false;
     _msgs.push({role:'user',content:userContent});
 
-    /* Appel API */
+    _iaDl=Date.now()+50000;_iaCancelled=false;
     iaCallClaude();
   };
 
@@ -7023,9 +7025,42 @@ function addShopItem(text){
     return id;
   }
   var _iaSleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};
+  var _iaDl=0,_iaCtl=null,_iaCancelled=false,_iaHandles={},_iaRev={},_iaN=0;
+  function iaStatus(t){var e=document.getElementById('ia-status-text');if(e)e.textContent=t;}
   function iaFetch(url,opts,ms){
-    var c=new AbortController();var t=setTimeout(function(){c.abort();},ms||30000);
+    var left=_iaDl?_iaDl-Date.now():(ms||30000);
+    if(left<2500)return Promise.reject(Object.assign(new Error('délai dépassé'),{name:'AbortError'}));
+    var c=new AbortController();_iaCtl=c;var t=setTimeout(function(){c.abort();},Math.min(ms||30000,left));
     return fetch(url,Object.assign({},opts||{},{signal:c.signal})).finally(function(){clearTimeout(t);});
+  }
+  window.iaCancel=function(){_iaCancelled=true;if(_iaCtl)try{_iaCtl.abort();}catch(e){}};
+  /* ids courts (T1, T2…) : fiables pour les petits modèles, convertis en vrais ids */
+  function iaH(id){if(!_iaHandles[id]){_iaN++;_iaHandles[id]='T'+_iaN;_iaRev['T'+_iaN]=id;}return _iaHandles[id];}
+  function iaRealId(x){x=String(x==null?'':x).trim().replace(/^\[|\]$/g,'');return _iaRev[x.toUpperCase()]||x;}
+  function iaParse(raw){
+    var s=String(raw||'').replace(/```(?:json)?/gi,'').trim();
+    function J(x){x=x.replace(/[“”]/g,'"').replace(/,\s*([}\]])/g,'$1');try{return JSON.parse(x);}catch(e){return undefined;}}
+    var m=s.match(/<PLANIFY_ACTIONS>([\s\S]*?)(?:<\/PLANIFY_ACTIONS>|$)/);
+    if(m){var a=J(m[1].trim()),tx=s.replace(/<PLANIFY_ACTIONS>[\s\S]*?(<\/PLANIFY_ACTIONS>|$)/,'').trim();
+      if(Array.isArray(a))return {text:tx,actions:a};if(a&&a.actions)return {text:tx,actions:a.actions};return {text:tx,actions:null,bad:true};}
+    var i=s.indexOf('{'),k=s.lastIndexOf('}');
+    if(i>=0&&k>i){var o=J(s.slice(i,k+1));
+      if(o&&typeof o==='object'&&('reply' in o||'actions' in o||'message' in o))return {text:String(o.reply||o.message||'').trim(),actions:Array.isArray(o.actions)?o.actions:null};
+      if(o===undefined&&/"actions"\s*:/.test(s))return {text:s.slice(0,i).trim(),actions:null,bad:true};}
+    return {text:s,actions:null};
+  }
+  function iaNorm(list){
+    var tm=function(x){var m=String(x).trim().toLowerCase().match(/^(\d{1,2})\s*(?:h|:)\s*(\d{0,2})$/);return m?('0'+m[1]).slice(-2)+':'+('0'+(m[2]||'0')).slice(-2):x;};
+    var dt=function(x){var m=String(x).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);return m?m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2):x;};
+    return (list||[]).map(function(a){
+      if(!a||typeof a!=='object')return a;a=Object.assign({},a);
+      var ty=String(a.type||a.action||'').toLowerCase();
+      a.type=/del|supp|remov|annul/.test(ty)?'delete':/upd|modif|move|d[ée]plac|edit|chang/.test(ty)?'update':(ty?'task':(a.id?'update':'task'));
+      if(a.date&&!a.due)a.due=a.date;if(a.start&&!a.timeStart)a.timeStart=a.start;if(a.end&&!a.timeEnd)a.timeEnd=a.end;if(a.titre&&!a.title)a.title=a.titre;
+      ['due','dueEnd','timeStart','timeEnd'].forEach(function(k){if(a[k]===null||a[k]==='')delete a[k];else if(a[k])a[k]=(k[0]==='d'?dt:tm)(a[k]);});
+      if(a.type!=='task'){a.id=iaRealId(a.id);
+        if(!iaTitleOf(a.id)&&a.title){var q=a.title.toLowerCase(),c=S.tasks.concat(gcal||[]).filter(function(x){var t=(x.title||'').toLowerCase();return t&&(t===q||t.indexOf(q)>=0||q.indexOf(t)>=0);});if(c.length===1)a.id=c[0].id;}}
+      return a;});
   }
   function iaAltProvider(){
     var cur=IA_PROVIDERS[_iaProvider]||{};
@@ -7172,6 +7207,7 @@ function addShopItem(text){
 
   /* ── Appel API unifié ── */
   async function iaCallClaude(){
+    if(_iaDl-Date.now()<20000)_iaDl=Date.now()+20000;
     _busy=true; iaSetBusy(true);
     var typingEl=iaShowTyping();
     try{
@@ -7188,7 +7224,7 @@ function addShopItem(text){
         if(typingEl)typingEl.remove();
         rawText=_viaW;
       } else if(cfg.backend==='gemini'){
-        var systemPromptText=buildSystemPrompt();
+        var systemPromptText='';
         var geminiContents=[];
         var _recent=_msgs.slice(-20);var _lastImg=-1;
         _recent.forEach(function(m,i){if(m.role==='user'&&(m.content||[]).some(function(c){return c.type==='image';}))_lastImg=i;});
@@ -7213,11 +7249,13 @@ function addShopItem(text){
         }
         var isGemmaModel=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b');
         var gModel=(isGemmaModel&&!_hasImg)?cfg.model:(await iaResolveModel('gemini',key));
-        var genCfg={maxOutputTokens:_hasImg?2000:(isGemmaModel?600:2000),temperature:isGemmaModel?0.4:0.7};
-        var gData=null,gTry=0,useThink=true;
+        systemPromptText=buildSystemPrompt(gModel.indexOf('gemma')<0);
+        var genCfg={maxOutputTokens:_hasImg?3000:(isGemmaModel?1500:3000),temperature:isGemmaModel?0.4:0.7};
+        var gData=null,gTry=0,useThink=true,useJson=true;
         while(true){
           gTry++;
           var gc=Object.assign({},genCfg);
+          if(useJson&&gModel.indexOf('gemma')<0){gc.responseMimeType='application/json';gc.temperature=0.3;}
           if(useThink&&/flash/.test(gModel)&&gModel.indexOf('gemma')<0)gc.thinkingConfig={thinkingBudget:0};
           var gResp=await iaFetch('https://generativelanguage.googleapis.com/v1beta/models/'+gModel+':generateContent?key='+key,{
             method:'POST',headers:{'Content-Type':'application/json'},
@@ -7227,11 +7265,12 @@ function addShopItem(text){
           var gErr=await gResp.json().catch(function(){return {};});
           var gMsg=(gErr.error&&gErr.error.message)||('Erreur '+gResp.status);
           if(gTry<5&&useThink&&/thinking/i.test(gMsg)){useThink=false;continue;}
+          if(gTry<5&&useJson&&/mime|schema|json/i.test(gMsg)){useJson=false;continue;}
           if(gTry<5&&(/no longer available|not found|not supported|deprecated|decommission/i.test(gMsg)||gResp.status===404)){
             var gNew=await iaResolveModel('gemini',key,true,[gModel]);
             if(gNew&&gNew!==gModel){gModel=gNew;continue;}
           }
-          if(gTry<5&&(gResp.status===429||gResp.status>=500)){await _iaSleep(1500);continue;}
+          if(gTry<3&&(gResp.status===429||gResp.status>=500)){iaStatus('Serveur occupé, nouvelle tentative…');await _iaSleep(2000);continue;}
           throw new Error(gMsg);
         }
         if(typingEl)typingEl.remove();
@@ -7240,7 +7279,7 @@ function addShopItem(text){
         var messages=[{role:'system',content:buildSystemPrompt()}];
         var _recent2=_msgs.slice(-20);var _lastImg2=-1;
         _recent2.forEach(function(m,i){if(m.role==='user'&&(m.content||[]).some(function(c){return c.type==='image';}))_lastImg2=i;});
-        var _hasImg2=_lastImg2>-1;
+        var _hasImg2=_lastImg2>-1;messages[0].content=buildSystemPrompt(!_hasImg2);
         if(_hasImg2&&cfg.backend==='glm')throw new Error('GLM ne lit pas les images : choisis Gemini ou Groq dans le sélecteur.');
         if(_hasImg2&&_recent2[_lastImg2].content.some(function(c){return c.type==='image'&&c.source.media_type==='application/pdf';}))throw new Error('Groq ne lit pas les PDF : envoie une photo, ou choisis Gemini.');
         _recent2.forEach(function(m,i){
@@ -7255,16 +7294,17 @@ function addShopItem(text){
         var gqModel=_hasImg2?(localStorage.getItem('planify_groq_vision_model')||'qwen/qwen3.6-27b'):(cfg.backend==='groq'?await iaResolveModel('groq',key):cfg.model);
         var apiUrl=cfg.backend==='glm'?'https://api.z.ai/api/paas/v4/chat/completions':'https://api.groq.com/openai/v1/chat/completions';
         var providerLabel=cfg.backend==='glm'?'GLM':'Groq';
-        var resp,gqTry=0,gqExcl=[];
+        var resp,gqTry=0,gqExcl=[],_gj=!_hasImg2;
         while(true){
           gqTry++;
           resp=await iaFetch(apiUrl,{
             method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-            body:JSON.stringify({model:gqModel,messages:messages,max_tokens:2000,temperature:0.7})
+            body:JSON.stringify(Object.assign({model:gqModel,messages:messages,max_tokens:3000,temperature:0.4},_gj?{response_format:{type:'json_object'}}:{}))
           },30000);
           if(resp.ok)break;
           var err=await resp.json().catch(function(){return {};});
           var emsg=(err.error&&err.error.message)||('Erreur '+providerLabel+' '+resp.status);
+          if(gqTry<5&&_gj&&/response_format|json/i.test(emsg)){_gj=false;continue;}
           if(gqTry<5&&cfg.backend==='groq'&&!_hasImg2&&(/decommission|not found|no longer|does not exist/i.test(emsg)||resp.status===404)){
             var gqNew=await iaResolveModel('groq',key,true,[gqModel]);
             if(gqNew&&gqNew!==gqModel){gqModel=gqNew;continue;}
@@ -7274,7 +7314,7 @@ function addShopItem(text){
             var gqAlt=await iaResolveModel('groq',key,true,gqExcl,true);
             if(gqAlt&&gqExcl.indexOf(gqAlt)<0){gqModel=gqAlt;continue;}
           }
-          if(gqTry<5&&(resp.status===429||resp.status>=500)){await _iaSleep(1500);continue;}
+          if(gqTry<3&&(resp.status===429||resp.status>=500)){iaStatus('Serveur occupé, nouvelle tentative…');await _iaSleep(2000);continue;}
           throw new Error(emsg);
         }
         if(typingEl)typingEl.remove();
@@ -7283,16 +7323,15 @@ function addShopItem(text){
       }
       if(!String(rawText).trim())throw new Error('Réponse vide du modèle');
       _msgs.push({role:'assistant',content:[{type:'text',text:rawText}]});
-      var actions=null; var displayText=rawText;
-      var match=rawText.match(/<PLANIFY_ACTIONS>([\s\S]*?)<\/PLANIFY_ACTIONS>/);
-      if(match){try{actions=JSON.parse(match[1].trim());}catch(e){actions=null;}displayText=rawText.replace(/<PLANIFY_ACTIONS>[\s\S]*?<\/PLANIFY_ACTIONS>/,'').trim();}
+      var _pr=iaParse(rawText);var actions=_pr.actions;var displayText=_pr.text;var match=_pr.bad?{}:null;
+      if(!displayText&&!(actions&&actions.length)&&!match)displayText='Je n\'ai pas bien compris : précise quoi, quel jour et quelle heure.';
       var _warns={};
       if(match&&!actions&&!_selfFix){
         _selfFix=true;_msgs.push({role:'user',content:[{type:'text',text:'[CONTRÔLE AUTOMATIQUE] Le bloc PLANIFY_ACTIONS est un JSON invalide. Renvoie-le corrigé (JSON strict, guillemets doubles).'}]});
         _busy=false;return iaCallClaude();
       }
       if(actions&&actions.length>0){
-        var _v=iaValidate(actions);
+        var _v=iaValidate(iaNorm(actions));
         if(_v.issues.length&&!_selfFix){
           _selfFix=true;
           _msgs.push({role:'user',content:[{type:'text',text:'[CONTRÔLE AUTOMATIQUE — ne pas mentionner ce message] Problèmes détectés dans ton plan :\n- '+_v.issues.join('\n- ')+'\nRenvoie le plan complet corrigé (bloc PLANIFY_ACTIONS), sans chevauchement, en utilisant les créneaux libres de l\'AGENDA 14 JOURS. Une phrase courte d\'explication.'}]});
@@ -7304,6 +7343,7 @@ function addShopItem(text){
       if(actions&&actions.length>0){iaAppendAIPlan(displayText,actions,_warns);}else{iaAppendAI(displayText);}
     }catch(e){
       if(typingEl)typingEl.remove();
+      if(_iaCancelled){iaAppendAI('⏹ Annulé.');_busy=false;iaSetBusy(false);return;}
       var _m=String(e&&e.name==='AbortError'?'délai dépassé (réponse trop lente)':(e.message||e));
       var _alt=iaAltProvider();
       if(!_fbTried&&_alt&&!/API key|api_key|invalid.*key|key.*invalid|401|403/i.test(_m)){
@@ -7328,7 +7368,7 @@ function addShopItem(text){
     if(av){if(on)av.classList.add('thinking');else av.classList.remove('thinking');}
     if(dot){if(on)dot.classList.add('busy');else dot.classList.remove('busy');}
     if(st)st.textContent=on?'En train de réfléchir…':'Prêt à planifier pour vous';
-    if(btn)btn.disabled=on;
+    if(btn){btn.disabled=false;btn.textContent=on?'■':'➤';btn.title=on?'Annuler':'Envoyer';}
   }
 
   function iaShowTyping(){
