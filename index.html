@@ -53,11 +53,10 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .btn-gr{background:var(--gr);color:#fff;}
 /* ══ Tâches — style TickTick ══ */
 .tt-add{background:var(--card-bg);border:1.5px solid var(--blb);border-radius:16px;box-shadow:var(--sh);margin-bottom:12px;padding:8px 10px;}
-.tt-add-bar{display:flex;align-items:center;gap:2px;}
-.tt-plus{font-size:24px;font-weight:700;color:var(--bl);line-height:1;width:40px;height:44px;text-align:center;flex-shrink:0;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
-.tt-add-bar input#ti{flex:1;min-width:24px;border:none;outline:none;background:transparent;font-family:inherit;font-size:15px;font-weight:700;color:var(--tx);padding:9px 2px;}
+.tt-add-bar{display:flex;align-items:center;gap:0;}
+.tt-add-bar input#ti{flex:1.4 1 0;min-width:24px;border:none;outline:none;background:transparent;font-family:inherit;font-size:15px;font-weight:700;color:var(--tx);padding:9px 8px 9px 4px;}
 .tt-add-bar input#ti::placeholder{color:var(--tx3);font-weight:600;}
-.tt-add-opt{width:44px;height:44px;border-radius:12px;border:none;background:transparent;touch-action:manipulation;-webkit-tap-highlight-color:transparent;color:var(--bl);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s;}
+.tt-add-opt{flex:1 0 44px;max-width:64px;width:auto;height:44px;border-radius:12px;border:none;background:transparent;touch-action:manipulation;-webkit-tap-highlight-color:transparent;color:var(--bl);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;}
 .tt-add-opt svg{width:24px;height:24px;stroke-width:2.4;}
 .tt-add-opt:hover,.tt-add-opt.active,.tt-add-opt:active{background:var(--bll);color:var(--bl);}
 .tt-ai{position:relative;color:var(--bl);}
@@ -654,7 +653,6 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <div id="main-task-content">
   <div class="tt-add" id="tt-add">
     <div class="tt-add-bar">
-      <button type="button" class="tt-plus" onclick="addTask()" title="Ajouter" aria-label="Ajouter">+</button>
       <input type="text" id="ti" aria-label="Nouvelle t&#226;che" maxlength="100" autocomplete="off">
       <button type="button" class="tt-add-opt" id="tt-opt-btn" onclick="ttNewViaEdit()" title="Nouvelle t&#226;che d&#233;taill&#233;e (date, heure, r&#233;p&#233;tition&#8230;)" aria-label="Options">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
