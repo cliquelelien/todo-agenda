@@ -233,6 +233,27 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
   body.view-month #panel-agenda.active .mn{font-size:12px;}
   body.view-month #panel-agenda.active .dot{height:14px;font-size:11px;}
 }
+/* ── Vue Liste (style TickTick) : bandeau de dates défilant + liste du jour ── */
+.lv-wrap{position:relative;margin:0 -4px 8px;}
+.lv-strip{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;overflow-anchor:none;scrollbar-width:none;position:relative;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
+.lv-strip::-webkit-scrollbar{display:none;}
+.lv-strip.grab{cursor:grabbing;}
+.lv-d{flex:0 0 calc(100% / 7);display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 4px;cursor:pointer;}
+.lv-d.wk{scroll-snap-align:start;}
+.lv-wd{font-size:12px;font-weight:700;color:var(--tx2);}
+.lv-n{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:var(--tx);transition:background .15s,color .15s;}
+.lv-d.tdy .lv-n{background:var(--bll);color:var(--bl);}
+.lv-d.sel .lv-n{background:var(--bl);color:#fff;}
+.lv-d.drag-ov .lv-n{background:var(--orbg);color:var(--or);box-shadow:0 0 0 2px var(--or);}
+.lv-dot{width:5px;height:5px;border-radius:50%;background:transparent;}
+.lv-d.has .lv-dot{background:var(--or);}
+.lv-today{margin-left:8px;font-family:inherit;font-size:11px;font-weight:800;background:var(--bl);color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;vertical-align:middle;}
+.lv-list{position:relative;min-height:calc(100vh - 340px);padding-bottom:84px;}
+.lv-h{font-weight:800;font-size:14px;color:var(--bld);margin:6px 2px 10px;}
+.lv-sec{font-weight:800;font-size:13px;color:var(--tx3);margin:16px 2px 8px;}
+.lv-fab{position:fixed;right:18px;bottom:calc(22px + env(safe-area-inset-bottom,0px));width:56px;height:56px;border-radius:50%;border:none;background:var(--bl);color:#fff;font-family:inherit;font-size:32px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(42,125,225,.45);cursor:pointer;z-index:150;}
+.lv-fab:active{transform:scale(.94);}
+@media(min-width:1280px){.lv-fab{position:sticky;right:auto;bottom:16px;margin:12px 0 0 auto;}}
 /* Week */
 .ww{position:relative;overflow:hidden;}
 .wg{width:100%;}
@@ -890,6 +911,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
         <button class="vb active" id="vb-month" data-view="month" onclick="setView('month')">Mois</button>
         <button class="vb" id="vb-week" data-view="week" onclick="setView('week')">Semaine</button>
         <button class="vb" id="vb-day" data-view="day" onclick="setView('day')">Jour</button>
+        <button class="vb" id="vb-list" data-view="list" onclick="setView('list')">Liste</button>
       </div>
     </div>
     <div id="ag-body"></div>
@@ -3314,10 +3336,223 @@ function goTab(t,skipRender){
 }
 
 /* ══ VIEW ══ */
-function setView(v){view=v;["month","week","day"].forEach(x=>document.getElementById("vb-"+x).classList.toggle("active",x===v));document.body.classList.toggle("view-month",v==="month");renderAg();}
-function navPrev(){if(view==="month"){cM--;if(cM<0){cM=11;cY--;}}else if(view==="week"){const d=new Date(cWeek);d.setDate(d.getDate()-7);cWeek=d;}else{const d=new Date(cDay+"T00:00:00");d.setDate(d.getDate()-1);cDay=ds(d);}renderAg();}
-function navNext(){if(view==="month"){cM++;if(cM>11){cM=0;cY++;}}else if(view==="week"){const d=new Date(cWeek);d.setDate(d.getDate()+7);cWeek=d;}else{const d=new Date(cDay+"T00:00:00");d.setDate(d.getDate()+1);cDay=ds(d);}renderAg();}
-function renderAg(){document.body.classList.toggle("view-month",view==="month");if(view==="month")renderMonth();else if(view==="week")renderWeek();else renderDay();}
+function setView(v){view=v;["month","week","day","list"].forEach(x=>document.getElementById("vb-"+x).classList.toggle("active",x===v));document.body.classList.toggle("view-month",v==="month");document.body.classList.toggle("view-list",v==="list");renderAg();}
+function navPrev(){if(view==="month"){cM--;if(cM<0){cM=11;cY--;}}else if(view==="week"){const d=new Date(cWeek);d.setDate(d.getDate()-7);cWeek=d;}else if(view==="list"){lvShiftDay(-1);return;}else{const d=new Date(cDay+"T00:00:00");d.setDate(d.getDate()-1);cDay=ds(d);}renderAg();}
+function navNext(){if(view==="month"){cM++;if(cM>11){cM=0;cY++;}}else if(view==="week"){const d=new Date(cWeek);d.setDate(d.getDate()+7);cWeek=d;}else if(view==="list"){lvShiftDay(1);return;}else{const d=new Date(cDay+"T00:00:00");d.setDate(d.getDate()+1);cDay=ds(d);}renderAg();}
+function renderAg(){document.body.classList.toggle("view-month",view==="month");if(view==="month")renderMonth();else if(view==="week")renderWeek();else if(view==="list")renderList();else renderDay();}
+
+/* ══ LIST VIEW (style TickTick) : bandeau de dates défilant + liste du jour ══ */
+var LV_WD=["dim.","lun.","mar.","mer.","jeu.","ven.","sam."];
+window._lvStart=null;window._lvSel=null;window._lvCleanup=null;
+function lvDateOf(s){return new Date(s+"T00:00:00");}
+function lvDiff(a,b){return Math.round((a-b)/864e5);}
+function lvMakeCells(start,count){
+  var frag=document.createDocumentFragment(),today=ds(new Date()),d=new Date(start);
+  for(var i=0;i<count;i++){
+    var date=ds(d);
+    var c=mk("div","lv-d"+(d.getDay()===1?" wk":"")+(date===today?" tdy":"")+(date===cDay?" sel":""));
+    c.dataset.date=date;
+    c.innerHTML='<span class="lv-wd">'+LV_WD[d.getDay()]+'</span><span class="lv-n">'+d.getDate()+'</span><span class="lv-dot"></span>';
+    frag.appendChild(c);
+    d.setDate(d.getDate()+1);
+  }
+  return frag;
+}
+function lvBuildStrip(strip){
+  var start=monday(lvDateOf(cDay));start.setDate(start.getDate()-7*26);
+  window._lvStart=start;
+  strip.innerHTML="";
+  strip.appendChild(lvMakeCells(start,7*78));
+}
+function lvScrollToSel(strip,smooth){
+  var cw=strip.clientWidth;if(!cw||!window._lvStart)return;
+  var idx=lvDiff(lvDateOf(cDay),window._lvStart);
+  var first=strip.scrollLeft/(cw/7);
+  if(smooth&&idx>=first-0.5&&idx<=first+6.5)return;
+  strip.scrollTo({left:Math.floor(idx/7)*cw,behavior:smooth?"smooth":"auto"});
+}
+function lvTitle(strip){
+  var cw=strip.clientWidth/7;if(!cw||!window._lvStart)return;
+  var m=new Date(window._lvStart);m.setDate(m.getDate()+Math.round(strip.scrollLeft/cw)+3);
+  var t=document.getElementById("lv-title");
+  if(t)t.textContent=MO[m.getMonth()]+" "+m.getFullYear();
+}
+function lvPaintDots(){
+  var strip=document.getElementById("lv-strip");if(!strip||!window._lvStart)return;
+  var cw=strip.clientWidth/7;if(!cw)return;
+  var i0=Math.max(0,Math.round(strip.scrollLeft/cw)-7);
+  var i1=Math.min(strip.children.length,i0+21);
+  for(var i=i0;i<i1;i++){
+    var c=strip.children[i];
+    if(c._p)continue;c._p=1;
+    try{if(eventsOn(c.dataset.date).length)c.classList.add("has");}catch(_){}
+  }
+}
+function lvExtend(strip){
+  var cw=strip.clientWidth/7;if(!cw)return;
+  var idx=Math.round(strip.scrollLeft/cw),total=strip.children.length;
+  if(idx<21){
+    var ns=new Date(window._lvStart);ns.setDate(ns.getDate()-56);
+    strip.insertBefore(lvMakeCells(ns,56),strip.firstChild);
+    window._lvStart=ns;
+    strip.scrollLeft+=8*strip.clientWidth;
+  }else if(total-idx-7<21){
+    var last=strip.lastElementChild,ls=lvDateOf(last.dataset.date);
+    ls.setDate(ls.getDate()+1);
+    strip.appendChild(lvMakeCells(ls,56));
+  }
+}
+function lvSnap(strip){
+  var cw=strip.clientWidth;if(!cw)return;
+  strip.scrollTo({left:Math.round(strip.scrollLeft/cw)*cw,behavior:"smooth"});
+  clearTimeout(strip._snapT);
+  strip._snapT=setTimeout(function(){strip.style.scrollSnapType="";},450);
+}
+function lvSelect(date){
+  cDay=date;selDay=date;window._lvSel=date;window._lastDayClick=Date.now();
+  var strip=document.getElementById("lv-strip");
+  if(strip){
+    var o=strip.querySelector(".lv-d.sel");if(o)o.classList.remove("sel");
+    var n=strip.querySelector('.lv-d[data-date="'+date+'"]');if(n)n.classList.add("sel");
+  }
+  lvRenderList();
+}
+function lvShiftDay(n){
+  var d=lvDateOf(cDay);d.setDate(d.getDate()+n);
+  cDay=ds(d);selDay=cDay;renderList();
+}
+function lvBindStrip(strip){
+  if(window._lvCleanup){window._lvCleanup();window._lvCleanup=null;}
+  var down=false,sx=0,sl=0,raf=0,ovCell=null;
+  /* Glisser à la souris (sur mobile le défilement tactile natif s'en charge) */
+  strip.addEventListener("pointerdown",function(e){
+    if(e.pointerType!=="mouse"||e.button!==0)return;
+    down=true;strip._moved=false;sx=e.clientX;sl=strip.scrollLeft;
+  });
+  function mv(e){
+    if(!down)return;
+    var dx=e.clientX-sx;
+    if(!strip._moved&&Math.abs(dx)>4){strip._moved=true;strip.style.scrollSnapType="none";strip.classList.add("grab");}
+    if(strip._moved)strip.scrollLeft=sl-dx;
+  }
+  function up(){
+    if(!down)return;down=false;
+    if(strip._moved){strip.classList.remove("grab");lvSnap(strip);}
+  }
+  document.addEventListener("pointermove",mv);
+  document.addEventListener("pointerup",up);
+  document.addEventListener("pointercancel",up);
+  window._lvCleanup=function(){
+    document.removeEventListener("pointermove",mv);
+    document.removeEventListener("pointerup",up);
+    document.removeEventListener("pointercancel",up);
+  };
+  /* Molette / trackpad : défilement horizontal */
+  strip.addEventListener("wheel",function(e){
+    var dx=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+    e.preventDefault();
+    strip.style.scrollSnapType="none";
+    strip.scrollLeft+=dx;
+    clearTimeout(strip._wT);strip._wT=setTimeout(function(){lvSnap(strip);},140);
+  },{passive:false});
+  /* Défilement : titre du mois, extension infinie, pastilles */
+  strip.addEventListener("scroll",function(){
+    if(raf)return;
+    raf=requestAnimationFrame(function(){
+      raf=0;lvTitle(strip);lvExtend(strip);
+      clearTimeout(strip._dt);strip._dt=setTimeout(lvPaintDots,80);
+    });
+  },{passive:true});
+  /* Le swipe horizontal du bandeau ne doit pas changer de jour via le swipe global du panneau */
+  ["touchstart","touchmove","touchend"].forEach(function(n){
+    strip.addEventListener(n,function(e){e.stopPropagation();},{passive:true});
+  });
+  /* Clic sur une date */
+  strip.addEventListener("click",function(e){
+    if(strip._moved){strip._moved=false;return;}
+    var c=e.target.closest(".lv-d");if(!c)return;
+    lvSelect(c.dataset.date);
+  });
+  /* Dépôt d'une tâche (glisser-déposer HTML5) : surbrillance — l'ouverture du modal est gérée par le handler global "drop" sur [data-date] */
+  strip.addEventListener("dragover",function(e){
+    var c=e.target.closest&&e.target.closest(".lv-d");
+    if(c===ovCell)return;
+    if(ovCell)ovCell.classList.remove("drag-ov");
+    ovCell=c||null;if(ovCell)ovCell.classList.add("drag-ov");
+  });
+  function clr(){if(ovCell){ovCell.classList.remove("drag-ov");ovCell=null;}}
+  strip.addEventListener("dragleave",function(e){if(!strip.contains(e.relatedTarget))clr();});
+  strip.addEventListener("drop",clr);
+  document.addEventListener("dragend",clr);
+}
+function lvHeader(){
+  var agp=document.getElementById("agp");
+  if(agp.querySelector("#lv-title"))return;
+  agp.innerHTML="";
+  var t=mk("span");t.id="lv-title";
+  var d=lvDateOf(cDay);t.textContent=MO[d.getMonth()]+" "+d.getFullYear();
+  var b=mk("button","lv-today");b.textContent="Auj.";b.title="Revenir à aujourd'hui";
+  b.onclick=function(){cDay=ds(new Date());selDay=cDay;renderList();};
+  agp.append(t,b);
+}
+function lvRenderList(){
+  var box=document.getElementById("lv-list");if(!box)return;
+  box.innerHTML="";
+  var date=cDay;
+  var lbl=lvDateOf(date).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+  var h=mk("div","lv-h");
+  h.textContent=lbl.charAt(0).toUpperCase()+lbl.slice(1)+(date===ds(new Date())?" · Aujourd'hui":"");
+  box.appendChild(h);
+  var seen=new Set();
+  var evs=eventsOn(date).filter(function(e){var bid=e._baseId||e.id;if(seen.has(bid))return false;seen.add(bid);return true;});
+  function tOf(e){return(!e.allDay&&e.start&&e.start.indexOf("T")>-1)?e.start.slice(11,16):"";}
+  evs.sort(function(a,b){var x=tOf(a),y=tOf(b);return x<y?-1:x>y?1:0;});
+  var todo=[],done=[];
+  evs.forEach(function(e){
+    var row;
+    try{row=buildDetRow(e,date);}catch(err){console.error("lvRenderList",err);return;}
+    (row.classList.contains("done")?done:todo).push(row);
+  });
+  if(!todo.length&&!done.length){
+    var emp=mk("div","emp");emp.textContent="✨ Rien de prévu ce jour";box.appendChild(emp);
+  }
+  todo.forEach(function(r){box.appendChild(r);});
+  if(done.length){
+    var sec=mk("div","lv-sec");sec.textContent="Terminées · "+done.length;box.appendChild(sec);
+    done.forEach(function(r){box.appendChild(r);});
+  }
+  var fab=mk("button","lv-fab");fab.type="button";fab.textContent="+";fab.title="Nouvel événement";
+  fab.onclick=function(){openNewEvModal(cDay,"09:00","10:00");};
+  box.appendChild(fab);
+}
+function renderList(){
+  var body=document.getElementById("ag-body");
+  document.getElementById("detail").style.display="none";
+  selDay=cDay;
+  var strip=document.getElementById("lv-strip");
+  var reuse=strip&&body.contains(strip)&&window._lvStart&&strip.querySelector('.lv-d[data-date="'+cDay+'"]');
+  if(!reuse){
+    body.innerHTML="";
+    var agp=document.getElementById("agp");agp.innerHTML="";
+    var wrap=mk("div","lv-wrap");
+    strip=mk("div","lv-strip");strip.id="lv-strip";
+    wrap.appendChild(strip);body.appendChild(wrap);
+    var list=mk("div","lv-list");list.id="lv-list";body.appendChild(list);
+    lvBuildStrip(strip);
+    lvBindStrip(strip);
+    lvScrollToSel(strip,false);
+    requestAnimationFrame(function(){lvScrollToSel(strip,false);lvTitle(strip);lvPaintDots();});
+  }else{
+    var o=strip.querySelector(".lv-d.sel");if(o)o.classList.remove("sel");
+    var n=strip.querySelector('.lv-d[data-date="'+cDay+'"]');if(n)n.classList.add("sel");
+    Array.prototype.forEach.call(strip.children,function(c){c._p=0;c.classList.remove("has");});
+    if(window._lvSel!==cDay)lvScrollToSel(strip,true);
+  }
+  window._lvSel=cDay;
+  lvHeader();
+  lvRenderList();
+  lvPaintDots();
+}
 
 /* ══ NAVIGATION PAR DRAG ══ */
 
@@ -3801,6 +4036,7 @@ function renderDay(){
 /* ══ DETAIL PANEL ══ */
 function showDet(date){
   const panel=document.getElementById("detail");
+  if(view==="list"){panel.style.display="none";return;}
   /* Dédupliquer : une tâche multijours peut apparaître via localEvs ET gcalMultiEvs */
   const seen=new Set();
   const evs=eventsOn(date).filter(e=>{
