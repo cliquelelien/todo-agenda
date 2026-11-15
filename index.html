@@ -82,7 +82,7 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .tt-row:hover{background:var(--blbg);}
 .tt-row.completing{opacity:.35;transform:translateX(6px);}
 .tt-row.completing .tt-name{text-decoration:line-through;}
-.tt-ck{width:20px;height:20px;border-radius:50%;border:2px solid #9fb6d3;flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.tt-ck{width:20px;height:20px;border-radius:50%;border:2px solid var(--bl);flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
 .tt-ck:hover{border-color:var(--bl);background:var(--bll);}
 .tt-ck.od{border-color:var(--or);}
 .tt-ck.on{background:var(--bl);border-color:var(--bl);}
@@ -93,10 +93,10 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .tt-row.done .tt-name{color:var(--tx3);text-decoration:line-through;}
 .tt-desc{font-size:12px;font-weight:600;color:var(--tx3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tt-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:4px;font-size:12px;font-weight:700;color:var(--tx2);}
-.tt-meta .m{display:inline-flex;align-items:center;gap:4px;}
+.tt-meta .m{display:inline-flex;align-items:center;gap:4px;color:var(--bl);}
 .tt-meta .m.od{color:#e08a00;}
 .tt-meta .m.today{color:var(--bl);}
-.tt-meta .m.tom{color:#1e9e6a;}
+.tt-meta .m.tom{color:var(--bl);}
 .tt-meta .m.rec{color:#3b5fce;}
 .tt-row.done .tt-meta .m{color:var(--tx3);}
 .tt-more{width:30px;height:30px;flex-shrink:0;border:none;background:transparent;border-radius:8px;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .12s,background .12s;}
@@ -603,7 +603,6 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <span style="font-size:20px">&#128203;</span>
   <h1>Planify</h1>
   <span id="gs">Non connect&#233;</span>
-  <button id="mic-btn" title="Dicter" style="display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 10px;color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;user-select:none;-webkit-user-select:none;flex-shrink:0;" aria-label="Microphone">&#127908;</button>
   <button id="settings-btn" onclick="toggleSettings()" title="Paramètres" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 10px;color:#fff;font-size:16px;cursor:pointer;transition:background .15s;flex-shrink:0;" aria-label="Paramètres">⚙️</button>
   <button id="bg" onclick="handleAuth()">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
@@ -659,7 +658,10 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       <button type="button" class="tt-add-opt" id="tt-opt-btn" onclick="toggleAddOptions()" title="Date, r&#233;p&#233;tition, description&#8230;" aria-label="Options">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       </button>
-      <button type="button" class="tt-add-opt tt-ai" id="tt-ai-mic" onclick="ttAiVoice()" title="Assistant IA vocal : dicte un rendez-vous ou une tâche" aria-label="Micro IA">
+      <button type="button" class="tt-add-opt" id="mic-btn" title="Dicter une t&#226;che ou un RDV (re-clique pour arr&#234;ter)" aria-label="Micro">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+      </button>
+      <button type="button" class="tt-add-opt tt-ai" id="tt-ai-mic" onclick="ttAiVoice()" title="Micro IA : instructions détaillées, jusqu'à 3 min (re-clique pour envoyer)" aria-label="Micro IA">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg><span class="ai-badge">IA</span>
       </button>
       <button type="button" class="tt-add-opt tt-ai" id="tt-ai-cam" onclick="ttAiPhoto()" title="Assistant IA : prendre une photo (courrier, convocation…)" aria-label="Photo IA">
@@ -4719,23 +4721,44 @@ function showRecurArchiveDialog(t,dueDate,cb){
 /* ══ Assistant IA depuis l'onglet Tâches (micro IA + document) ══ */
 var _ttAiRec=null,_ttAiActive=false;
 function ttAiGoIA(cb){goTab('ia');setTimeout(cb,300);}
+var _ttAiStopReq=false;
 function ttAiVoice(){
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){toast('🔒 Reconnaissance vocale non disponible sur ce navigateur');return;}
+  if(!SR){toast("🔒 Reconnaissance vocale non disponible sur ce navigateur");return;}
   var btn=document.getElementById('tt-ai-mic');
-  if(_ttAiActive){try{_ttAiRec.stop();}catch(e){}return;}
-  var text='';
-  var r=new SR();r.lang='fr-FR';r.continuous=true;r.interimResults=false;
-  r.onresult=function(ev){for(var i=ev.resultIndex;i<ev.results.length;i++){if(ev.results[i].isFinal)text+=ev.results[i][0].transcript+' ';}};
-  r.onend=function(){
+  if(_ttAiActive){_ttAiStopReq=true;try{_ttAiRec.stop();}catch(e){}return;}
+  var acc='',t0=Date.now(),fast=0,MAX=180000;
+  _ttAiStopReq=false;_ttAiActive=true;if(btn)btn.classList.add('mic-active');
+  toast("🎙️ Je t'écoute (3 min max)… re-clique sur le micro IA pour envoyer");
+  function finish(){
     _ttAiActive=false;if(btn)btn.classList.remove('mic-active');
-    text=text.trim();
+    var text=acc.trim();
     if(text)ttAiGoIA(function(){var inp=document.getElementById('ia-input');if(inp){inp.value=text;iaResize(inp);}iaSend();});
-  };
-  r.onerror=function(ev){if(ev.error==='not-allowed'||ev.error==='service-not-allowed')toast('🎙️ Autorise le micro dans le navigateur');};
-  _ttAiRec=r;_ttAiActive=true;if(btn)btn.classList.add('mic-active');
-  toast('🎙️ Je t\'écoute… re-clique sur le micro IA pour envoyer');
-  try{r.start();}catch(e){_ttAiActive=false;if(btn)btn.classList.remove('mic-active');}
+  }
+  function run(){
+    var fin=[],s0=Date.now(),r=new SR();r.lang='fr-FR';r.continuous=true;r.interimResults=false;
+    r.onresult=function(ev){
+      fin=[];
+      for(var i=0;i<ev.results.length;i++){
+        if(!ev.results[i].isFinal)continue;
+        var t=ev.results[i][0].transcript.trim();if(!t)continue;
+        var l=fin.length?fin[fin.length-1]:'';
+        if(l&&t.toLowerCase().indexOf(l.toLowerCase())===0)fin[fin.length-1]=t;
+        else if(l&&l.toLowerCase().indexOf(t.toLowerCase())>=0){}
+        else fin.push(t);
+      }
+    };
+    r.onerror=function(ev){if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){toast("🎙️ Autorise le micro dans le navigateur");_ttAiStopReq=true;}};
+    r.onend=function(){
+      acc+=fin.length?fin.join(' ')+' ':'';
+      fast=(Date.now()-s0<700)?fast+1:0;
+      if(_ttAiStopReq||Date.now()-t0>=MAX||fast>=3){finish();return;}
+      setTimeout(run,150);   /* le navigateur coupe après un silence : on relance */
+    };
+    _ttAiRec=r;
+    try{r.start();}catch(e){finish();}
+  }
+  run();
 }
 function ttAiPhoto(){var f=document.getElementById('tt-ai-camfile');if(f)f.click();}
 function ttAiUpload(){var f=document.getElementById('tt-ai-file');if(f)f.click();}
@@ -5699,13 +5722,18 @@ function scheduleRecapNotif(){
     rec.lang="fr-FR";
     rec.continuous=true;
     rec.interimResults=false;
-    btn.innerHTML='🔴 <span style="font-size:11px">Arrêter</span>';
-    btn.style.background="rgba(217,48,37,.55)";
-    btn.style.borderColor="rgba(217,48,37,.8)";
+    btn.classList.add("mic-active");
     rec.onresult=e=>{
-      let full="";
-      for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)full+=e.results[i][0].transcript+" ";}
-      _pendingTranscript=full.trim()||null;
+      const fin=[];
+      for(let i=0;i<e.results.length;i++){
+        if(!e.results[i].isFinal)continue;
+        const t=e.results[i][0].transcript.trim();if(!t)continue;
+        const l=fin.length?fin[fin.length-1]:"";
+        if(l&&t.toLowerCase().indexOf(l.toLowerCase())===0)fin[fin.length-1]=t;
+        else if(l&&l.toLowerCase().indexOf(t.toLowerCase())>=0){}
+        else fin.push(t);
+      }
+      _pendingTranscript=fin.join(" ").trim()||null;
     };
     rec.onerror=err=>{
       if(err.error==="no-speech"||err.error==="aborted")return;
@@ -5713,9 +5741,7 @@ function scheduleRecapNotif(){
     };
     rec.onend=()=>{
       _active=false;
-      btn.innerHTML='🎙 <span style="font-size:11px">Dicter</span>';
-      btn.style.background="rgba(255,255,255,.18)";
-      btn.style.borderColor="rgba(255,255,255,.35)";
+      btn.classList.remove("mic-active");
       if(_pendingTranscript){
         toast('🎙 "'+_pendingTranscript+'"');
         parseVoiceTask(_pendingTranscript);
