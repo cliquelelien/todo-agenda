@@ -220,7 +220,7 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .dot{height:13px;flex-shrink:0;border-radius:4px;font-size:9px;font-weight:700;color:#fff;padding:0 5px;display:flex;align-items:center;overflow:hidden;white-space:nowrap;}
 .dot-td{background:var(--or);}.dot-dn{background:var(--bl);}.dot-gc{background:var(--or);}.dot-mo{background:var(--tx3);}
 /* ── Vue mois plein écran sur mobile ── */
-@media(max-width:1279px){
+@media(max-width:1023px){
   body.view-month #panel-agenda.active{padding:0!important;display:flex;flex-direction:column;height:calc(100vh - 56px - 45px);overflow:hidden;}
   body.view-month #panel-agenda.active>.card{border-radius:0;border-left:none;border-right:none;border-top:none;padding:6px 4px 4px 4px;margin-bottom:0;box-shadow:none;flex:1;display:flex;flex-direction:column;overflow:hidden;}
   body.view-month #panel-agenda.active .agt{padding:0 4px;flex-shrink:0;}
@@ -253,7 +253,28 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .lv-sec{font-weight:800;font-size:13px;color:var(--tx3);margin:16px 2px 8px;}
 .lv-fab{position:fixed;right:18px;bottom:calc(22px + env(safe-area-inset-bottom,0px));width:56px;height:56px;border-radius:50%;border:none;background:var(--bl);color:#fff;font-family:inherit;font-size:32px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(42,125,225,.45);cursor:pointer;z-index:150;}
 .lv-fab:active{transform:scale(.94);}
-@media(min-width:1280px){.lv-fab{position:sticky;right:auto;bottom:16px;margin:12px 0 0 auto;}}
+@media(min-width:1024px){.lv-fab{position:sticky;right:auto;bottom:16px;margin:12px 0 0 auto;}}
+
+/* ══ CONFORT ORDINATEUR (souris + clavier) ══ */
+.desk-only{display:none;}
+.mouse-only{display:none;}
+@media(min-width:1024px){
+  #ia-desk-btn{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 10px;font-family:inherit;font-weight:800;font-size:11px;color:#fff;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s;}
+  #ia-desk-btn:hover,#ia-desk-btn.on{background:rgba(255,255,255,.32);}
+  /* L'IA s'ouvre en tiroir à droite, sans écraser les colonnes Tâches / Agenda */
+  #panel-ia.active{position:fixed!important;top:56px;right:0;width:min(460px,42vw);height:calc(100vh - 56px)!important;z-index:250;background:var(--body-bg);border-left:2px solid var(--blb);box-shadow:-8px 0 28px rgba(26,86,160,.18);}
+  .mo{max-width:420px;}
+}
+@media(hover:hover) and (pointer:fine){
+  .mouse-only{display:flex;}
+  .lv-today{display:none;}
+  .agnav{align-items:center;gap:4px;}
+  .agnav button{font-family:inherit;font-weight:800;font-size:16px;line-height:1;min-width:30px;height:30px;padding:0 8px;background:var(--blbg);color:var(--bl);border:1.5px solid var(--blb);border-radius:8px;cursor:pointer;transition:background .15s,border-color .15s;}
+  .agnav button:hover{background:var(--bll);border-color:var(--bl);}
+  .agnav .agnav-t{font-size:11px;}
+  .ti,.tt-row,.md,.whd,.day-ev,.wch{cursor:pointer;}
+}
+button:focus-visible,[tabindex]:focus-visible,.tab:focus-visible{outline:2px solid var(--bl);outline-offset:2px;}
 /* Week */
 .ww{position:relative;overflow:hidden;}
 .wg{width:100%;}
@@ -478,12 +499,12 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .gbn-connect{background:rgba(255,255,255,.22);border:1.5px solid rgba(255,255,255,.45);border-radius:9px;padding:5px 11px;font-family:inherit;font-weight:800;font-size:11px;color:#fff;cursor:pointer;white-space:nowrap;transition:background .15s;}
 .gbn-connect:hover{background:rgba(255,255,255,.35);}
 
-@media(min-width:1280px){
+@media(min-width:1024px){
   #panel-ia{height:calc(100vh - 56px)!important;display:none!important;}
   #panel-ia.active{display:flex!important;}
 }
 
-@media(min-width:1280px){
+@media(min-width:1024px){
   nav{display:none;}
   body{overflow:hidden;height:100vh;}
   #desktop-body{display:flex;flex:1;overflow:hidden;min-height:0;}
@@ -535,7 +556,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   .wg{display:flex;flex-direction:column;}
   .whr-wrap{padding-right:5px;/* compense la scrollbar du w-scroll */}
 }
-@media(max-width:1279px){
+@media(max-width:1023px){
   #desktop-body{display:contents;}
 }
 
@@ -562,7 +583,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .auth-loading{text-align:center;font-size:14px;color:var(--tx3);padding:8px 0;}
 #app-content{display:none;}
 #app-content.visible{display:block;}
-@media(min-width:1280px){#app-content.visible{display:flex!important;flex-direction:column;height:100vh;}}
+@media(min-width:1024px){#app-content.visible{display:flex!important;flex-direction:column;height:100vh;}}
 
 /* ══ RECHERCHE GLOBALE ══ */
 #search-bar-wrap{position:relative;margin-top:8px;}
@@ -626,6 +647,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <h1>Planify</h1>
   <span id="gs">Non connect&#233;</span>
   <button id="settings-btn" onclick="toggleSettings()" title="Paramètres" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:6px 10px;color:#fff;font-size:16px;cursor:pointer;transition:background .15s;flex-shrink:0;" aria-label="Paramètres">⚙️</button>
+  <button id="ia-desk-btn" class="desk-only" onclick="deskToggleIA()" title="Assistant IA (touche I)">&#129302; IA</button>
   <button id="bg" onclick="handleAuth()">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
     Connexion Google
@@ -904,6 +926,11 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <div id="sync-bar" class="sync"><div class="spinner"></div><span id="sync-msg"></span></div>
   <div class="card">
     <div class="agt">
+      <div class="agnav mouse-only">
+        <button onclick="navPrev()" title="Précédent (←)" aria-label="Précédent">&#8249;</button>
+        <button onclick="navNext()" title="Suivant (→)" aria-label="Suivant">&#8250;</button>
+        <button class="agnav-t" onclick="agToday()" title="Aujourd'hui (T)">Auj.</button>
+      </div>
       <div class="agp" id="agp"></div>
       <select id="h-start" style="display:none"></select>
       <select id="h-end" style="display:none"></select>
@@ -3554,6 +3581,58 @@ function renderList(){
   lvPaintDots();
 }
 
+/* ══ AUJOURD'HUI / IA (desktop) / RACCOURCIS CLAVIER ══ */
+function agToday(){
+  var t=new Date();
+  cY=t.getFullYear();cM=t.getMonth();cDay=ds(t);cWeek=monday(t);
+  if(view==="day"||view==="list")selDay=cDay;
+  renderAg();
+}
+var _deskPrevTab="todo";
+function deskToggleIA(){
+  if(curTab==="ia"){goTab(_deskPrevTab==="ia"?"todo":_deskPrevTab,true);}
+  else{_deskPrevTab=curTab;goTab("ia");}
+  var b=document.getElementById("ia-desk-btn");if(b)b.classList.toggle("on",curTab==="ia");
+  if(curTab==="ia"){setTimeout(function(){var i=document.getElementById("ia-input")||document.querySelector("#panel-ia textarea");if(i)i.focus();},150);}
+}
+document.addEventListener("keydown",function(e){
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  var tg=e.target,tag=tg&&tg.tagName;
+  var typing=tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT"||(tg&&tg.isContentEditable);
+  var authOpen=document.getElementById("auth-overlay")&&!document.getElementById("auth-overlay").classList.contains("hidden");
+  if(authOpen)return;
+  if(e.key==="Escape"){
+    var ov=document.querySelector(".ov.open");
+    if(ov){
+      if(ov.id==="overlay")closeModal();
+      else if(ov.id==="ev-overlay")closeEvModal();
+      else if(ov.id==="task-edit-overlay")closeTaskEdit();
+      e.preventDefault();return;
+    }
+    if(typeof _planTaskId!=="undefined"&&_planTaskId){exitPlanMode();return;}
+    var sp=document.getElementById("settings-panel");
+    if(sp&&sp.style.display!=="none"){toggleSettings();return;}
+    if(curTab==="ia"&&window.matchMedia("(min-width:1024px)").matches){deskToggleIA();return;}
+    if(typing&&tg.blur)tg.blur();
+    return;
+  }
+  if(typing||document.querySelector(".ov.open"))return;
+  var panel=document.getElementById("panel-agenda");
+  var agVisible=panel&&panel.getClientRects().length>0;
+  var k=e.key;
+  if(agVisible&&k==="ArrowLeft"){e.preventDefault();navPrev();}
+  else if(agVisible&&k==="ArrowRight"){e.preventDefault();navNext();}
+  else if(agVisible&&(k==="t"||k==="T")){agToday();}
+  else if(agVisible&&(k==="m"||k==="M")){setView("month");}
+  else if(agVisible&&(k==="s"||k==="S")){setView("week");}
+  else if(agVisible&&(k==="j"||k==="J")){setView("day");}
+  else if(agVisible&&(k==="l"||k==="L")){setView("list");}
+  else if(k==="n"||k==="N"){var ti=document.getElementById("ti");if(ti&&ti.getClientRects().length){e.preventDefault();ti.focus();}}
+  else if(k==="/"){var sb=document.getElementById("search-bar");if(sb&&sb.getClientRects().length){e.preventDefault();sb.focus();}}
+  else if((k==="i"||k==="I")&&window.matchMedia("(min-width:1024px)").matches){deskToggleIA();}
+  else if(k==="?"){toast("⌨️ ←/→ naviguer · T aujourd'hui · M/S/J/L vues · N nouvelle tâche · / recherche · I assistant IA · Échap fermer");}
+});
+
 /* ══ NAVIGATION PAR DRAG ══ */
 
 const _ezL=document.createElement("div");_ezL.className="edge-zone left";
@@ -5654,8 +5733,8 @@ function renderMiniCal(){
     g.appendChild(div);
   });
 }
-function showMiniCal(){miniY=NOW.getFullYear();miniM=NOW.getMonth();renderMiniCal();document.getElementById("mini-cal-wrap").classList.add("drag-active");}
-function hideMiniCal(){document.getElementById("mini-cal-wrap").classList.remove("drag-active");}
+function showMiniCal(){miniY=NOW.getFullYear();miniM=NOW.getMonth();renderMiniCal();var w=document.getElementById("mini-cal-wrap");if(w)w.classList.add("drag-active");}
+function hideMiniCal(){var w=document.getElementById("mini-cal-wrap");if(w)w.classList.remove("drag-active");}
 
 /* ══ MODE PLANIFICATION (clic icône → bandeau → clic calendrier) ══ */
 
