@@ -54,10 +54,10 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 /* ══ Tâches — style TickTick ══ */
 .tt-add{background:var(--card-bg);border:1.5px solid var(--blb);border-radius:16px;box-shadow:var(--sh);margin-bottom:12px;padding:8px 10px;}
 .tt-add-bar{display:flex;align-items:center;gap:8px;}
-.tt-plus{font-size:22px;font-weight:700;color:var(--bl);line-height:1;width:20px;text-align:center;flex-shrink:0;}
+.tt-plus{font-size:24px;font-weight:700;color:var(--bl);line-height:1;width:30px;height:34px;text-align:center;flex-shrink:0;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;}
 .tt-add-bar input#ti{flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:inherit;font-size:15px;font-weight:700;color:var(--tx);padding:9px 2px;}
 .tt-add-bar input#ti::placeholder{color:var(--tx3);font-weight:600;}
-.tt-add-opt{width:34px;height:34px;border-radius:10px;border:none;background:transparent;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s;}
+.tt-add-opt{width:34px;height:34px;border-radius:10px;border:none;background:transparent;color:var(--bl);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s;}
 .tt-add-opt:hover,.tt-add-opt.active{background:var(--bll);color:var(--bl);}
 .tt-ai{position:relative;color:var(--bl);}
 .tt-ai .ai-badge{position:absolute;top:0;right:-1px;font-size:8px;font-weight:800;background:var(--bl);color:#fff;border-radius:6px;padding:0 3px;line-height:11px;}
@@ -653,9 +653,9 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <div id="main-task-content">
   <div class="tt-add" id="tt-add">
     <div class="tt-add-bar">
-      <span class="tt-plus">+</span>
+      <button type="button" class="tt-plus" onclick="addTask()" title="Ajouter" aria-label="Ajouter">+</button>
       <input type="text" id="ti" placeholder="Ajouter une t&#226;che&#8230;" maxlength="100" autocomplete="off">
-      <button type="button" class="tt-add-opt" id="tt-opt-btn" onclick="toggleAddOptions()" title="Date, r&#233;p&#233;tition, description&#8230;" aria-label="Options">
+      <button type="button" class="tt-add-opt" id="tt-opt-btn" onclick="ttNewViaEdit()" title="Nouvelle t&#226;che d&#233;taill&#233;e (date, heure, r&#233;p&#233;tition&#8230;)" aria-label="Options">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       </button>
       <button type="button" class="tt-add-opt" id="mic-btn" title="Dicter une t&#226;che ou un RDV (re-clique pour arr&#234;ter)" aria-label="Micro">
@@ -672,7 +672,6 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
       </button>
       <input type="file" id="tt-ai-camfile" accept="image/*" capture="environment" style="display:none" onchange="ttAiFile(this)">
       <input type="file" id="tt-ai-file" accept="image/*,application/pdf,.pdf,.txt,.csv,.ics,.md,.json,.eml,.html,.htm,text/*" multiple style="display:none" onchange="ttAiFile(this)">
-      <button type="button" class="tt-add-go" onclick="addTask()">Ajouter</button>
     </div>
     <div class="tt-add-opts" id="tt-add-opts">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px;">
@@ -6248,7 +6247,35 @@ async function deleteEditTask(){
   renderTasks();renderAg();
   toast("🗑 Tâche supprimée");
 }
-function closeTaskEdit(){document.getElementById("task-edit-overlay").classList.remove("open");_editTaskId=null;}
+function closeTaskEdit(){
+  document.getElementById("task-edit-overlay").classList.remove("open");
+  if(_editTaskId&&String(_editTaskId).indexOf('draft_')===0)S.tasks=S.tasks.filter(x=>x.id!==_editTaskId);
+  _editTaskId=null;
+}
+/* Calendrier du bandeau : ouvre la même fiche que pour une tâche existante, en mode « nouvelle tâche » */
+function ttNewViaEdit(){
+  S.tasks=S.tasks.filter(x=>String(x.id).indexOf('draft_')!==0);
+  const t={id:'draft_'+uid(),title:document.getElementById('ti').value.trim(),desc:'',due:ds(new Date()),done:false,archived:false,remind:0,recurrence:null,_createdHere:true};
+  S.tasks.push(t);
+  openTaskEdit(t.id);
+}
+function ttSaveDraft(){
+  const id=_editTaskId,g=x=>document.getElementById(x);
+  const title=g('te-title').value.trim();
+  if(!title){toast('✏️ Donne un titre à la tâche');return;}
+  const timed=!_teIsAllDay;
+  g('ti').value=title;g('tdat').value=g('te-due').value||'';
+  g('tdat-end').value=g('te-due-end')?g('te-due-end').value:'';
+  g('ttim').value=timed?(g('te-tstart').value||''):'';g('ttim-end').value=timed?(g('te-tend').value||''):'';
+  const d=g('ti-desc');if(d)d.value=g('te-desc').value;
+  const rc=g('ti-recur');if(rc)rc.value=g('te-recur').value||'';
+  const dr=g('default-remind'),prevR=dr?dr.value:null,rems=getRemindersFromUI();
+  if(dr&&rems.length){const m=String(rems[0].min);if([...dr.options].some(o=>o.value===m))dr.value=m;}
+  if(typeof setAssignee==='function')setAssignee(_teAssignee||'me');
+  S.tasks=S.tasks.filter(x=>x.id!==id);
+  closeTaskEdit();
+  Promise.resolve(addTask()).finally(()=>{if(dr&&prevR!==null)dr.value=prevR;});
+}
 function onTeRemindChange(sel){/* legacy, not used */}
 function addTeReminder(){
   var list=document.getElementById('te-reminders-list');
@@ -6271,6 +6298,7 @@ function setTeAssignee(who){
 }
 function saveTaskEdit(){
   if(!_editTaskId)return;
+  if(String(_editTaskId).indexOf('draft_')===0){ttSaveDraft();return;}
   const t=S.tasks.find(x=>x.id===_editTaskId);if(!t)return;
   t.title=document.getElementById("te-title").value.trim()||t.title;
   t.due=document.getElementById("te-due").value||null;
