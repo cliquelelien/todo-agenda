@@ -560,6 +560,56 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   #desktop-body{display:contents;}
 }
 
+/* ══ CALENDRIER — LISIBILITÉ GRAND ÉCRAN (ordinateur) ══
+   Polices agrandies + mois/semaine/jour qui remplissent toute la hauteur et la largeur */
+@media(min-width:1024px){
+  #panel-agenda{padding:14px 20px;}
+  #panel-agenda>.card{flex:1 0 520px;display:flex;flex-direction:column;min-height:0;margin-bottom:0;padding:16px 20px;}
+  #panel-agenda .agt{flex-shrink:0;gap:12px;margin-bottom:14px;}
+  #panel-agenda .agp{font-size:clamp(18px,1.5vw,26px);}
+  #panel-agenda .vb{font-size:14px;padding:8px 18px;}
+  #panel-agenda .agnav button{font-size:20px;min-width:36px;height:36px;}
+  #panel-agenda .agnav .agnav-t{font-size:13px;}
+  #panel-agenda .det{flex-shrink:0;}
+  body.view-month #ag-body,body.view-week #ag-body,body.view-day #ag-body{flex:1;min-height:0;display:flex;flex-direction:column;}
+
+  /* ── MOIS : la grille occupe tout l'écran ── */
+  body.view-month #panel-agenda{overflow:hidden;}
+  body.view-month #panel-agenda>.card{flex:1 1 0;}
+  body.view-month .mg-wrap{flex:1;min-height:0;display:flex;flex-direction:column;}
+  body.view-month .mg{flex:1;min-height:0;gap:6px;grid-template-rows:auto;grid-auto-rows:minmax(0,1fr);}
+  body.view-month .mh{font-size:clamp(12px,.95vw,15px);padding:6px 0;}
+  body.view-month .md{height:auto!important;min-height:0;padding:6px 8px;border-radius:10px;}
+  body.view-month .mn{font-size:clamp(14px,1.15vw,19px);}
+  body.view-month .mds{gap:3px;margin-top:5px;}
+  body.view-month .dot{height:clamp(18px,1.5vw,24px);font-size:clamp(12px,.95vw,15px);padding:0 7px;border-radius:5px;}
+
+  /* ── SEMAINE ── */
+  body.view-week .ww{flex:1;min-height:0;display:flex;flex-direction:column;}
+  body.view-week .wg{flex:1;min-height:0;}
+  body.view-week .w-scroll{flex:1 1 0;min-height:0;height:auto!important;}
+  .whr,.war,.wtr{grid-template-columns:56px repeat(7,minmax(0,1fr));gap:3px;}
+  .whd{padding:8px 4px;}
+  .wdn{font-size:clamp(11px,.9vw,14px);}
+  .wnum{font-size:clamp(20px,1.6vw,28px);}
+  .wweather{font-size:15px!important;}
+  .wal{font-size:12px;}
+  .wtl{font-size:13px;padding-right:8px;}
+  .wch{font-size:12.5px;padding:2px 6px;}
+  .wev{font-size:clamp(12px,.95vw,15px);padding:3px 6px;border-radius:6px;}
+  .wsl,.wtl{height:60px!important;}
+
+  /* ── JOUR ── */
+  body.view-day #ag-body>div{flex:1;min-height:0;display:flex;flex-direction:column;}
+  body.view-day .day-scroll{flex:1 1 0;min-height:0;height:auto!important;}
+  .day-grid{grid-template-columns:60px 1fr 72px;}
+  .day-ev-overlay{left:60px;right:72px;}
+  .day-lbl{font-size:14px;padding-right:10px;}
+  .day-lbl-weather{font-size:17px;}
+  .day-ev{font-size:clamp(13px,1vw,16px);padding:4px 12px;}
+  .day-sl,.day-lbl,.day-lbl-weather{height:60px!important;}
+}
+
 @keyframes pulse-mic{from{opacity:1;transform:scale(1);}to{opacity:.4;transform:scale(1.3);}}
 .mic-active{background:var(--orbg)!important;border-color:var(--or)!important;animation:pulse-mic .8s infinite alternate;}
 /* ══ AUTH OVERLAY ══ */
@@ -3366,7 +3416,22 @@ function goTab(t,skipRender){
 function setView(v){view=v;["month","week","day","list"].forEach(x=>document.getElementById("vb-"+x).classList.toggle("active",x===v));document.body.classList.toggle("view-month",v==="month");document.body.classList.toggle("view-list",v==="list");renderAg();}
 function navPrev(){if(view==="month"){cM--;if(cM<0){cM=11;cY--;}}else if(view==="week"){const d=new Date(cWeek);d.setDate(d.getDate()-7);cWeek=d;}else if(view==="list"){lvShiftDay(-1);return;}else{const d=new Date(cDay+"T00:00:00");d.setDate(d.getDate()-1);cDay=ds(d);}renderAg();}
 function navNext(){if(view==="month"){cM++;if(cM>11){cM=0;cY++;}}else if(view==="week"){const d=new Date(cWeek);d.setDate(d.getDate()+7);cWeek=d;}else if(view==="list"){lvShiftDay(1);return;}else{const d=new Date(cDay+"T00:00:00");d.setDate(d.getDate()+1);cDay=ds(d);}renderAg();}
-function renderAg(){document.body.classList.toggle("view-month",view==="month");if(view==="month")renderMonth();else if(view==="week")renderWeek();else if(view==="list")renderList();else renderDay();}
+function renderAg(){["month","week","day"].forEach(function(v){document.body.classList.toggle("view-"+v,view===v);});if(view==="month")renderMonth();else if(view==="week")renderWeek();else if(view==="list")renderList();else renderDay();}
+/* Recalcule l'agenda quand la fenêtre est redimensionnée (mois/semaine/jour) */
+(function(){
+  var t=null,lw=window.innerWidth,lh=window.innerHeight;
+  window.addEventListener("resize",function(){
+    clearTimeout(t);
+    t=setTimeout(function(){
+      var w=window.innerWidth,h=window.innerHeight;
+      var changed=(w!==lw)||(w>=1024&&h!==lh);
+      lw=w;lh=h;
+      if(!changed)return;
+      var pa=document.getElementById("panel-agenda");
+      if((view==="month"||view==="week"||view==="day")&&pa&&pa.getClientRects().length)renderAg();
+    },250);
+  });
+})();
 
 /* ══ LIST VIEW (style TickTick) : bandeau de dates défilant + liste du jour ══ */
 var LV_WD=["dim.","lun.","mar.","mer.","jeu.","ven.","sam."];
@@ -3821,8 +3886,9 @@ function renderMonth(){
       const total=parseInt(mds.dataset.total)||dots.length;
       /* Hauteur disponible dans .mds */
       const available=mds.clientHeight;
-      const DOT_H=16; /* 14px hauteur + 2px gap */
-      const maxFit=Math.max(0,Math.floor(available/DOT_H));
+      const gap=parseFloat(getComputedStyle(mds).rowGap)||2;
+      const dotH=dots[0].offsetHeight||14;
+      const maxFit=Math.max(0,Math.floor((available+gap)/(dotH+gap)));
       if(total<=maxFit)return; /* tout rentre */
       /* Réserver 1 slot pour le "+N" */
       const show=Math.max(0,maxFit-1);
