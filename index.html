@@ -7333,8 +7333,11 @@ function addShopItem(text){
     var K=['title','due','dueEnd','desc','_pendingTS','_pendingTE'];
     snap.forEach(function(t){
       var c=curMap[t.id];if(!c)return;
-      if(K.every(function(k){return (c[k]||null)===(t[k]||null);}))return;
-      K.forEach(function(k){c[k]=t[k];});nMod++;
+      var sameShop=JSON.stringify(c.shopping||null)===JSON.stringify(t.shopping||null);
+      if(sameShop&&K.every(function(k){return (c[k]||null)===(t[k]||null);}))return;
+      K.forEach(function(k){c[k]=t[k];});
+      if(t.shopping)c.shopping=JSON.parse(JSON.stringify(t.shopping));else delete c.shopping;
+      nMod++;
       var g=token&&gcal.find(function(e){return e.id===c.id;});
       if(g)updateGcalEvWithRecur(g.id,c.title,c.desc||'',c.due||g.start.slice(0,10),c._pendingTS||null,c._pendingTE||null,c.recurrence||null,c.dueEnd||null,c.remind||0,c.reminders).catch(function(){});
     });
@@ -7361,7 +7364,7 @@ function addShopItem(text){
     ctx+='RÈGLES DE FIABILITÉ :\n- Utilise UNIQUEMENT les ids listés ; ne devine jamais un id.\n- Déplacer/modifier = type "update" (jamais supprimer puis recréer).\n- Ne crée AUCUN chevauchement : vérifie l\'AGENDA 14 JOURS. Si le créneau demandé est occupé, propose le créneau libre le plus proche et dis-le clairement.\n- Dates AAAA-MM-JJ, heures HH:MM ; déduis les jours de semaine de l\'agenda fourni.\n- Si la demande est ambiguë (quelle tâche ? quelle heure ?), pose UNE question courte au lieu de deviner.\n\n'+iaAgenda14()+'\n';
     ctx+='TÂCHES PLANIFY À FAIRE ('+todo.length+') :\n';
     todo.forEach(function(t){
-      ctx+='- ['+iaH(t.id)+'] "'+t.title+'"'+(t.due?' | due:'+t.due:'')+(t.dueEnd&&t.dueEnd!==t.due?' → '+t.dueEnd:'')+(t._pendingTS?' '+t._pendingTS:'')+(t.desc?' | '+t.desc.slice(0,60):'')+(t.recurrence?' | ↻'+t.recurrence:'')+(t.done?' ✓':'')+'\n';
+      ctx+='- ['+iaH(t.id)+'] "'+t.title+'"'+(t.due?' | due:'+t.due:'')+(t.dueEnd&&t.dueEnd!==t.due?' → '+t.dueEnd:'')+(t._pendingTS?' '+t._pendingTS:'')+(t.desc?' | '+t.desc.slice(0,60):'')+(t.recurrence?' | ↻'+t.recurrence:'')+(t.done?' ✓':'')+(t.shopping&&t.shopping.items&&t.shopping.items.length?' | 🛒 '+t.shopping.items.map(function(i){return (i.bought?'☑':'☐')+i.text;}).join(', ').slice(0,300):'')+'\n';
     });
     if(gcalSoon.length){
       ctx+='\nÉVÉNEMENTS GOOGLE AGENDA À VENIR ('+gcalSoon.length+') :\n';
@@ -7377,9 +7380,18 @@ function addShopItem(text){
     return ctx;
   }
 
+  /* ── Règles « liste de courses » communes à tous les prompts ── */
+  var SHOP_RULES=
+    'LISTE DE COURSES (très important) :\n'+
+    '- Dès que l\'utilisateur dicte des courses / achats ("faut acheter", "liste de courses", "il me faut du lait, du pain…"), crée UNE SEULE action {"type":"task","title":"Courses","shopping":["Lait","Pain","Œufs (x12)"],"desc":"commentaires"} : un article = un élément de "shopping" (texte court, quantité entre parenthèses si donnée). Ne crée JAMAIS une tâche par article.\n'+
+    '- Les remarques, précisions et consignes de l\'utilisateur (magasin, marque, budget, "pour samedi", "pas trop mûr"…) vont dans "desc", reprises fidèlement, en français. Une précision propre à un article reste dans le texte de cet article.\n'+
+    '- Si l\'utilisateur donne un jour ("pour samedi", "demain") mets "due" ; sinon omets "due".\n'+
+    '- Si une tâche de courses existe déjà dans le contexte (🛒), AJOUTE les nouveaux articles avec {"type":"update","id":"T…","shopping":["article"]} (les articles déjà présents sont conservés, sans doublon) au lieu d\'en créer une autre.\n'+
+    '- Pour cocher des articles déjà achetés : {"type":"update","id":"T…","shoppingBought":["article"]}. Pour en retirer : {"type":"update","id":"T…","shoppingRemove":["article"]}.';
+
   /* ── Prompt système ── */
   function buildSystemPrompt(jm){var p=buildSystemPrompt0();if(!jm)return p;
-    return p+'\n\nFORMAT DE SORTIE (PRIORITAIRE, remplace toute consigne de balises) : réponds UNIQUEMENT par un objet JSON valide, sans markdown ni balises : {"reply":"message court en français","actions":[{"type":"task|update|delete","id":"T3","title":"…","due":"AAAA-MM-JJ","dueEnd":"AAAA-MM-JJ","timeStart":"HH:MM","timeEnd":"HH:MM","desc":"…"}]}. "actions" vaut [] si rien à créer/modifier/supprimer. Pour update/delete, "id" = EXACTEMENT un identifiant T… de la liste ou de l\'agenda. Si une action est demandée, remplis TOUJOURS "actions" (ne te contente pas de la décrire).';}
+    return p+'\n\nFORMAT DE SORTIE (PRIORITAIRE, remplace toute consigne de balises) : réponds UNIQUEMENT par un objet JSON valide, sans markdown ni balises : {"reply":"message court en français","actions":[{"type":"task|update|delete","id":"T3","title":"…","due":"AAAA-MM-JJ","dueEnd":"AAAA-MM-JJ","timeStart":"HH:MM","timeEnd":"HH:MM","desc":"…","shopping":["article 1","article 2"]}]}. "actions" vaut [] si rien à créer/modifier/supprimer. Pour update/delete, "id" = EXACTEMENT un identifiant T… de la liste ou de l\'agenda. Si une action est demandée, remplis TOUJOURS "actions" (ne te contente pas de la décrire).\n\n'+SHOP_RULES;}
   function buildSystemPrompt0(){
     var isGemma=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b')&&!iaWorkerOn();
     if(isGemma){
@@ -7395,7 +7407,8 @@ function addShopItem(text){
         '- Déplacer un RDV = type "update" avec l\'id exact du contexte\n'+
         '- Supprimer = type "delete"\n'+
         '- Réponse texte MAX 3 phrases. Pas de liste à puces sauf si explicitement demandé.\n'+
-        '- Donne TOUJOURS un bloc PLANIFY_ACTIONS quand une action calendrier est demandée\n\n'+
+        '- Donne TOUJOURS un bloc PLANIFY_ACTIONS quand une action calendrier est demandée\n'+
+        '- COURSES : une seule tâche {"type":"task","title":"Courses","shopping":["Lait","Pain"],"desc":"remarques de l\'utilisateur"} ; un article = un élément de shopping ; les remarques vont dans desc ; si une tâche 🛒 existe, utilise update avec shopping pour ajouter des articles\n\n'+
         buildPlanifyContext()
       );
     }
@@ -7425,7 +7438,8 @@ function addShopItem(text){
       '- Toujours proposer des étapes intermédiaires (préparation, rappels, suivis)\n'+
       '- Être proactif : si tu vois une date limite dans 3 semaines, propose un rappel à J-7 et J-2\n'+
       '- Ton ton est humain, chaleureux, efficace\n'+
-      '- Si l\'utilisateur dit "planifie" / "crée" / "modifie" / "déplace" → utilise PLANIFY_ACTIONS directement sans demander confirmation\n\n'+
+      '- Si l\'utilisateur dit "planifie" / "crée" / "modifie" / "déplace" → utilise PLANIFY_ACTIONS directement sans demander confirmation\n'+
+      SHOP_RULES+'\n\n'+
       buildPlanifyContext()
     );
   }
@@ -7561,7 +7575,38 @@ function addShopItem(text){
       if(!a||typeof a!=='object')return a;a=Object.assign({},a);
       var ty=String(a.type||a.action||'').toLowerCase();
       a.type=/del|supp|remov|annul/.test(ty)?'delete':/upd|modif|move|d[ée]plac|edit|chang/.test(ty)?'update':(ty?'task':(a.id?'update':'task'));
+      /* Liste de courses : accepte tableau de textes/objets, ou texte séparé par virgules/retours ligne */
+      var shopList=function(v){
+        if(v==null||v==='')return null;
+        if(typeof v==='string')v=v.split(/\n|;|,(?![^(]*\))/);
+        if(!Array.isArray(v))return null;
+        var out=[];
+        v.forEach(function(x){
+          var o=null;
+          if(typeof x==='string'){var tx=x.replace(/^\s*(?:[-•*☐☑]|\d+[.)])\s*/,'').trim();if(tx)o={text:tx,bought:/^\s*☑/.test(x)};}
+          else if(x&&typeof x==='object'){
+            var tx2=String(x.text||x.name||x.item||x.article||x.label||'').trim();
+            var note=String(x.note||x.comment||x.commentaire||x.remark||'').trim();
+            if(tx2)o={text:note&&tx2.toLowerCase().indexOf(note.toLowerCase())<0?tx2+' ('+note+')':tx2,bought:!!(x.bought||x.done||x.checked)};
+          }
+          if(o&&!out.some(function(y){return y.text.toLowerCase()===o.text.toLowerCase();}))out.push(o);
+        });
+        return out.length?out:null;
+      };
+      var sh=shopList(a.shopping!==undefined?a.shopping:(a.items!==undefined?a.items:(a.courses!==undefined?a.courses:(a.liste!==undefined?a.liste:a.shoppingList))));
+      if(sh)a.shopping=sh;else delete a.shopping;
+      ['shoppingBought','shoppingRemove'].forEach(function(k){
+        if(a[k]==null)return;
+        var l=shopList(a[k]);if(l)a[k]=l.map(function(x){return x.text;});else delete a[k];
+      });
+      ['items','courses','liste','shoppingList'].forEach(function(k){if(k in a)delete a[k];});
+      /* Commentaires de l'utilisateur → desc */
+      var cm=[a.desc,a.comment,a.comments,a.commentaire,a.commentaires,a.note,a.notes,a.remarques].filter(function(x){return typeof x==='string'&&x.trim();}).map(function(x){return x.trim();});
+      cm=cm.filter(function(x,i){return cm.indexOf(x)===i;});
+      if(cm.length)a.desc=cm.join('\n');else if('desc' in a&&!a.desc)delete a.desc;
+      ['comment','comments','commentaire','commentaires','note','notes','remarques'].forEach(function(k){if(k in a)delete a[k];});
       if(a.date&&!a.due)a.due=a.date;if(a.start&&!a.timeStart)a.timeStart=a.start;if(a.end&&!a.timeEnd)a.timeEnd=a.end;if(a.titre&&!a.title)a.title=a.titre;
+      if(a.type==='task'&&!(a.title&&String(a.title).trim())&&a.shopping)a.title='Courses';
       ['due','dueEnd','timeStart','timeEnd'].forEach(function(k){if(a[k]===null||a[k]==='')delete a[k];else if(a[k])a[k]=(k[0]==='d'?dt:tm)(a[k]);});
       if(a.type!=='task'){a.id=iaRealId(a.id);
         if(!iaTitleOf(a.id)&&a.title){var q=a.title.toLowerCase(),c=S.tasks.concat(gcal||[]).filter(function(x){var t=(x.title||'').toLowerCase();return t&&(t===q||t.indexOf(q)>=0||q.indexOf(t)>=0);});if(c.length===1)a.id=c[0].id;}}
@@ -7928,7 +7973,7 @@ function addShopItem(text){
   }
 
   /* Afficher un plan avec boutons d'ajout par tâche */
-  function iaAppendAIPlan(text,tasks,warns){warns=warns||{};var snapId=null,undoBtn=null,applied={};
+  function iaAppendAIPlan(text,tasks,warns){warns=warns||{};var snapId=null,undoBtn=null,applied={},_btns={};
     var msgs=document.getElementById('ia-messages');if(!msgs)return;
     var wrap=document.createElement('div');wrap.className='ia-msg ai';
     var av=document.createElement('div');av.className='ia-msg-avatar';av.textContent='🤖';
@@ -7945,6 +7990,7 @@ function addShopItem(text){
       var row=document.createElement('div');row.className='ia-task-item';row.style.cssText='align-items:flex-start;padding:10px 0;';
       var E=function(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
       var isU=t.type==='update',isD=t.type==='delete';
+      var hasShop=!!(t.shopping&&t.shopping.length);
       var g=t.id?gcal.find(function(e){return e.id===t.id;}):null,cur=t.id?S.tasks.find(function(x){return x.id===t.id;}):null;
       var hm=function(x){return x&&x.indexOf('T')>0?x.slice(11,16):'';};
       var cd=(g&&g.start?g.start.slice(0,10):(cur&&cur.due))||'',cts=g?hm(g.start):((cur&&cur._pendingTS)||''),cte=g?hm(g.end):((cur&&cur._pendingTE)||'');
@@ -7963,17 +8009,22 @@ function addShopItem(text){
         if(t.title&&oldT&&t.title!==oldT)L.push('✏️ Nouveau titre : <b>'+E(t.title)+'</b>');
         if(t.due)chg('📅',cd?LD(cd):'',LD(t.due));
         if(t.timeStart||t.timeEnd)chg('⏰',TR(cts,cte),TR(t.timeStart||cts,t.timeEnd||cte));
-        if(t.desc)L.push('📝 '+E(t.desc.slice(0,80)));
+        if(t.desc)L.push('📝 '+E(t.desc.slice(0,300)));
+        if(hasShop)L.push('🛒 Ajout : '+t.shopping.map(function(i){return '☐ '+E(i.text);}).join(' · '));
+        if(t.shoppingBought&&t.shoppingBought.length)L.push('☑ Acheté : '+t.shoppingBought.map(E).join(' · '));
+        if(t.shoppingRemove&&t.shoppingRemove.length)L.push('➖ Retiré : '+t.shoppingRemove.map(E).join(' · '));
       } else {
         if(t.due)L.push('📅 <b>'+E(LD(t.due))+'</b>'+(t.dueEnd&&t.dueEnd!==t.due?' → '+E(LD(t.dueEnd)):''));
         if(t.timeStart)L.push('⏰ <b>'+E(TR(t.timeStart,t.timeEnd))+'</b>');
-        if(t.desc)L.push('📝 '+E(t.desc.slice(0,80)));
+        if(hasShop)L.push('🛒 <b>'+t.shopping.length+' article'+(t.shopping.length>1?'s':'')+'</b><div style="margin-top:2px;">'+t.shopping.map(function(i){return '<div style="line-height:1.55;">☐ '+E(i.text)+'</div>';}).join('')+'</div>');
+        if(t.desc)L.push('📝 '+E(t.desc.slice(0,300)));
       }
       if(!L.length)L.push('<i>Aucun détail de date ou d\'heure</i>');
       meta.innerHTML=L.join('<br>');
       info.append(tag,name,meta);
       if(warns[idx]){var wd=document.createElement('div');wd.style.cssText='font-size:11px;font-weight:700;color:#b45309;margin-top:2px;';wd.textContent='⚠️ '+warns[idx];info.appendChild(wd);}
       var addBtn=document.createElement('button');addBtn.className='ia-task-add-btn';addBtn.textContent=t.type==='delete'?'Supprimer':t.type==='update'?'Modifier':'+ Ajouter';addBtn.style.background=t.type==='delete'?'#dc2626':t.type==='update'?'#d97706':'';
+      _btns[idx]=addBtn;
       (function(task,btn,ix){
         btn.onclick=function(){
           if(task.type==='delete'&&!confirm('Supprimer « '+(iaTitleOf(task.id)||'cette tâche')+' » ?'))return;
@@ -8011,6 +8062,24 @@ function addShopItem(text){
       undoBtn.onclick=function(){iaUndo(snapId);undoBtn.textContent='↩️ Changements annulés';undoBtn.disabled=true;};
       card.appendChild(undoBtn);
     }
+    /* Liste de courses : application AUTOMATIQUE (jamais pour une suppression), annulation possible */
+    var _auto=[];
+    tasks.forEach(function(t,i){
+      if(t.type==='delete'||warns[i])return;
+      if((t.shopping&&t.shopping.length)||t.shoppingBought||t.shoppingRemove)_auto.push(i);
+    });
+    if(_auto.length){
+      snapId=iaSnapshot();
+      _auto.forEach(function(i){
+        applied[i]=true;iaCreateTask(tasks[i]);
+        var b=_btns[i];if(b){b.style.background='';b.textContent='✓ Fait';b.classList.add('added');b.disabled=true;}
+      });
+      iaShowUndo();
+      cardTitle.textContent=(_auto.length===tasks.length?'✅ ':'📋 ')+_auto.length+' liste'+(_auto.length>1?'s':'')+' de courses enregistrée'+(_auto.length>1?'s':'')+(_auto.length<tasks.length?' · '+(tasks.length-_auto.length)+' à valider':'');
+      if(_auto.length===tasks.length){allBtn.textContent='✓ Tout ajouté !';allBtn.disabled=true;allBtn.style.background='var(--gr)';}
+      else allBtn.textContent='✅ Tout accepter ('+(tasks.length-_auto.length)+')';
+      toast('🛒 Liste de courses ajoutée dans Planify');
+    }
     bub.appendChild(card);
 
     wrap.append(av,bub);msgs.appendChild(wrap);
@@ -8027,7 +8096,22 @@ function addShopItem(text){
         if(t.title)existing.title=t.title;
         if(t.due)existing.due=t.due;
         if(t.dueEnd)existing.dueEnd=t.dueEnd;
-        if(t.desc!==undefined)existing.desc=t.desc;
+        if(t.desc!==undefined&&t.desc!==''&&!(t.shopping||t.shoppingBought||t.shoppingRemove))existing.desc=t.desc;
+        else if(t.desc!==undefined&&t.desc!==''){
+          /* liste de courses : on complète le commentaire sans écraser l'existant */
+          var _od=(existing.desc||'').trim();
+          existing.desc=(_od&&_od.indexOf(t.desc.trim())<0&&t.desc.trim().indexOf(_od)<0)?_od+'\n'+t.desc.trim():(t.desc.trim().length>=_od.length?t.desc.trim():_od);
+        }
+        if(t.shopping||t.shoppingBought||t.shoppingRemove){
+          if(!existing.shopping)existing.shopping={active:true,items:[]};
+          existing.shopping.active=true;
+          var _its=existing.shopping.items=(existing.shopping.items||[]).map(function(i){return {text:i.text,bought:!!i.bought};});
+          var _low=function(x){return String(x||'').toLowerCase().replace(/\s*\(.*?\)\s*/g,' ').trim();};
+          var _find=function(txt){var k=_low(txt);return _its.find(function(i){return _low(i.text)===k;});};
+          (t.shopping||[]).forEach(function(n){var f=_find(n.text);if(f){if(n.bought)f.bought=true;}else _its.push({text:n.text,bought:!!n.bought});});
+          (t.shoppingBought||[]).forEach(function(x){var f=_find(x);if(f)f.bought=true;});
+          (t.shoppingRemove||[]).forEach(function(x){var f=_find(x);if(f)_its.splice(_its.indexOf(f),1);});
+        }
         if(t.timeStart)existing._pendingTS=t.timeStart;
         if(t.timeEnd)existing._pendingTE=t.timeEnd;
         lsSave();renderTasks();
@@ -8038,7 +8122,7 @@ function addShopItem(text){
             updateGcalEvWithRecur(gcalEvU.id,existing.title,existing.desc||'',existing.due||gcalEvU.start.slice(0,10),existing._pendingTS||null,existing._pendingTE||null,existing.recurrence||null,existing.dueEnd||null,existing.remind||0,existing.reminders).then(function(){fetchGcal().then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();});});
           }
         }
-        toast('✏️ Tâche modifiée : "'+existing.title.slice(0,25)+'"');
+        toast((t.shopping||t.shoppingBought||t.shoppingRemove?'🛒 Liste mise à jour : "':'✏️ Tâche modifiée : "')+existing.title.slice(0,25)+'"');
         return;
       }
       toast('⚠️ Tâche introuvable : '+t.id);
@@ -8076,6 +8160,7 @@ function addShopItem(text){
       _pendingTS:t.timeStart||null,
       _pendingTE:t.timeEnd||null
     };
+    if(t.shopping&&t.shopping.length)task.shopping={active:true,items:t.shopping.map(function(i){return {text:i.text,bought:!!i.bought};})};
     S.tasks.push(task);
     lsSave();
     renderTasks();
