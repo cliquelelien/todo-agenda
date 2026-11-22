@@ -671,6 +671,29 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .date-end-row label{font-size:11px;font-weight:800;color:var(--tx3);white-space:nowrap;}
 .date-end-row input[type=date]{font-family:inherit;font-size:13px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:7px 10px;outline:none;color-scheme:light;transition:border-color .15s;}
 .date-end-row input[type=date]:focus{border-color:var(--bl);}
+/* ── Planify+ : priorités, listes, filtres, recherche, hors-ligne ── */
+#pf-bar{margin:0 0 6px;}
+.pf-row{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding:2px 1px 6px;flex-wrap:nowrap;}
+.pf-row::-webkit-scrollbar{display:none;}
+.pf-chip{flex:0 0 auto;font-family:inherit;font-size:11px;font-weight:800;border:1.5px solid var(--blb);background:var(--blbg);color:var(--tx2);border-radius:14px;padding:3px 10px;cursor:pointer;white-space:nowrap;}
+.pf-chip.on{background:var(--bl);border-color:var(--bl);color:#fff;}
+.pf-chip.pf-pc1.on,.tt-chip.pf-pc1.on{background:#e5484d;border-color:#e5484d;color:#fff;}
+.pf-chip.pf-pc2.on,.tt-chip.pf-pc2.on{background:#f59e0b;border-color:#f59e0b;color:#fff;}
+.pf-chip.pf-pc3.on,.tt-chip.pf-pc3.on{background:#3b82f6;border-color:#3b82f6;color:#fff;}
+.pf-chip.pf-pc1:not(.on),.tt-chip.pf-pc1:not(.on){color:#e5484d;}
+.pf-chip.pf-pc2:not(.on),.tt-chip.pf-pc2:not(.on){color:#d98400;}
+.pf-chip.pf-pc3:not(.on),.tt-chip.pf-pc3:not(.on){color:#3b82f6;}
+.tt-row.pf-p1 .tt-ck:not(.on){border-color:#e5484d;}
+.tt-row.pf-p2 .tt-ck:not(.on){border-color:#f59e0b;}
+.tt-row.pf-p3 .tt-ck:not(.on){border-color:#3b82f6;}
+.tt-meta .m.pf-prio1{color:#e5484d;font-weight:800;}
+.tt-meta .m.pf-prio2{color:#d98400;font-weight:800;}
+.tt-meta .m.pf-prio3{color:#3b82f6;font-weight:800;}
+.tt-meta .m.pf-list{color:var(--bl);font-weight:700;}
+.pf-sbar{display:flex;flex-wrap:wrap;gap:5px;padding:4px 2px 10px;}
+.pf-sbar .pf-sep{width:100%;font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;}
+#pf-off-badge{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;transform:translateX(-50%);z-index:9999;background:#1f2937;color:#fff;font-size:11px;font-weight:800;padding:5px 12px;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.25);display:none;pointer-events:none;}
+.pf-btn{font-family:inherit;font-size:12px;font-weight:700;background:var(--blbg);color:var(--bl);border:1.5px solid var(--blb);border-radius:9px;padding:7px 14px;cursor:pointer;margin:0 6px 6px 0;}
 </style>
 </head>
 <body>
@@ -718,6 +741,10 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
   <button onclick="toast('⏳ Synchronisation…');setTimeout(migrateAllMetaToGcal,80);" style="font-family:inherit;font-size:12px;font-weight:700;background:var(--bl);color:#fff;border:none;border-radius:9px;padding:7px 14px;cursor:pointer;margin-bottom:6px;display:block;">☁️ Synchroniser toutes les tâches</button>
   <div style="font-size:12px;color:var(--tx2);margin-bottom:6px;line-height:1.5;">Si vos tâches ont disparu de l&#39;onglet Tâches, utilisez ce bouton pour les récupérer depuis Google Agenda.</div>
   <button onclick="restoreAllFromGcal()" style="font-family:inherit;font-size:12px;font-weight:700;background:#e6f4ea;color:var(--gr);border:1.5px solid var(--grb);border-radius:9px;padding:7px 14px;cursor:pointer;">🔄 Récupérer les tâches depuis GCal</button>
+  <hr style="border:none;border-top:1px solid var(--blb);margin:12px 0;">
+  <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">🔔 Tester les notifications</div>
+  <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;line-height:1.5;">« Sur cet appareil » vérifie les notifications de Planify. « Sur mon téléphone » crée un événement test dans Google Agenda qui sonne dans 2 min (il se supprime tout seul ensuite).</div>
+  <button class="pf-btn" onclick="pfTestNotif()">Sur cet appareil</button><button class="pf-btn" onclick="pfTestPhone()">Sur mon téléphone</button>
   <hr style="border:none;border-top:1px solid var(--blb);margin:12px 0;">
   <div style="font-size:11px;font-weight:800;color:var(--tx2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Notification récapitulative</div>
   <label style="display:flex;align-items:center;gap:9px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--tx);">
@@ -839,6 +866,7 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
         <button id="tf-all-btn" onclick="setTaskFilter('all')" style="background:transparent;color:var(--tx2);">Toutes</button>
       </div>
     </div>
+    <div id="pf-bar"></div>
     <div id="list-todo"></div>
   </div>
   <div class="tt-card" id="card-done" style="display:none">
@@ -1119,6 +1147,10 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
     <!-- kept for backward compat -->
     <input type="hidden" id="te-remind" value="0">
     <div id="te-remind-custom" style="display:none;"></div>
+    <label>Priorité</label>
+    <div class="pf-row" id="te-prio-row" style="margin-bottom:2px"></div>
+    <label>Liste</label>
+    <select id="te-list" onchange="pfEditListChange(this)" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;margin-bottom:8px;"></select>
     <label>&#128257; R&#233;currence</label>
     <select id="te-recur" style="width:100%;font-family:inherit;font-size:14px;font-weight:700;color:var(--tx);background:var(--blbg);border:1.5px solid var(--blb);border-radius:10px;padding:8px 11px;outline:none;margin-bottom:4px;">
       <option value="">Aucune r&#233;currence</option>
@@ -1521,7 +1553,7 @@ function reconcileSeries(rawItems,ok){
         if(meta.pendingTS)master._pendingTS=meta.pendingTS;
         if(meta.pendingTE)master._pendingTE=meta.pendingTE;
         if(meta.remind)master.remind=meta.remind;
-        if(meta.reminders&&meta.reminders.length)master.reminders=meta.reminders;
+        if(meta.reminders&&meta.reminders.length)master.reminders=meta.reminders;if(meta.prio!==undefined)master.prio=meta.prio;if(meta.list!==undefined)master.list=meta.list;
         if(meta.shopping)master.shopping=meta.shopping;
         if(meta.assignee&&meta.assignee!=='me')master._assignee=meta.assignee;
         if(meta.doneKeys&&meta.doneKeys.length){
@@ -1642,8 +1674,13 @@ function syncInstanceColor(instId,done){
   if(!ev||ev.readOnly)return Promise.resolve();
   var want=done?"7":"6";
   if(ev.colorId===want)return Promise.resolve();
-  return calFetch('PATCH','/calendars/'+encodeURIComponent(ev.calendarId||'primary')+'/events/'+instId,{colorId:want})
-    .then(function(r){if(r)ev.colorId=want;}).catch(function(){});
+  /* Fait → on supprime les rappels GCal de cette occurrence (plus de notif sur le tél).
+     Décoché → on remet les rappels de la série. */
+  var _mt=S.tasks.find(function(x){return x.id===ev.recurringEventId;});
+  var _rem=done?{useDefault:false,overrides:[]}
+    :buildGcalReminders(_mt&&_mt.reminders&&_mt.reminders.length?_mt.reminders:((_mt&&_mt.remind)||0));
+  return calFetch('PATCH','/calendars/'+encodeURIComponent(ev.calendarId||'primary')+'/events/'+instId,{colorId:want,reminders:_rem})
+    .then(function(r){if(r){ev.colorId=want;if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();}}).catch(function(){});
 }
 function syncOccColorFor(mid,date,done){
   var ev=gcal.find(function(e){return e.recurringEventId===mid&&evDate(e)===date;});
@@ -2171,7 +2208,9 @@ function buildPlanifyMeta(taskId){
     pendingTS:t?t._pendingTS||null:null,
     pendingTE:t?t._pendingTE||null:null,
     createdHere:t?!!t._createdHere:false,
-    assignee:t?t._assignee||'me':'me'
+    assignee:t?t._assignee||'me':'me',
+    prio:t?t.prio||0:0,
+    list:t?t.list||'':''
   };
   if(t&&t.shopping&&(t.shopping.active||t.shopping.items&&t.shopping.items.length)){
     meta.shopping=t.shopping;
@@ -2241,7 +2280,7 @@ function restoreMetaFromGcal(rawItems){
       if(meta.pendingTS)t._pendingTS=meta.pendingTS;
       if(meta.pendingTE)t._pendingTE=meta.pendingTE;
       if(meta.remind)t.remind=meta.remind;
-      if(meta.reminders&&meta.reminders.length)t.reminders=meta.reminders;
+      if(meta.reminders&&meta.reminders.length)t.reminders=meta.reminders;if(meta.prio!==undefined)t.prio=meta.prio;if(meta.list!==undefined)t.list=meta.list;
       if(meta.recurrence)t.recurrence=meta.recurrence;
       if(meta.shopping)t.shopping=meta.shopping;
       if(meta.assignee&&meta.assignee!=='me')t._assignee=meta.assignee;
@@ -2271,7 +2310,7 @@ function restoreMetaFromGcal(rawItems){
       }
     }
     if(meta.remind)t.remind=meta.remind;
-    if(meta.reminders&&meta.reminders.length)t.reminders=meta.reminders;
+    if(meta.reminders&&meta.reminders.length)t.reminders=meta.reminders;if(meta.prio!==undefined)t.prio=meta.prio;if(meta.list!==undefined)t.list=meta.list;
     if(meta.recurrence)t.recurrence=meta.recurrence;
     if(meta.dueEnd)t.dueEnd=meta.dueEnd;
     if(meta.pendingTS)t._pendingTS=meta.pendingTS;
@@ -3319,9 +3358,15 @@ async function patchGcalColor(gcalId){
   const metaStr=buildPlanifyMeta(gcalId);
   const patchBody={colorId};
   if(metaStr)patchBody.extendedProperties={private:{planify:metaStr}};
+  /* Fait/archivé (colorId 7) → plus aucun rappel GCal ; sinon on remet les rappels de la tâche */
+  const _t=S.tasks.find(t=>t.id===gcalId);
+  patchBody.reminders=(colorId==="7")
+    ?{useDefault:false,overrides:[]}
+    :buildGcalReminders(_t&&_t.reminders&&_t.reminders.length?_t.reminders:((_t&&_t.remind)||0));
   return calFetch('PATCH','/calendars/'+encodeURIComponent(calId)+'/events/'+gcalId,patchBody)
     .then(function(){
       ev.colorId=colorId;
+      if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
       const meta=S.tasks.find(t=>t.id===gcalId);
       if(meta){meta._colorSynced=colorId;lsSave();}
     });
@@ -4926,7 +4971,7 @@ async function planTask(tid,date,tS,tE){
     const recur=t.recurrence||null;
     if(recur){showSync("Récurrence…");await updateGcalEvWithRecur(ev.id,t.title,t.desc||"",date,tS,tE,recur,null,t.remind||0,t.reminders);hideSync();}
     S.tasks=S.tasks.filter(x=>x.id!==tid);
-    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",due:date,done:false,archived:false,remind:t.remind||0,reminders:t.reminders||[],recurrence:recur,dueEnd:t.dueEnd||null,_pendingTS:tS||null,_pendingTE:tE||null,_createdHere:true,_assignee:assignee});
+    S.tasks.push({id:ev.id,title:t.title,desc:t.desc||"",due:date,done:false,archived:false,remind:t.remind||0,reminders:t.reminders||[],recurrence:recur,dueEnd:t.dueEnd||null,_pendingTS:tS||null,_pendingTE:tE||null,_createdHere:true,_assignee:assignee,prio:t.prio||0,list:t.list||''});
     lsSave();await fetchGcal();selDay=date;cDay=date;renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
     const recLbl={"DAILY":"↻ Chaque jour","WEEKLY":"↻ Chaque semaine","MONTHLY":"↻ Chaque mois","YEARLY":"↻ Chaque année"};
     const assignMsg=(assignee!=='me'&&getSpouseEmail())?(' · '+(assignee==='both'?'👫 Partagé':'👩 '+getSpouseName())):'';
@@ -5284,6 +5329,7 @@ function ttSection(key,label,count,rows,cls){
 function renderTasks(){
   const tl=document.getElementById("list-todo"),dl=document.getElementById("list-done"),cd=document.getElementById("card-done");
   if(!tl||!dl)return;
+  if(typeof pfRenderBar==='function')pfRenderBar();
   const today=ds(new Date());
   const tom=new Date();tom.setDate(tom.getDate()+1);const tomorrow=ds(tom);
   const in7d=new Date();in7d.setDate(in7d.getDate()+7);const in7s=ds(in7d);
@@ -5331,12 +5377,13 @@ function renderTasks(){
 
   const todo=enriched.filter(t=>t._isSeries?!!t.due:(!t.done&&!t._isDoneOcc));
   const visible=todo.filter(t=>{
+    if(typeof pfPass==='function'&&!pfPass(t))return false;
     const d=t._gd;
     if(_taskFilter==='today')return !d||d<=today;
     if(_taskFilter==='week')return !d||d<=in8s;
     return true;
   });
-  const hiddenCount=todo.length-visible.length;
+  const hiddenCount=todo.filter(t=>typeof pfPass!=='function'||pfPass(t)).length-visible.length;
 
   /* Regroupement par échéance */
   const groups=new Map();
@@ -5361,7 +5408,7 @@ function renderTasks(){
     let ts='';
     if(ref&&!ref.allDay&&ref.start&&ref.start.indexOf('T')>-1)ts=fT(ref.start);
     else if(t._pendingTS)ts=t._pendingTS;
-    return (t._gd||'9999')+' '+(ts||'99:99')+' '+(t.title||'').toLowerCase();
+    return (t._gd||'9999')+' '+(t.prio?(4-t.prio):'9')+' '+(ts||'99:99')+' '+(t.title||'').toLowerCase();
   }
 
   tl.innerHTML="";
@@ -5610,6 +5657,7 @@ function buildTask(t){
 
   const row=mk('div','tt-row'+(isDoneNow?' done':'')+(overdue?' od':''));
   row.dataset.id=t.id;
+  if(t.prio)row.classList.add('pf-p'+t.prio);
   const ck=mk('div','tt-ck'+(isDoneNow?' on':'')+(overdue?' od':''));
   ck.insertAdjacentHTML('beforeend',TT_SVG.check);
 
@@ -5706,6 +5754,8 @@ function buildTask(t){
     meta.appendChild(ttMetaChip('rec',TT_SVG.rec,REC_LABEL[t.recurrence]||'Récurrent'));
   }
   if((t.remind||0)>0)meta.appendChild(ttMetaChip('',TT_SVG.bell,'',fmtRemind(t.remind)));
+  if(t.prio)meta.appendChild(ttMetaChip('pf-prio'+t.prio,null,'P'+t.prio));
+  if(t.list)meta.appendChild(ttMetaChip('pf-list',null,'#'+t.list));
   if(t.shopping&&t.shopping.items&&t.shopping.items.length){
     const bought=t.shopping.items.filter(i=>i.bought).length;
     meta.appendChild(ttMetaChip('',TT_SVG.cart,bought+'/'+t.shopping.items.length));
@@ -5776,6 +5826,7 @@ function ttOpenMenu(btn,t,gcalEv,occDate){
       chips.appendChild(c);
     });
     m.appendChild(chips);
+    if(typeof pfMenuExtras==='function')pfMenuExtras(m,t,gcalEv);
     item('Dupliquer',function(){duplicateTask(t.id);});
   }
   if(isDone)item(occDate?'Archiver cette occurrence':'Archiver',function(){ttArchive(t,gcalEv,occDate);});
@@ -6079,6 +6130,7 @@ function scheduleNotif(task,gcalEvent){
     window._scNotifTimers[task.id].forEach(function(tm){clearTimeout(tm);});
   }
   window._scNotifTimers[task.id]=[];
+  if(task.done||task.archived)return; /* tâche traitée : aucune notif */
   /* Construire liste de tous les rappels : toujours au moment de l'événement (0),
      plus les rappels supplémentaires éventuellement précisés par l'utilisateur */
   const reminders=[0];
@@ -6516,6 +6568,7 @@ function openTaskEdit(tid){
   const dueVal=t.due||(gcalEv?gcalEv.start.slice(0,10):"")||"";
   document.getElementById("te-due").value=dueVal;
   document.getElementById("te-desc").value=t.desc||"";
+  if(typeof pfLoadEditFields==='function')pfLoadEditFields(t);
   /* Date de fin — priorité : local > meta GCal > vide */
   const endEl=document.getElementById("te-due-end");
   if(endEl){
@@ -6696,6 +6749,7 @@ function ttNewViaEdit(){
 }
 function ttSaveDraft(){
   const id=_editTaskId,g=x=>document.getElementById(x);
+  if(typeof pfReadEditExtra==='function')window._pfDraftExtra=pfReadEditExtra();
   const title=g('te-title').value.trim();
   if(!title){toast('✏️ Donne un titre à la tâche');return;}
   const timed=!_teIsAllDay;
@@ -6738,6 +6792,7 @@ function saveTaskEdit(){
   t.title=document.getElementById("te-title").value.trim()||t.title;
   t.due=document.getElementById("te-due").value||null;
   t.desc=document.getElementById("te-desc").value;
+  if(typeof pfReadEditFields==='function')pfReadEditFields(t);
   /* Date de fin */
   const endEl=document.getElementById("te-due-end");
   const rawEnd=endEl?endEl.value:"";
@@ -6764,6 +6819,7 @@ function saveTaskEdit(){
     delete t._pendingTE;
   }
   lsSave();closeTaskEdit();
+  if(typeof pfSyncMetaSoon==='function')pfSyncMetaSoon(t.id);
   /* Synchroniser dans GCal */
   const gcalEv=gcal.find(e=>e.id===t.id)||gcal.find(e=>e.id===t.gcalId);
   if(token&&t._dayEventIds&&t._dayEventIds.length){
@@ -8491,5 +8547,399 @@ function addShopItem(text){
   <div class="gbn-actions" id="gbn-actions"></div>
 </div>
 <!-- GAPI et GSI supprimés — Calendar via fetch REST direct -->
+<script>
+/* ═══ PLANIFY+ : priorités, listes, reporter, recherche filtrée, test notifs, mode hors-ligne ═══ */
+(function(){
+var LS_FLT='pfy_flt',LS_LISTS='pfy_lists',LS_Q='pfy_offq',LS_MAP='pfy_offmap',LS_CACHE='pfy_gcal_cache',LS_TEST='pfy_test_ev';
+function jget(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+function jset(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function p2(n){return (n<10?'0':'')+n;}
+var PRIO_NAME={1:'Urgent',2:'Important',3:'Normal'};
+
+/* ── Filtres (priorité / liste) ── */
+var flt=jget(LS_FLT,{prio:0,list:''});if(!flt||typeof flt!=='object')flt={prio:0,list:''};
+function lists(){
+  var set={};jget(LS_LISTS,[]).forEach(function(n){if(n)set[n]=1;});
+  S.tasks.forEach(function(t){if(t&&t.list&&!isAuxTaskId(t.id))set[t.list]=1;});
+  return Object.keys(set).sort(function(a,b){return a.localeCompare(b,'fr');});
+}
+function addList(name){
+  name=(name||'').trim().slice(0,30);if(!name)return '';
+  var l=jget(LS_LISTS,[]);if(l.indexOf(name)<0){l.push(name);jset(LS_LISTS,l);}
+  return name;
+}
+window.pfPass=function(t){
+  if(flt.prio&&t.prio!==flt.prio)return false;
+  if(flt.list&&t.list!==flt.list)return false;
+  return true;
+};
+window.pfRenderBar=function(){
+  var el=document.getElementById('pf-bar');if(!el)return;
+  var h='<div class="pf-row">';
+  h+='<button class="pf-chip'+(!flt.prio?' on':'')+'" data-p="0">Toutes prio</button>';
+  [1,2,3].forEach(function(p){h+='<button class="pf-chip pf-pc'+p+(flt.prio===p?' on':'')+'" data-p="'+p+'">P'+p+'</button>';});
+  h+='</div><div class="pf-row">';
+  var ls=lists();
+  h+='<button class="pf-chip'+(!flt.list?' on':'')+'" data-l="">Toutes listes</button>';
+  ls.forEach(function(n){h+='<button class="pf-chip'+(flt.list===n?' on':'')+'" data-l="'+esc(n)+'">'+esc(n)+'</button>';});
+  h+='<button class="pf-chip" data-add="1">＋ Liste</button></div>';
+  el.innerHTML=h;
+  el.onclick=function(ev){
+    var b=ev.target.closest&&ev.target.closest('button');if(!b)return;
+    if(b.hasAttribute('data-add')){var n=addList(prompt('Nom de la nouvelle liste ?'));if(n){flt.list=n;}else return;}
+    else if(b.hasAttribute('data-p'))flt.prio=parseInt(b.getAttribute('data-p'),10)||0;
+    else if(b.hasAttribute('data-l'))flt.list=b.getAttribute('data-l')||'';
+    jset(LS_FLT,flt);renderTasks();
+  };
+};
+
+/* ── Priorité / liste : écriture + synchro GCal ── */
+function ensureMetaTask(t){
+  var o=S.tasks.find(function(x){return x.id===t.id;});
+  if(!o){o={id:t.id,title:t.title||'',desc:'',done:false,archived:false,remind:0,recurrence:null,_createdHere:true};S.tasks.push(o);}
+  return o;
+}
+function syncMeta(id){if(token&&typeof patchGcalMeta==='function')patchGcalMeta(id);}
+window.pfSyncMetaSoon=function(id){setTimeout(function(){syncMeta(id);},2500);};
+function setPrio(t,p){var o=ensureMetaTask(t);o.prio=p;lsSave();renderTasks();syncMeta(o.id);}
+function setList(t,l){var o=ensureMetaTask(t);o.list=l||'';lsSave();renderTasks();syncMeta(o.id);}
+
+/* ── Reporter ── */
+function addDays(s,n){var d=new Date(s.slice(0,10)+'T00:00:00');d.setDate(d.getDate()+n);return ds(d);}
+function nextDow(dow){var d=new Date();d.setHours(0,0,0,0);do{d.setDate(d.getDate()+1);}while(d.getDay()!==dow);return ds(d);}
+function pickDate(cur,cb){
+  var i=document.createElement('input');i.type='date';i.value=cur;
+  i.style.cssText='position:fixed;left:-9999px;top:0;opacity:0;';document.body.appendChild(i);
+  var fired=false;
+  i.addEventListener('change',function(){if(fired)return;fired=true;var v=i.value;setTimeout(function(){i.remove();},0);if(v)cb(v);});
+  setTimeout(function(){if(i.parentNode)i.remove();},120000);
+  try{i.showPicker();}catch(e){i.focus();i.click();}
+}
+function applyPostpone(t,gcalEv,nd){
+  var ev=gcalEv||gcal.find(function(e){return e.id===t.id;})||null;
+  var orig=S.tasks.find(function(x){return x.id===t.id;});
+  var cur=(ev&&ev.start)?ev.start.slice(0,10):((orig&&orig.due)||t.due);
+  if(!cur||cur===nd)return;
+  var delta=Math.round((new Date(nd+'T00:00:00')-new Date(cur+'T00:00:00'))/864e5);
+  if(!orig&&ev)orig=ensureMetaTask(t);
+  if(orig)orig.due=nd;
+  if(ev){
+    var hasT=ev.start.indexOf('T')>-1;
+    var ts=hasT?fT(ev.start):null;
+    var te=(hasT&&ev.end&&ev.end.indexOf('T')>-1)?fT(ev.end):null;
+    ev.start=nd+ev.start.slice(10);
+    if(ev.end)ev.end=addDays(ev.end,delta)+ev.end.slice(10);
+    if(token&&!ev.readOnly&&(!ev.calendarId||ev.calendarId==='primary')){
+      var rem=orig&&orig.reminders&&orig.reminders.length?orig.reminders:null;
+      Promise.resolve(updateGcalEv(ev.id,(orig&&orig.title)||t.title||ev.title,(orig&&orig.desc)||'',nd,ts,te,null,(orig&&orig.remind)||0,rem)).then(function(){
+        if(navigator.onLine)return fetchGcal();
+      }).then(function(){renderTasks();renderAg();if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();}).catch(function(){});
+    }
+  }
+  lsSave();renderTasks();renderAg();
+  if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
+  toast('📅 Reportée au '+fDLong(nd));
+}
+function postpone(t,gcalEv,kind){
+  var today=ds(new Date()),nd;
+  var ev=gcalEv||gcal.find(function(e){return e.id===t.id;})||null;
+  var cur=(ev&&ev.start)?ev.start.slice(0,10):(t.due||today);
+  if(kind==='tom')nd=addDays(today,1);
+  else if(kind==='we')nd=nextDow(6);
+  else if(kind==='mon')nd=nextDow(1);
+  else if(kind==='wk'){nd=addDays(cur,7);if(nd<=today)nd=addDays(today,7);}
+  else{pickDate(cur,function(v){applyPostpone(t,gcalEv,v);});return;}
+  applyPostpone(t,gcalEv,nd);
+}
+
+/* ── Menu « ⋯ » d'une tâche : priorité, liste, reporter ── */
+window.pfMenuExtras=function(m,t,gcalEv){
+  function label(txt){var d=document.createElement('div');d.className='tt-mlabel';d.textContent=txt;m.appendChild(d);}
+  function row(){var c=document.createElement('div');c.className='tt-mchips';m.appendChild(c);return c;}
+  function chip(c,txt,on,fn,cls){
+    var b=document.createElement('button');b.type='button';b.className='tt-chip'+(on?' on':'')+(cls?' '+cls:'');b.textContent=txt;
+    b.onclick=function(ev){ev.stopPropagation();ttCloseMenu();fn();};c.appendChild(b);
+  }
+  var orig=S.tasks.find(function(x){return x.id===t.id;})||{};
+  label('Priorité');var c1=row();var cp=orig.prio||0;
+  [[0,'Aucune'],[1,'P1'],[2,'P2'],[3,'P3']].forEach(function(o){chip(c1,o[1],cp===o[0],function(){setPrio(t,o[0]);},o[0]?'pf-pc'+o[0]:'');});
+  label('Liste');var c2=row();
+  chip(c2,'Aucune',!orig.list,function(){setList(t,'');});
+  lists().forEach(function(n){chip(c2,n,orig.list===n,function(){setList(t,n);});});
+  chip(c2,'＋ Nouvelle',false,function(){var n=addList(prompt('Nom de la nouvelle liste ?'));if(n)setList(t,n);});
+  var canPostpone=!t._isSeries&&!(t.dueEnd&&t.dueEnd!==t.due)&&(t.due||gcalEv)&&!(t._isDoneOcc||t.done);
+  if(canPostpone){
+    label('Reporter');var c3=row();
+    [['tom','Demain'],['we','Week-end'],['mon','Lundi'],['wk','+1 sem.'],['pick','Date…']].forEach(function(o){chip(c3,o[1],false,function(){postpone(t,gcalEv,o[0]);});});
+  }
+};
+
+/* ── Modale d'édition : priorité + liste ── */
+var editPrio=0;
+function renderEditPrio(){
+  var el=document.getElementById('te-prio-row');if(!el)return;
+  var h='<button type="button" class="pf-chip'+(!editPrio?' on':'')+'" data-p="0">Aucune</button>';
+  [1,2,3].forEach(function(p){h+='<button type="button" class="pf-chip pf-pc'+p+(editPrio===p?' on':'')+'" data-p="'+p+'">P'+p+' · '+PRIO_NAME[p]+'</button>';});
+  el.innerHTML=h;
+  el.onclick=function(ev){var b=ev.target.closest&&ev.target.closest('button');if(!b)return;editPrio=parseInt(b.getAttribute('data-p'),10)||0;renderEditPrio();};
+}
+function fillListSelect(sel,val){
+  var s=document.getElementById('te-list');if(!s)return;
+  var h='<option value="">Aucune liste</option>';
+  lists().forEach(function(n){h+='<option value="'+esc(n)+'">'+esc(n)+'</option>';});
+  if(val&&lists().indexOf(val)<0)h+='<option value="'+esc(val)+'">'+esc(val)+'</option>';
+  h+='<option value="__new__">＋ Nouvelle liste…</option>';
+  s.innerHTML=h;s.value=val||'';
+}
+window.pfEditListChange=function(sel){
+  if(sel.value!=='__new__')return;
+  var n=addList(prompt('Nom de la nouvelle liste ?'));
+  fillListSelect(sel,n||'');
+};
+window.pfLoadEditFields=function(t){editPrio=t.prio||0;renderEditPrio();fillListSelect(null,t.list||'');};
+window.pfReadEditExtra=function(){
+  var s=document.getElementById('te-list');var v=s?s.value:'';
+  return{prio:editPrio||0,list:(v&&v!=='__new__')?v:''};
+};
+window.pfReadEditFields=function(t){var x=window.pfReadEditExtra();t.prio=x.prio;t.list=x.list;};
+
+/* Nouvelle tâche créée via la modale (brouillon) ou filtre actif : hérite priorité / liste */
+if(typeof window.addTask==='function'){
+  var _origAddTask=window.addTask;
+  window.addTask=async function(){
+    var x=window._pfDraftExtra;window._pfDraftExtra=null;
+    if(!x)x={prio:flt.prio||0,list:flt.list||''};
+    var before={};S.tasks.forEach(function(t){before[t.id]=1;});
+    var r=await _origAddTask.apply(this,arguments);
+    if(x.prio||x.list){
+      var ids=[];
+      S.tasks.forEach(function(t){
+        if(!t||before[t.id]||isAuxTaskId(t.id)||!t.title)return;
+        if(x.prio&&!t.prio)t.prio=x.prio;
+        if(x.list&&!t.list)t.list=x.list;
+        ids.push(t.id);
+      });
+      if(ids.length){lsSave();renderTasks();ids.forEach(function(id){window.pfSyncMetaSoon(id);});}
+    }
+    return r;
+  };
+}
+
+/* ── Rappels GCal : tâche cochée = plus de rappel, décochée = rappels remis ── */
+function withRem(path,body){
+  try{
+    var id=decodeURIComponent(path.split('/events/')[1].split('?')[0]);
+    var b=Object.assign({},body);
+    if(String(body.colorId)==='7'){b.reminders={useDefault:false,overrides:[]};}
+    else if(String(body.colorId)==='6'){
+      var t=S.tasks.find(function(x){return x.id===id;});
+      if(!t){var ev=gcal.find(function(e){return e.id===id;});if(ev&&ev.recurringEventId)t=S.tasks.find(function(x){return x.id===ev.recurringEventId;});}
+      b.reminders=buildGcalReminders(t&&t.reminders&&t.reminders.length?t.reminders:((t&&t.remind)||0));
+    }
+    return b;
+  }catch(e){return body;}
+}
+
+/* ── Hors-ligne : file d'attente d'écritures GCal ── */
+function oq(){return jget(LS_Q,[]);}
+var _offToastT=0;
+window.pfOffEnqueue=function(method,path,body){
+  var q=oq(),it={m:method,p:path,b:body||null,t:Date.now()},ret={};
+  if(method==='POST'){it.fid='off_'+uid();ret=Object.assign({},body||{},{id:it.fid,_offline:true});}
+  q.push(it);jset(LS_Q,q);badge();
+  if(Date.now()-_offToastT>4000){_offToastT=Date.now();toast('📴 Hors ligne — enregistré, envoi automatique au retour du réseau');}
+  return ret;
+};
+if(typeof window.calFetch==='function'){
+  var _origCalFetch=window.calFetch;
+  window.calFetch=function(method,path,body,_r){
+    if(method==='PATCH'&&body&&body.colorId&&!body.reminders&&/\/events\//.test(path))body=withRem(path,body);
+    if(method!=='GET'&&!navigator.onLine)return Promise.resolve(window.pfOffEnqueue(method,path,body));
+    return _origCalFetch.call(this,method,path,body,_r).then(function(r){
+      if(r===null&&method!=='GET'&&!navigator.onLine)return window.pfOffEnqueue(method,path,body);
+      return r;
+    });
+  };
+}
+function renameId(oldId,newId){
+  S.tasks.forEach(function(t){
+    if(t&&typeof t.id==='string'&&t.id.indexOf(oldId)===0)t.id=newId+t.id.slice(oldId.length);
+    if(t&&t.gcalId===oldId)t.gcalId=newId;
+    if(t&&t._dayEventIds)t._dayEventIds=t._dayEventIds.map(function(x){return x===oldId?newId:x;});
+  });
+}
+var flushing=false;
+window.pfFlushOffline=async function(){
+  if(flushing||!navigator.onLine||!token)return;
+  var q=oq();if(!q.length)return;
+  flushing=true;var map=jget(LS_MAP,{}),changed=false;
+  try{
+    while(q.length){
+      var it=q[0],path=it.p,bodyS=it.b?JSON.stringify(it.b):null;
+      Object.keys(map).forEach(function(f){path=path.split(f).join(map[f]);if(bodyS)bodyS=bodyS.split(f).join(map[f]);});
+      var r;
+      try{r=await fetch('https://www.googleapis.com/calendar/v3'+path,{method:it.m,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:bodyS});}
+      catch(e){break;}
+      if(r.status===401||r.status===429||r.status>=500)break;
+      if(r.ok&&it.m==='POST'&&it.fid){
+        try{var j=await r.json();if(j&&j.id){map[it.fid]=j.id;renameId(it.fid,j.id);}}catch(e2){}
+      }
+      q.shift();changed=true;jset(LS_Q,q);jset(LS_MAP,map);
+    }
+  }finally{flushing=false;}
+  if(!oq().length)try{localStorage.removeItem(LS_MAP);}catch(e3){}
+  badge();
+  if(changed){
+    lsSave();
+    if(!oq().length&&typeof fetchGcal==='function')await fetchGcal();
+    renderTasks();renderAg();
+    if(typeof scheduleAllNotifs==='function')scheduleAllNotifs();
+    toast('✅ Modifications hors-ligne synchronisées');
+  }
+};
+function badge(){
+  var b=document.getElementById('pf-off-badge');
+  if(!b){b=document.createElement('div');b.id='pf-off-badge';document.body.appendChild(b);}
+  var n=oq().length;
+  if(!navigator.onLine){b.textContent='📴 Hors ligne'+(n?' · '+n+' en attente':'');b.style.display='block';}
+  else if(n){b.textContent='⏳ '+n+' modification'+(n>1?'s':'')+' à envoyer';b.style.display='block';}
+  else b.style.display='none';
+}
+
+/* ── Cache local de l'agenda (lecture hors-ligne) ── */
+if(typeof window.fetchGcal==='function'){
+  var _origFetchGcal=window.fetchGcal;
+  window.fetchGcal=async function(){
+    var r=await _origFetchGcal.apply(this,arguments);
+    try{
+      if(gcal&&gcal.length){
+        var lim=addDays(ds(new Date()),-45);
+        var keep=gcal.filter(function(e){return !e.start||e.start.slice(0,10)>=lim;});
+        localStorage.setItem(LS_CACHE,JSON.stringify({t:Date.now(),gcal:keep}));
+      }
+    }catch(e){}
+    return r;
+  };
+}
+try{
+  if(!gcal.length){
+    var c=jget(LS_CACHE,null);
+    if(c&&c.gcal&&c.gcal.length){gcal=c.gcal;renderTasks();renderAg();}
+  }
+}catch(e){}
+
+/* ── Tests de notification ── */
+window.pfTestNotif=async function(){
+  var ok=await requestNotifPermission();if(!ok)return;
+  var title='🔔 Planify — test',body='Les notifications fonctionnent sur cet appareil.';
+  try{
+    var reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();
+    if(reg&&reg.showNotification){await reg.showNotification(title,{body:body,tag:'pfy-test'});toast('✅ Notification envoyée');return;}
+  }catch(e){}
+  try{new Notification(title,{body:body,tag:'pfy-test'});toast('✅ Notification envoyée');}
+  catch(e2){toast('⚠️ Notifications non supportées ici (sur iPhone : ajoute Planify à l’écran d’accueil)');}
+};
+window.pfTestPhone=async function(){
+  if(!token){toast('🔒 Connecte-toi d’abord à Google Agenda');return;}
+  function iso(d){return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes())+':00';}
+  var tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  var s=new Date(Date.now()+2*60000),e=new Date(Date.now()+7*60000);
+  var ev=await calFetch('POST','/calendars/primary/events',{summary:'🔔 Test Planify (se supprime seul)',start:{dateTime:iso(s),timeZone:tz},end:{dateTime:iso(e),timeZone:tz},reminders:{useDefault:false,overrides:[{method:'popup',minutes:0}]}});
+  if(ev&&ev.id&&!ev._offline){jset(LS_TEST,{id:ev.id,at:Date.now()});toast('📲 Notification attendue sur ton téléphone dans ~2 min');}
+  else toast('❌ Impossible de créer l’événement de test');
+};
+function cleanTest(){
+  var x=jget(LS_TEST,null);
+  if(x&&token&&navigator.onLine&&Date.now()-x.at>8*60000){
+    calFetch('DELETE','/calendars/primary/events/'+x.id).then(function(){try{localStorage.removeItem(LS_TEST);}catch(e){}});
+  }
+}
+
+/* ── Recherche globale avec filtres ── */
+var SF={type:'all',status:'all',prio:0,list:''};
+window.renderSearchResults=function(q,container){
+  container.innerHTML='';
+  var nq=norm(q);
+  var bar=document.createElement('div');bar.className='pf-sbar';
+  function chips(label,key,opts){
+    var h='<div class="pf-sep">'+label+'</div>';
+    opts.forEach(function(o){h+='<button type="button" class="pf-chip'+(o[2]||'')+(SF[key]===o[0]?' on':'')+'" data-k="'+key+'" data-v="'+esc(o[0])+'">'+esc(o[1])+'</button>';});
+    return h;
+  }
+  var bh=chips('Type','type',[['all','Tout'],['task','Tâches'],['ev','Événements']]);
+  bh+=chips('Statut','status',[['all','Tous'],['todo','À faire'],['done','Faits'],['arch','Archivés']]);
+  bh+=chips('Priorité','prio',[[1,'P1',' pf-pc1'],[2,'P2',' pf-pc2'],[3,'P3',' pf-pc3']]);
+  var ls=lists();if(ls.length)bh+=chips('Liste','list',ls.map(function(n){return[n,n];}));
+  bar.innerHTML=bh;
+  bar.onclick=function(ev){
+    var b=ev.target.closest&&ev.target.closest('button');if(!b)return;
+    var k=b.getAttribute('data-k'),v=b.getAttribute('data-v');
+    if(k==='prio'){v=parseInt(v,10);SF.prio=(SF.prio===v)?0:v;}
+    else if(k==='list'){SF.list=(SF.list===v)?'':v;}
+    else SF[k]=v;
+    window.renderSearchResults(q,container);
+  };
+  container.appendChild(bar);
+
+  var res=[];
+  var wantTasks=SF.type!=='ev',wantEv=SF.type!=='task'&&SF.status==='all'&&!SF.prio&&!SF.list;
+  if(wantTasks){
+    S.tasks.forEach(function(t){
+      if(!t||!t.id||!t.title||isAuxTaskId(t.id)||isInstanceId(t.id))return;
+      var arch=!!t.archived,done=!!t.done;
+      if(SF.status==='all'&&arch)return;
+      if(SF.status==='todo'&&(arch||done))return;
+      if(SF.status==='done'&&(!done||arch))return;
+      if(SF.status==='arch'&&!arch)return;
+      if(SF.prio&&t.prio!==SF.prio)return;
+      if(SF.list&&t.list!==SF.list)return;
+      var items=(t.shopping&&t.shopping.items)?t.shopping.items.map(function(i){return i.text;}).join(' '):'';
+      var hay=norm(t.title+' '+(t.desc||'')+' '+(t.list||'')+' '+items);
+      if(hay.indexOf(nq)<0)return;
+      var ev=gcal.find(function(e){return e.id===t.id;});
+      res.push({k:'t',t:t,s:norm(t.title).indexOf(nq)>=0?0:1,d:(ev&&ev.start)?ev.start.slice(0,10):(t.due||'')});
+    });
+  }
+  if(wantEv){
+    gcal.forEach(function(e){
+      if(S.tasks.some(function(t){return t.id===e.id;}))return;
+      if(e.recurringEventId&&S.tasks.some(function(t){return t.id===e.recurringEventId;}))return;
+      if(norm(e.title).indexOf(nq)<0)return;
+      res.push({k:'e',e:e,s:0,d:(e.start||'').slice(0,10)});
+    });
+  }
+  res.sort(function(a,b){if(a.s!==b.s)return a.s-b.s;if(!a.d&&b.d)return 1;if(a.d&&!b.d)return -1;return a.d.localeCompare(b.d);});
+  if(!res.length){var em=document.createElement('div');em.className='sr-empty';em.textContent='Aucun résultat pour « '+q+' »';container.appendChild(em);return;}
+  res.slice(0,40).forEach(function(r){
+    var div=document.createElement('div');div.className='sr-item';
+    if(r.k==='t'){
+      var t=r.t;
+      var meta=(r.d?'📅 '+r.d:'Sans date')+(t.archived?' · 🗄 Archivée':(t.done?' · ✓ Fait':''))+(t.prio?' · P'+t.prio:'')+(t.list?' · #'+esc(t.list):'');
+      div.innerHTML='<div class="sr-title">'+hl(esc(t.title),esc(q))+'</div><div class="sr-meta">'+meta+(t.desc?' — '+hl(esc(t.desc.slice(0,60)),esc(q)):'')+'</div>';
+      div.onclick=function(){clearSearch();openTaskEdit(t.id);};
+    }else{
+      var e=r.e;
+      div.innerHTML='<div class="sr-title">'+hl(esc(e.title||''),esc(q))+'</div><div class="sr-meta">📅 '+esc(e.start||'')+' · événement</div>';
+      div.onclick=function(){clearSearch();openEvModal(e.id);};
+    }
+    container.appendChild(div);
+  });
+  if(res.length>40){var more=document.createElement('div');more.className='sr-empty';more.textContent='+ '+(res.length-40)+' autres résultats — affine avec les filtres';container.appendChild(more);}
+};
+
+/* ── PWA : service worker (sw.js à placer à côté de index.html) ── */
+try{if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(function(){});}catch(e){}
+
+/* ── Démarrage ── */
+window.addEventListener('online',function(){badge();setTimeout(window.pfFlushOffline,1200);});
+window.addEventListener('offline',badge);
+setInterval(function(){window.pfFlushOffline();cleanTest();badge();},30000);
+badge();
+setTimeout(function(){window.pfFlushOffline();cleanTest();},6000);
+})();
+</script>
+
 </body>
 </html>
