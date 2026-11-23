@@ -83,8 +83,8 @@ nav{background:var(--nav-bg);border-bottom:2px solid var(--blb);display:flex;pos
 .tt-row:hover{background:var(--blbg);}
 .tt-row.completing{opacity:.35;transform:translateX(6px);}
 .tt-row.completing .tt-name{text-decoration:line-through;}
-.tt-ck{width:20px;height:20px;border-radius:50%;border:2px solid var(--bl);flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
-.tt-ck:hover{border-color:var(--bl);background:var(--bll);}
+.tt-ck{width:20px;height:20px;border-radius:50%;border:2px solid var(--or);flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.tt-ck:hover{border-color:var(--or);background:rgba(245,158,11,.12);}
 .tt-ck.od{border-color:var(--or);}
 .tt-ck.on{background:var(--bl);border-color:var(--bl);}
 .tt-ck svg{display:none;}
@@ -683,9 +683,12 @@ body.plan-mode .md:not(.oth):hover,body.plan-mode .wac:hover,body.plan-mode .wsl
 .pf-chip.pf-pc1:not(.on),.tt-chip.pf-pc1:not(.on){color:#e5484d;}
 .pf-chip.pf-pc2:not(.on),.tt-chip.pf-pc2:not(.on){color:#d98400;}
 .pf-chip.pf-pc3:not(.on),.tt-chip.pf-pc3:not(.on){color:#3b82f6;}
-.tt-row.pf-p1 .tt-ck:not(.on){border-color:#e5484d;}
-.tt-row.pf-p2 .tt-ck:not(.on){border-color:#f59e0b;}
-.tt-row.pf-p3 .tt-ck:not(.on){border-color:#3b82f6;}
+.tt-prio{flex-shrink:0;align-self:center;font-size:12px;font-weight:800;padding:2px 8px;border-radius:10px;cursor:pointer;white-space:nowrap;}
+.tt-prio.p1{color:#e5484d;background:rgba(229,72,77,.12);}
+.tt-prio.p2{color:#d98400;background:rgba(245,158,11,.15);}
+.tt-prio.p3{color:#16a34a;background:rgba(22,163,74,.13);}
+.tt-prio.p0{color:var(--tx3);font-weight:700;}
+.tt-row.done .tt-prio{opacity:.55;}
 .tt-meta .m.pf-prio1{color:#e5484d;font-weight:800;}
 .tt-meta .m.pf-prio2{color:#d98400;font-weight:800;}
 .tt-meta .m.pf-prio3{color:#3b82f6;font-weight:800;}
@@ -5757,7 +5760,6 @@ function buildTask(t){
     meta.appendChild(ttMetaChip('rec',TT_SVG.rec,REC_LABEL[t.recurrence]||'Récurrent'));
   }
   if((t.remind||0)>0)meta.appendChild(ttMetaChip('',TT_SVG.bell,'',fmtRemind(t.remind)));
-  if(t.prio)meta.appendChild(ttMetaChip('pf-prio'+t.prio,null,'P'+t.prio));
   if(t.list)meta.appendChild(ttMetaChip('pf-list',null,'#'+t.list));
   if(t.shopping&&t.shopping.items&&t.shopping.items.length){
     const bought=t.shopping.items.filter(i=>i.bought).length;
@@ -5773,8 +5775,18 @@ function buildTask(t){
   const more=mk('button','tt-more');more.type='button';more.title='Plus d\'actions';
   more.insertAdjacentHTML('beforeend',TT_SVG.dots);
   more.onclick=function(ev){ev.stopPropagation();ttOpenMenu(more,t,gcalEv,null);};
-  row.append(ck,main,more);
+  const pb=ttPrioBadge(t);pb.onclick=function(ev){ev.stopPropagation();ttOpenMenu(more,t,gcalEv,null);};
+  row.append(ck,main,pb,more);
   return row;
+}
+
+/* Indication de priorité alignée à droite : P1 rouge, P2 orange, P3 vert, sinon « Aucune » */
+function ttPrioBadge(t){
+  const p=(t.prio>=1&&t.prio<=3)?t.prio:0;
+  const b=mk('span','tt-prio p'+p);
+  b.textContent=p?('P'+p):'Aucune';
+  b.title='Priorité : '+(p?['','Urgent','Important','Normal'][p]:'aucune');
+  return b;
 }
 
 /* Occurrence cochée d'une série (liste « Terminées ») */
@@ -5793,7 +5805,8 @@ function buildDoneOccRow(t,date){
   const more=mk('button','tt-more');more.type='button';
   more.insertAdjacentHTML('beforeend',TT_SVG.dots);
   more.onclick=function(ev){ev.stopPropagation();ttOpenMenu(more,t,null,date);};
-  row.append(ck,main,more);
+  const pb=ttPrioBadge(t);pb.onclick=function(ev){ev.stopPropagation();ttOpenMenu(more,t,null,date);};
+  row.append(ck,main,pb,more);
   return row;
 }
 
