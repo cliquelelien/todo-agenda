@@ -5408,7 +5408,9 @@ function renderTasks(){
     let ts='';
     if(ref&&!ref.allDay&&ref.start&&ref.start.indexOf('T')>-1)ts=fT(ref.start);
     else if(t._pendingTS)ts=t._pendingTS;
-    return (t._gd||'9999')+' '+(t.prio?(4-t.prio):'9')+' '+(ts||'99:99')+' '+(t.title||'').toLowerCase();
+    if(ts&&ts.length===4)ts='0'+ts;
+    /* Ordre : date → heure (sans heure en fin de journée) → priorité → titre */
+    return (t._gd||'9999')+' '+(ts||'99:99')+' '+(t.prio?t.prio:'9')+' '+(t.title||'').toLowerCase();
   }
 
   tl.innerHTML="";
@@ -5420,7 +5422,8 @@ function renderTasks(){
     emp.append(big,sm);tl.appendChild(emp);
   } else {
     Array.from(groups.values()).sort((a,b)=>a.order-b.order).forEach(g=>{
-      g.items.sort((a,b)=>tkey(a).localeCompare(tkey(b)));
+      g.items.forEach(x=>{x._sk=tkey(x);});
+      g.items.sort((a,b)=>a._sk<b._sk?-1:(a._sk>b._sk?1:0));
       tl.appendChild(ttSection('t:'+g.key,g.label,g.items.length,g.items.map(buildTask),g.key==='overdue'?'overdue':''));
     });
     if(hiddenCount>0){
@@ -7444,10 +7447,11 @@ function addShopItem(text){
     '- Si l\'utilisateur donne un jour ("pour samedi", "demain") mets "due" ; sinon omets "due".\n'+
     '- Si une tâche de courses existe déjà dans le contexte (🛒), AJOUTE les nouveaux articles avec {"type":"update","id":"T…","shopping":["article"]} (les articles déjà présents sont conservés, sans doublon) au lieu d\'en créer une autre.\n'+
     '- Pour cocher des articles déjà achetés : {"type":"update","id":"T…","shoppingBought":["article"]}. Pour en retirer : {"type":"update","id":"T…","shoppingRemove":["article"]}.';
+  var PRIO_RULES="PRIORITÉ (à proposer pour CHAQUE tâche créée) : ajoute toujours le champ \"prio\" (nombre) : 1 = P1 Urgent (échéance sous 48 h, délai administratif, légal ou financier, santé, conséquence grave si oublié) ; 2 = P2 Important (à traiter cette semaine, impact réel mais pas immédiat, travail, famille) ; 3 = P3 Normal (courant, courses, confort, loisirs, sans échéance ferme) ; 0 = aucune. Si l’utilisateur précise la priorité (\"urgent\", \"prioritaire\", \"pas pressé\", \"P1\"…), respecte-la. Pour un update, n’ajoute \"prio\" que si la priorité doit changer. Indique en quelques mots la priorité proposée dans \"reply\" ; l’utilisateur pourra la modifier avant de valider.";
 
   /* ── Prompt système ── */
   function buildSystemPrompt(jm){var p=buildSystemPrompt0();if(!jm)return p;
-    return p+'\n\nFORMAT DE SORTIE (PRIORITAIRE, remplace toute consigne de balises) : réponds UNIQUEMENT par un objet JSON valide, sans markdown ni balises : {"reply":"message court en français","actions":[{"type":"task|update|delete","id":"T3","title":"…","due":"AAAA-MM-JJ","dueEnd":"AAAA-MM-JJ","timeStart":"HH:MM","timeEnd":"HH:MM","desc":"…","shopping":["article 1","article 2"]}]}. "actions" vaut [] si rien à créer/modifier/supprimer. Pour update/delete, "id" = EXACTEMENT un identifiant T… de la liste ou de l\'agenda. Si une action est demandée, remplis TOUJOURS "actions" (ne te contente pas de la décrire).\n\n'+SHOP_RULES;}
+    return p+'\n\nFORMAT DE SORTIE (PRIORITAIRE, remplace toute consigne de balises) : réponds UNIQUEMENT par un objet JSON valide, sans markdown ni balises : {"reply":"message court en français","actions":[{"type":"task|update|delete","id":"T3","title":"…","due":"AAAA-MM-JJ","dueEnd":"AAAA-MM-JJ","timeStart":"HH:MM","timeEnd":"HH:MM","desc":"…","prio":2,"shopping":["article 1","article 2"]}]}. "actions" vaut [] si rien à créer/modifier/supprimer. Pour update/delete, "id" = EXACTEMENT un identifiant T… de la liste ou de l\'agenda. Si une action est demandée, remplis TOUJOURS "actions" (ne te contente pas de la décrire).\n\n'+PRIO_RULES+'\n\n'+SHOP_RULES;}
   function buildSystemPrompt0(){
     var isGemma=(_iaProvider==='gemma4_26b'||_iaProvider==='gemma4_31b')&&!iaWorkerOn();
     if(isGemma){
@@ -7456,7 +7460,7 @@ function addShopItem(text){
         'LANGUE : français uniquement. Interdiction absolue de répondre en anglais.\n'+
         'Tu es l\'assistant de Planify (agenda + tâches). Réponses courtes et directes.\n\n'+
         'ACTIONS : pour créer/modifier/supprimer, place UN bloc JSON ainsi :\n'+
-        '<PLANIFY_ACTIONS>[{"type":"task","title":"...","due":"YYYY-MM-DD","timeStart":"HH:MM","timeEnd":"HH:MM"},{"type":"update","id":"ID","due":"YYYY-MM-DD","timeStart":"HH:MM"},{"type":"delete","id":"ID"}]</PLANIFY_ACTIONS>\n\n'+
+        '<PLANIFY_ACTIONS>[{"type":"task","title":"...","due":"YYYY-MM-DD","timeStart":"HH:MM","timeEnd":"HH:MM","prio":2},{"type":"update","id":"ID","due":"YYYY-MM-DD","timeStart":"HH:MM"},{"type":"delete","id":"ID"}]</PLANIFY_ACTIONS>\n\n'+
         'RÈGLES STRICTES :\n'+
         '- Agis IMMÉDIATEMENT sans demander confirmation\n'+
         '- RDV ponctuel = type "task", due=dueEnd, avec timeStart et timeEnd\n'+
@@ -7464,6 +7468,7 @@ function addShopItem(text){
         '- Supprimer = type "delete"\n'+
         '- Réponse texte MAX 3 phrases. Pas de liste à puces sauf si explicitement demandé.\n'+
         '- Donne TOUJOURS un bloc PLANIFY_ACTIONS quand une action calendrier est demandée\n'+
+        '- PRIORITÉ : chaque tâche créée porte "prio" = 1 (urgent : échéance sous 48 h, administratif, santé), 2 (important : cette semaine) ou 3 (normal : courant, courses) ; respecte la priorité dictée par l\'utilisateur\n'+
         '- COURSES : une seule tâche {"type":"task","title":"Courses","shopping":["Lait","Pain"],"desc":"remarques de l\'utilisateur"} ; un article = un élément de shopping ; les remarques vont dans desc ; si une tâche 🛒 existe, utilise update avec shopping pour ajouter des articles\n\n'+
         buildPlanifyContext()
       );
@@ -7480,7 +7485,7 @@ function addShopItem(text){
       'IMPORTANT — Quand tu veux créer des tâches ou RDV, inclus dans ta réponse un bloc JSON entre les balises :\n'+
       '<PLANIFY_ACTIONS>\n'+
       '[\n'+
-      '  {"type":"task","title":"Titre","due":"YYYY-MM-DD","dueEnd":"YYYY-MM-DD","timeStart":"HH:MM","timeEnd":"HH:MM","desc":"Description","priority":"high|normal"},\n'+
+      '  {"type":"task","title":"Titre","due":"YYYY-MM-DD","dueEnd":"YYYY-MM-DD","timeStart":"HH:MM","timeEnd":"HH:MM","desc":"Description","prio":2},\n'+
       '  {"type":"update","id":"ID_DE_LA_TACHE","title":"Nouveau titre","due":"YYYY-MM-DD","desc":"Description"},\n'+
       '  {"type":"delete","id":"ID_DE_LA_TACHE"}\n'+
       ']\n'+
@@ -7495,6 +7500,7 @@ function addShopItem(text){
       '- Être proactif : si tu vois une date limite dans 3 semaines, propose un rappel à J-7 et J-2\n'+
       '- Ton ton est humain, chaleureux, efficace\n'+
       '- Si l\'utilisateur dit "planifie" / "crée" / "modifie" / "déplace" → utilise PLANIFY_ACTIONS directement sans demander confirmation\n'+
+      PRIO_RULES+'\n'+
       SHOP_RULES+'\n\n'+
       buildPlanifyContext()
     );
@@ -7661,6 +7667,19 @@ function addShopItem(text){
       cm=cm.filter(function(x,i){return cm.indexOf(x)===i;});
       if(cm.length)a.desc=cm.join('\n');else if('desc' in a&&!a.desc)delete a.desc;
       ['comment','comments','commentaire','commentaires','note','notes','remarques'].forEach(function(k){if(k in a)delete a[k];});
+      /* Priorité : accepte prio / priority / priorite (nombre, "P1", "urgent", "high"…) → 0..3 */
+      var _pv=a.prio!==undefined?a.prio:(a.priority!==undefined?a.priority:(a.priorite!==undefined?a.priorite:a['priorité']));
+      delete a.priority;delete a.priorite;delete a['priorité'];
+      if(_pv===undefined||_pv===null||_pv==='')delete a.prio;
+      else{
+        var _ps=String(_pv).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(),_pn=NaN;
+        if(/^p?\s*[0-3]$/.test(_ps))_pn=parseInt(_ps.replace(/\D/g,''),10);
+        else if(/urgent|high|haute|elevee|critique|max/.test(_ps))_pn=1;
+        else if(/import|medium|moyen/.test(_ps))_pn=2;
+        else if(/normal|low|basse|faible|standard/.test(_ps))_pn=3;
+        else if(/aucun|none|sans/.test(_ps))_pn=0;
+        if(isNaN(_pn))delete a.prio;else a.prio=_pn;
+      }
       if(a.date&&!a.due)a.due=a.date;if(a.start&&!a.timeStart)a.timeStart=a.start;if(a.end&&!a.timeEnd)a.timeEnd=a.end;if(a.titre&&!a.title)a.title=a.titre;
       if(a.type==='task'&&!(a.title&&String(a.title).trim())&&a.shopping)a.title='Courses';
       ['due','dueEnd','timeStart','timeEnd'].forEach(function(k){if(a[k]===null||a[k]==='')delete a[k];else if(a[k])a[k]=(k[0]==='d'?dt:tm)(a[k]);});
@@ -8075,9 +8094,22 @@ function addShopItem(text){
         if(hasShop)L.push('🛒 <b>'+t.shopping.length+' article'+(t.shopping.length>1?'s':'')+'</b><div style="margin-top:2px;">'+t.shopping.map(function(i){return '<div style="line-height:1.55;">☐ '+E(i.text)+'</div>';}).join('')+'</div>');
         if(t.desc)L.push('📝 '+E(t.desc.slice(0,300)));
       }
-      if(!L.length)L.push('<i>Aucun détail de date ou d\'heure</i>');
+      if(!L.length&&!(isU&&t.prio!==undefined))L.push('<i>Aucun détail de date ou d\'heure</i>');
       meta.innerHTML=L.join('<br>');
       info.append(tag,name,meta);
+      if(!isD&&!hasShop&&!(t.shoppingBought||t.shoppingRemove)){(function(){
+        var pr=document.createElement('div');pr.style.cssText='display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:6px;';
+        var pl=document.createElement('span');pl.textContent=isU?'Priorité :':'Priorité proposée :';pl.style.cssText='font-size:11px;font-weight:700;color:var(--tx3);';
+        pr.appendChild(pl);
+        var PL={0:'Aucune',1:'P1 · Urgent',2:'P2 · Important',3:'P3 · Normal'},bs=[];
+        function paint(){bs.forEach(function(b,p){b.classList.toggle('on',t.prio===p||(t.prio===undefined&&!isU&&p===0));});}
+        [0,1,2,3].forEach(function(p){
+          var b=document.createElement('button');b.type='button';b.className='pf-chip'+(p?' pf-pc'+p:'');b.textContent=PL[p];
+          b.onclick=function(){if(applied[idx])return;t.prio=p;paint();};
+          bs.push(b);pr.appendChild(b);
+        });
+        paint();info.appendChild(pr);
+      })();}
       if(warns[idx]){var wd=document.createElement('div');wd.style.cssText='font-size:11px;font-weight:700;color:#b45309;margin-top:2px;';wd.textContent='⚠️ '+warns[idx];info.appendChild(wd);}
       var addBtn=document.createElement('button');addBtn.className='ia-task-add-btn';addBtn.textContent=t.type==='delete'?'Supprimer':t.type==='update'?'Modifier':'+ Ajouter';addBtn.style.background=t.type==='delete'?'#dc2626':t.type==='update'?'#d97706':'';
       _btns[idx]=addBtn;
@@ -8152,6 +8184,7 @@ function addShopItem(text){
         if(t.title)existing.title=t.title;
         if(t.due)existing.due=t.due;
         if(t.dueEnd)existing.dueEnd=t.dueEnd;
+        if(t.prio!==undefined)existing.prio=t.prio;
         if(t.desc!==undefined&&t.desc!==''&&!(t.shopping||t.shoppingBought||t.shoppingRemove))existing.desc=t.desc;
         else if(t.desc!==undefined&&t.desc!==''){
           /* liste de courses : on complète le commentaire sans écraser l'existant */
@@ -8214,7 +8247,8 @@ function addShopItem(text){
       remind:0,
       _createdHere:true,
       _pendingTS:t.timeStart||null,
-      _pendingTE:t.timeEnd||null
+      _pendingTE:t.timeEnd||null,
+      prio:(t.prio>=1&&t.prio<=3)?t.prio:0
     };
     if(t.shopping&&t.shopping.length)task.shopping={active:true,items:t.shopping.map(function(i){return {text:i.text,bought:!!i.bought};})};
     S.tasks.push(task);
